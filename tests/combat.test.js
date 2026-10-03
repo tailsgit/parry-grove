@@ -13,7 +13,7 @@ test('5000 integrated ticks: enemies, movement, attacks, parry, dash remain fini
 
 // Regressions for the close-combat and defense changes.
 import { BALANCE } from '../game/config.js';
-import { mouseButton } from '../game/input.js';
+import { mouseButton, guardButton, resetGuard } from '../game/input.js';
 import { cleanInput } from '../game/rooms.js';
 test('right-click release preserves held attack, including co-op input',()=>{
   const i={attack:false,guard:false,parry:0};
@@ -73,4 +73,55 @@ test('third gunner volley is telegraphed red and cannot be deflected',()=>{
   g.bullets=[{id:99,x:p.x+20,y:p.y,vx:-350,vy:0,damage:10,kind:'pistol',owner:'',life:2,unparryable:true}];
   p.invuln=0;p.parryLeft=.2;p.parryAge=0;p.blocking=true;
   step(g,{a:{guard:true}},1/60);assert.equal(p.hp,90);assert.equal(g.bullets.length,0);
+});
+
+test('held Q blocks after its parry window; mixed releases preserve the other guard',()=>{
+  const {p,g}=setup(),i={parry:0};
+  guardButton(i,'keyboard',true);guardButton(i,'keyboard',true);
+  assert.equal(i.parry,1);
+  for(let n=0;n<20;n++)step(g,{a:cleanInput(i)},1/60);
+  assert.equal(p.blocking,true);assert.equal(hitPlayer(g,p,20,true,0),'block');
+  mouseButton(i,2,true);guardButton(i,'keyboard',false);assert.equal(i.guard,true);
+  guardButton(i,'keyboard',true);mouseButton(i,2,false);assert.equal(i.guard,true);
+  guardButton(i,'keyboard',false);assert.equal(i.guard,false);
+  resetGuard(i);assert.equal(i.keyGuard,false);assert.equal(i.mouseGuard,false);
+});
+function returnedShot(kind='pistol',enemyOffset=50) {
+  const {p,g}=setup();p.x=200;p.y=200;g.enemies=[];
+  const e=spawnEnemy(g,'bow',500,200+enemyOffset);e.cooldown=100;
+  g.bullets=[{id:99,x:220,y:200,vx:-350,vy:0,damage:10,kind,owner:'',life:2,target:p.id}];
+  step(g,{a:{parry:1,angle:0}},1/60);
+  return {p,g,e,b:g.bullets[0]};
+}
+test('deflections accelerate and assist near aim without snapping to off-axis enemies',()=>{
+  const {b}=returnedShot();assert.equal(b.owner,'a');
+  assert.ok(Math.abs(Math.hypot(b.vx,b.vy)-350*BALANCE.deflectSpeed)<1e-6);
+  assert.ok(b.vy>0);assert.ok(Math.atan2(b.vy,b.vx)<=BALANCE.deflectAssistTurn);
+  const far=returnedShot('pistol',200);assert.equal(far.b.vy,0);
+});
+test('returned seekers home onto enemies and reacquire after their target dies',()=>{
+  const {p,g,e,b}=returnedShot('homing');assert.equal(b.target,e.id);
+  e.y=350;const initial=Math.atan2(b.vy,b.vx);step(g,{},1/60);
+  assert.ok(Math.atan2(b.vy,b.vx)>initial);
+  e.hp=0;const next=spawnEnemy(g,'bow',600,400);next.cooldown=100;
+  step(g,{},1/60);assert.equal(b.target,next.id);assert.notEqual(b.target,p.id);
+  next.hp=0;spawnEnemy(g,'bow',800,100).cooldown=100;
+  // If no visible enemy remains, a returned seeker continues safely in a straight line.
+  g.obstacles=[{x:400,y:0,w:30,h:570}];step(g,{},1/60);
+  assert.ok(Number.isFinite(b.vx)&&Number.isFinite(b.vy));
+});
+test('simultaneously ready enemies fire fairly with at least 180ms between volleys',()=>{
+  const {p,g}=setup();p.hp=p.maxHp=10000;g.enemies=[];
+  const enemies=['bow','pistol','homing','shotgun','boss'].map((kind,i)=>spawnEnemy(g,kind,600,80+i*80));
+  for(const e of enemies){e.tell=.01;e.cooldown=100;}
+  const initialY=enemies.map(e=>e.y);
+  const fires=[];let lastEvent=0;
+  for(let n=0;n<120;n++){
+    step(g,{},1/60);
+    for(const event of g.events)if(event.id>lastEvent&&event.kind==='fire')fires.push(event);
+    lastEvent=g.eventSerial;
+  }
+  assert.ok(fires.length>=enemies.length);
+  for(let n=1;n<fires.length;n++)assert.ok(fires[n].time-fires[n-1].time>=BALANCE.enemyShotGap-1e-8);
+  assert.deepEqual(fires.slice(0,enemies.length).map(f=>f.y),initialY);
 });
