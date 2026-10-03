@@ -52,7 +52,7 @@ test('perfect reset permits immediate re-parry during an attack; regular does no
     assert.equal(hitPlayer(g,p,10,true,0),'regular');assert.equal(p.parryCd,.5);
   }
 });
-test('held RMB becomes directional chip-damage block; red attacks bypass both defenses',()=>{
+test('held RMB becomes directional chip-damage block; red attacks bypass parry but allow blocking',()=>{
   const {p,g}=setup();p.internal=15;p.lastRegular=g.time;
   step(g,{a:{parry:1,guard:true}},1/60);assert.equal(p.blocking,false);
   for(let n=0;n<18;n++)step(g,{a:{parry:1,guard:true}},1/60);
@@ -60,7 +60,7 @@ test('held RMB becomes directional chip-damage block; red attacks bypass both de
   assert.equal(p.hp,96);assert.equal(p.internal,15);
   p.invuln=0;assert.equal(hitPlayer(g,p,20,true,Math.PI),'hurt');
   p.invuln=0;p.parryLeft=.2;p.parryAge=0;
-  assert.equal(hitPlayer(g,p,10,false,0),'hurt');
+  assert.equal(hitPlayer(g,p,10,false,0),'block');
   p.invuln=0;p.dashLeft=.1;p.dashAge=.01;assert.equal(hitPlayer(g,p,10,false),'immune');
   step(g,{a:{guard:false}},1/60);assert.equal(p.blocking,false);
 });
@@ -72,7 +72,7 @@ test('third gunner volley is telegraphed red and cannot be deflected',()=>{
   assert.ok(g.bullets.some(b=>b.unparryable));
   g.bullets=[{id:99,x:p.x+20,y:p.y,vx:-350,vy:0,damage:10,kind:'pistol',owner:'',life:2,unparryable:true}];
   p.invuln=0;p.parryLeft=.2;p.parryAge=0;p.blocking=true;
-  step(g,{a:{guard:true}},1/60);assert.equal(p.hp,90);assert.equal(g.bullets.length,0);
+  step(g,{a:{guard:true}},1/60);assert.equal(p.hp,98);assert.equal(g.bullets.length,0);
 });
 
 test('held Q blocks after its parry window; mixed releases preserve the other guard',()=>{

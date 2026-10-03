@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createGame,player,step,spawnEnemy,hitPlayer,distance,generateRoom} from '../game/engine.js';
 import {BALANCE as B,ENEMIES} from '../game/config.js';
 const setup=()=>{const p=player('a','Tester'),g=createGame([p],42);p.x=200;p.y=200;p.invuln=0;g.intro=0;g.obstacles=[];g.enemies=[];return {p,g};};
-test('shield mitigates 80%, tracks raw damage before armor, breaks at 100 and recovers in 3s',()=>{
+test('shield mitigates 80%, tracks raw damage before armor, breaks at 100 and never automatically recovers',()=>{
  const {p,g}=setup();spawnEnemy(g,'bow',700,450).cooldown=100;p.armor=.25;p.blocking=true;p.internal=10;p.lastRegular=g.time;
  for(let n=0;n<4;n++){assert.equal(hitPlayer(g,p,25,true,0),'block');assert.equal(p.shieldDamage,25*(n+1));}
  assert.equal(p.hp,85);assert.equal(p.internal,10);assert.equal(p.shieldBroken,true);assert.equal(p.blocking,false);
@@ -12,11 +12,11 @@ test('shield mitigates 80%, tracks raw damage before armor, breaks at 100 and re
  for(let n=0;n<170;n++)step(g,{a:{guard:true}},1/60);
  assert.equal(p.blocking,false);assert.equal(p.shieldBroken,true);
  for(let n=0;n<12;n++)step(g,{a:{guard:true}},1/60);
- assert.equal(p.shieldDamage,0);assert.equal(p.shieldBroken,false);assert.equal(p.blocking,true);
+ assert.equal(p.shieldDamage,100);assert.equal(p.shieldBroken,true);assert.equal(p.blocking,false);
 });
-test('broken shields retain parrying; rear and red attacks do not consume capacity',()=>{
- const {p,g}=setup();p.blocking=true;hitPlayer(g,p,10,false,0);assert.equal(p.shieldDamage,0);
- p.invuln=0;hitPlayer(g,p,10,true,Math.PI);assert.equal(p.shieldDamage,0);
+test('broken shields retain parrying; red attacks are blockable and rear attacks bypass guard',()=>{
+ const {p,g}=setup();p.blocking=true;assert.equal(hitPlayer(g,p,10,false,0),'block');assert.equal(p.shieldDamage,10);
+ p.invuln=0;hitPlayer(g,p,10,true,Math.PI);assert.equal(p.shieldDamage,10);
  p.invuln=0;p.shieldBroken=true;p.shieldRecovery=3;p.parryLeft=.2;p.parryAge=0;
  assert.equal(hitPlayer(g,p,10,true,0),'perfect');
 });
@@ -46,9 +46,9 @@ test('mortar leads actual player movement and keeps its target inside the arena'
 });
 test('railgun has a red wind-up and fires an unparryable aimed shot',()=>{
  const {g}=setup(),e=spawnEnemy(g,'railgun',650,200);e.cooldown=0;
- step(g,{},1/60);assert.equal(e.danger,true);assert.equal(e.tell,1);
+ step(g,{},1/60);assert.equal(e.danger,true);assert.equal(e.tell,.35);
  for(let n=0;n<61;n++)step(g,{},1/60);
- assert.ok(g.bullets.some(b=>b.kind==='railgun'&&b.unparryable));
+ assert.ok(g.hazards.some(h=>h.kind==='beam'&&h.remaining>0));
 });
 test('nearby non-boss enemy parry uses its attack wind-up and stuns player for 0.5s',()=>{
  const {p,g}=setup(),e=spawnEnemy(g,'bow',235,200);g.seed=2000;e.cooldown=100;
