@@ -1,0 +1,91 @@
+'use client';
+/* eslint-disable react-hooks/purity -- The realtime controller reads its clock only in effects and event handlers, never during rendering. */
+import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+import { createGame, player, step, chooseUpgrade, move } from './engine.js';
+import { WEAPONS, UPGRADES, COLORS, BALANCE } from './config.js';
+import { Renderer } from './renderer.js';
+
+const emptyInput=()=>({mx:0,my:0,angle:0,attack:false,parry:0,dash:0,interact:0});
+export default function Game() {
+  const canvas=useRef(null),renderer=useRef(null),world=useRef(null),input=useRef(emptyInput()),keys=useRef(new Set()),modeRef=useRef('menu'),net=useRef(null),pausedRef=useRef(false),cursor=useRef(null);
+  const [mode,setMode]=useState('menu'),[view,setView]=useState(null),[room,setRoom]=useState(null),[weapon,setWeapon]=useState('sword'),[name,setName]=useState('Adventurer'),[code,setCode]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[muted,setMuted]=useState(false),[paused,setPaused]=useState(false),[copied,setCopied]=useState(false),[latency,setLatency]=useState(0);
+  const [myId,setMyId]=useState('solo');
+  const me=myId;const p=view?.players.find(p=>p.id===me),boss=view?.enemies.find(e=>e.kind==='boss');
+  const isHost=room?.host===myId;
+  function changeMode(m){modeRef.current=m;setMode(m);keys.current.clear();input.current.attack=false;input.current.mx=0;input.current.my=0;}
+  function snapshot(g){if(g)setView({...g,players:g.players.map(p=>({...p})),enemies:g.enemies.map(e=>({...e}))});else setView(null);}
+  function solo(){setMyId('solo');net.current=null;setRoom(null);input.current=emptyInput();pausedRef.current=false;setPaused(false);renderer.current?.unlockAudio();world.current=createGame([player('solo',name,weapon,0)]);snapshot(world.current);changeMode('solo');canvas.current?.focus();setError('');}
+  async function request(payload,session=net.current) {
+    const response=await fetch('/api/room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,...(session?{code:session.code,id:session.id,token:session.token}:{})})});
+    const data=await response.json();if(!response.ok)throw Object.assign(new Error(data.error||'Connection failed. Please retry.'),{status:response.status});return data;
+  }
+  function accept(data){const s=net.current;if(!s||data.code!==s.code||data.revision<s.revision)return;if(s){s.revision=data.revision;s.lastSnapshot=performance.now();}setRoom(data);const starting=!world.current&&data.game;world.current=data.game;snapshot(data.game);if(starting){input.current=emptyInput();keys.current.clear();canvas.current?.focus();}}
+  async function connect(action){if(busy)return;setBusy(true);setError('');renderer.current?.unlockAudio();try{const data=await request({action,name,weapon,code:code.trim().toUpperCase()},null);setMyId(data.session.id);net.current={...data.session,code:data.code,revision:-1,lastSnapshot:performance.now()};input.current=emptyInput();accept(data);changeMode('online');}catch(e){setError(e.message);}finally{setBusy(false);}}
+  async function command(action,extra={}){if(busy)return;setBusy(true);setError('');try{const data=await request({action,...extra});accept(data);}catch(e){setError(e.message);}finally{setBusy(false);}}
+  async function leave(){const session=net.current;net.current=null;changeMode('menu');setRoom(null);setView(null);setError('');world.current=createGame([player('preview','',weapon)],314159);if(session)try{await request({action:'leave'},session);}catch{} }
+  function pick(id){renderer.current?.unlockAudio();if(modeRef.current==='solo'){chooseUpgrade(world.current,'solo',id);snapshot(world.current);}else command('upgrade',{upgrade:id});}
+  function next(){input.current.interact++;}
+  function togglePause(){if(modeRef.current!=='solo')return;pausedRef.current=!pausedRef.current;setPaused(pausedRef.current);keys.current.clear();input.current.attack=false;}
+  useEffect(()=>{
+    const draw=new Renderer(canvas.current);renderer.current=draw;world.current=createGame([player('preview','','sword')],314159);
+    let frame,last=performance.now(),hud=0;
+    const loop=(now)=>{
+      const dt=Math.min((now-last)/1000,.05);last=now;const g=world.current;
+      const i=input.current,k=keys.current;i.mx=(k.has('d')||k.has('arrowright')?1:0)-(k.has('a')||k.has('arrowleft')?1:0);i.my=(k.has('s')||k.has('arrowdown')?1:0)-(k.has('w')||k.has('arrowup')?1:0);
+      if(g){const hero=g.players.find(p=>p.id===(net.current?.id||'solo'));if(hero&&cursor.current){const target=draw.world(cursor.current.x,cursor.current.y);i.angle=Math.atan2(target.y-hero.y,target.x-hero.x);}if(modeRef.current==='menu')g.time+=dt;else if(modeRef.current==='solo'&&!pausedRef.current){let left=dt;while(left>.0001){const d=Math.min(left,1/60);step(g,{solo:i},d);left-=d;}}
+        let display=g;
+        // Short local extrapolation gives movement immediate visual response between snapshots.
+        // Damage and collision outcomes still come exclusively from the shared server simulation.
+        if(modeRef.current==='online'&&g.phase==='combat'){
+          const id=net.current?.id,age=Math.min(.12,(now-(net.current?.lastSnapshot||now))/1000);
+          display={...g,players:g.players.map(p=>{if(p.id!==id||p.hp<=0)return p;const copy={...p,angle:i.angle};let n=Math.hypot(i.mx,i.my)||1;move(g,copy,i.mx/n*BALANCE.speed*p.speed*age,i.my/n*BALANCE.speed*p.speed*age);return copy;})};
+        }
+        draw.draw(display,net.current?.id||'solo',dt,modeRef.current==='menu');
+        if(now-hud>90&&modeRef.current==='solo'){snapshot(g);hud=now;}
+      }
+      frame=requestAnimationFrame(loop);
+    };frame=requestAnimationFrame(loop);
+    const down=e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;const key=e.key.toLowerCase();if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(key))e.preventDefault();keys.current.add(key);if(e.repeat)return;if(key===' '){input.current.dash++;draw.unlockAudio();}if(key==='q'){input.current.parry++;draw.unlockAudio();}if(key==='e')input.current.interact++;if(key==='escape'&&modeRef.current==='solo')togglePause();};
+    const up=e=>keys.current.delete(e.key.toLowerCase());const blur=()=>{keys.current.clear();input.current.attack=false;input.current.mx=0;input.current.my=0;};
+    const visibility=()=>{if(document.hidden){blur();if(modeRef.current==='solo'){pausedRef.current=true;setPaused(true);}}};
+    window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('blur',blur);document.addEventListener('visibilitychange',visibility);
+    return()=>{cancelAnimationFrame(frame);window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',blur);document.removeEventListener('visibilitychange',visibility);draw.audio?.close();};
+  },[]);
+  useEffect(()=>{
+    if(mode!=='online')return;let ended=false,timer;
+    const poll=async()=>{const s=net.current;if(ended||!s)return;const start=performance.now();try{const data=await request({action:world.current?'input':'poll',input:{...input.current}},s);if(!ended&&net.current===s){accept(data);setLatency(Math.round(performance.now()-start));setError('');}}catch(e){if(!ended){setError(e.status===401?e.message:'Reconnecting… '+e.message);if(e.status===401){net.current=null;changeMode('menu');world.current=createGame([player('preview','',weapon)],314159);}}}if(!ended)timer=setTimeout(poll,world.current?65:650);};poll();
+    return()=>{ended=true;clearTimeout(timer);};
+  // Session lifetime controls this poller. accept reads the current session from a ref.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[mode]);
+  const aiming=e=>{cursor.current={x:e.clientX,y:e.clientY};const g=world.current,id=net.current?.id||'solo',hero=g?.players.find(p=>p.id===id);if(hero&&renderer.current){const pt=renderer.current.world(e.clientX,e.clientY);input.current.angle=Math.atan2(pt.y-hero.y,pt.x-hero.x);}};
+  const mousedown=e=>{if(modeRef.current==='menu'||(modeRef.current==='online'&&!world.current))return;e.preventDefault();canvas.current.focus();renderer.current?.unlockAudio();aiming(e);if(e.button===0)input.current.attack=true;if(e.button===2)input.current.parry++;};
+  const playing=!!view&&mode!=='menu',ended=playing&&['death','victory'].includes(view.phase),upgrade=playing&&view.phase==='upgrade';
+  return <main className="shell">
+    <header className="topbar"><Link className="wordmark" href="/" aria-label="Parry Grove home"><span className="brandmark">✦</span> PARRY GROVE <span className="version">VERTICAL SLICE / 01</span></Link><div className="top-actions"><span className="status-dot"/>{mode==='online'?`CO-OP · ${room?.members.length||1}/4`:'1–4 PLAYER ROGUELIKE'}<button className="icon-button" onClick={()=>{const m=!muted;setMuted(m);if(renderer.current)renderer.current.muted=m;}} aria-label={muted?'Enable sound':'Mute sound'}>{muted?'SOUND OFF':'SOUND ON'}</button></div></header>
+    <section className="game-layout">
+      <div className="arena-column"><div className="arena-bar"><span><span className="tiny-star">✧</span> {playing?(view.room===4?'THE BRASS WARDEN':`THE SUNLIT GROVE · ROOM ${view.room+1} / 5`):'THE SUNLIT GROVE'}</span><span>{playing?`${view.enemies.length} ${view.enemies.length===1?'ENEMY':'ENEMIES'} LEFT`:'MELEE. DEFLECT. SURVIVE.'}</span></div>
+      <div className="canvas-wrap"><canvas ref={canvas} tabIndex={0} onMouseMove={aiming} onMouseDown={mousedown} onMouseUp={()=>input.current.attack=false} onMouseLeave={()=>input.current.attack=false} onContextMenu={e=>e.preventDefault()} aria-label="Game arena. WASD move, left click attack, right click or Q parry, Space dash, E next room."/>
+      {mode==='menu'&&<div className="title-overlay"><span className="eyebrow">A CO-OP ROGUELIKE</span><h1>Good timing.<br/><em>Great trouble.</em></h1><p>Steel, sunlight, and a storm of arrows.<br/>Turn their attacks into your advantage.</p><div className="parry-key"><span>● PERFECT</span><span>● REGULAR</span></div></div>}
+      {mode==='online'&&!view&&<div className="lobby-overlay"><span className="eyebrow">YOUR PARTY</span><h1>Gather at the grove.</h1><p>Share the code. Choose your weapons. Ready up.</p><div className="room-code" aria-label="Room code">{room?.code}<button onClick={async()=>{try{await navigator.clipboard.writeText(room.code);setCopied(true);setTimeout(()=>setCopied(false),2000);}catch{setError('Select and copy the room code shown above.');}}}>{copied?'COPIED':'COPY'}</button></div><div className="party-list">{[0,1,2,3].map(slot=>{const member=room?.members.find(m=>m.slot===slot);return <div className="party-row" key={slot}><span className="player-square" style={{background:COLORS[slot]}}/><span>{member?member.name:'Waiting for player…'}<small>{member?`${WEAPONS[member.weapon].name}${member.id===room.host?' · Host':''}`:'Open slot'}</small></span><b className={member?.ready?'ready':'waiting'}>{member?(member.ready?'READY':'NOT READY'):'—'}</b></div>;})}</div></div>}
+      {paused&&mode==='solo'&&<div className="center-overlay"><span className="eyebrow">TAKE A BREATH</span><h2>Paused</h2><button className="primary" onClick={togglePause}>Resume run ↗</button></div>}
+      {ended&&<div className="center-overlay"><span className="eyebrow">{view.phase==='victory'?'THE GROVE IS YOURS':'EVERY RUN TEACHES SOMETHING'}</span><h2>{view.phase==='victory'?'Beautifully parried.':'Back to the roots.'}</h2><p>{view.phase==='victory'?'The Brass Warden has fallen.':'Your party fell. Try a new weapon or a new approach.'}</p><div className="result-stats"><span><b>{p?.kills||0}</b> KILLS</span><span><b>{p?.perfects||0}</b> PERFECT PARRIES</span><span><b>{view.room+1}</b> ROOM</span></div>{mode==='solo'?<button className="primary" onClick={solo}>Run it again ↗</button>:isHost?<button className="primary" disabled={busy} onClick={()=>command('return')}>Return party to lobby ↗</button>:<p>Waiting for the host to return to the lobby.</p>}<button className="text-button" onClick={leave}>Leave to main menu</button></div>}
+      {upgrade&&<div className="upgrade-banner">✦ ROOM CLEARED <span>{view.players.filter(p=>p.hp>0).every(p=>p.chosen)?'Upgrades chosen. Press E to continue.':'Choose your reward →'}</span></div>}
+      {playing&&p?.hp<=0&&!ended&&<div className="spectator-banner">You’re down. Watch your party · revive at the next room.</div>}
+      </div><div className="arena-caption"><span>✧ <strong>{playing?'Stay sharp.':'The enemy’s best weapon? You.'}</strong> {playing?'Face incoming shots to parry. Orange circles must be dodged.':'Perfect parries turn pressure into power.'}</span><span>{mode==='online'?`${latency}ms ROUND TRIP`:'DESKTOP · MOUSE + KEYBOARD'}</span></div></div>
+      <aside className="sidebar">
+      {mode==='menu'&&<><div className="panel-heading"><span className="eyebrow">YOUR NEXT RUN</span><h2>Enter the grove.</h2><p>One adventurer. Three blades.<br/>A very good reason to bring friends.</p></div><label className="field-label" htmlFor="name">ADVENTURER NAME</label><input id="name" value={name} maxLength={18} onChange={e=>setName(e.target.value)} placeholder="Your name"/><WeaponPicker weapon={weapon} setWeapon={setWeapon}/><button className="primary" onClick={solo}>Play solo <span>↗</span></button><div className="divider">OR BRING YOUR PARTY</div><button className="secondary" onClick={()=>connect('create')} disabled={busy}>{busy?'Connecting…':'Create co-op room'} <span>＋</span></button><form className="join-form" onSubmit={e=>{e.preventDefault();connect('join');}}><input aria-label="Six-character room code" placeholder="ROOM CODE" maxLength={6} value={code} onChange={e=>setCode(e.target.value.toUpperCase())}/><button disabled={busy||code.length!==6} type="submit">JOIN ↗</button></form><p className="small-note">Online rooms hold 1–4 players. Everyone readies up before the host starts.</p></>}
+      {mode==='online'&&!view&&<><div className="panel-heading"><span className="eyebrow">ROOM {room?.code}</span><h2>Pick your blade.</h2><p>The host starts when everyone is ready.</p></div><WeaponPicker weapon={room?.members.find(m=>m.id===me)?.weapon||weapon} setWeapon={w=>command('weapon',{weapon:w})}/><button disabled={busy} className="primary" onClick={()=>command('ready')}>{room?.members.find(m=>m.id===me)?.ready?'Unready':'Ready up'} <span>✓</span></button>{isHost&&<button className="secondary" disabled={busy||!room?.members.every(m=>m.ready)} onClick={()=>command('start')}>Start the run ↗</button>}<button className="text-button" onClick={leave}>Leave lobby</button></>}
+      {playing&&p&&<><div className="panel-heading"><span className="eyebrow">LEVEL {p.level} · {WEAPONS[p.weapon].name.toUpperCase()}</span><h2>{p.name}</h2></div><div className="meter-label"><span>HEALTH</span><b>{Math.ceil(p.hp)} / {p.maxHp}</b></div><div className="meter"><i style={{width:`${p.hp/p.maxHp*100}%`}}/></div><div className="meter-label"><span>INTERNAL DAMAGE</span><b>{Math.ceil(p.internal)} / 100</b></div><div className="meter internal"><i style={{width:`${p.internal}%`}}/></div><p className="meter-hint">An unguarded hit releases all stored damage. Melee hits clear it.</p><div className={`streak-box ${p.streak?'active':''}`}><span>PERFECT STREAK</span><strong>×{p.streak}</strong><small>{p.streak?`+${Math.round(p.streak*BALANCE.streakBonus*100)}% DAMAGE · ${p.streakLeft.toFixed(1)}s`:'Time your parry just before impact.'}</small></div><div className="cooldowns"><div><span>DASH / SPACE</span><b>{p.dashCd>0?`${p.dashCd.toFixed(1)}s`:'READY'}</b></div><div><span>PARRY / RMB</span><b>{p.parryCd>0?`${p.parryCd.toFixed(1)}s`:'READY'}</b></div></div>
+      {boss&&<><div className="meter-label"><span>BRASS WARDEN</span><b>{Math.ceil(boss.hp)}</b></div><div className="meter boss"><i style={{width:`${boss.hp/boss.maxHp*100}%`}}/></div></>}
+      {upgrade&&p.hp>0&&<div className="rewards"><span className="eyebrow">CHOOSE ONE REWARD</span>{p.offers.map(id=>{const u=UPGRADES.find(u=>u.id===id);return <button className="reward" key={id} disabled={p.chosen||busy} onClick={()=>pick(id)}><span>{u.icon}</span><div><b>{u.name}</b><small>{u.desc}</small></div></button>;})}{p.chosen&&<p className="ready-note">Reward claimed. {view.players.filter(p=>p.hp>0).every(p=>p.chosen)?<button className="primary" onClick={next}>Next room · E ↗</button>:'Waiting for your party…'}</p>}</div>}
+      {mode==='online'&&<div className="teammates">{view.players.filter(q=>q.id!==me).map(q=><div key={q.id}><span style={{color:COLORS[q.slot]}}>■ {q.name}</span><b>{q.hp>0?`${Math.ceil(q.hp)} HP`:'DOWN'}</b></div>)}</div>}
+      {!ended&&<div className="run-actions">{mode==='solo'&&<button className="text-button" onClick={togglePause}>{paused?'Resume':'Pause · Esc'}</button>}<button className="text-button" onClick={leave}>Leave run</button></div>}</>}
+      {error&&<p role="alert" className="error">{error}</p>}
+      </aside>
+    </section>
+    <footer className="footer"><div className="controls"><span><kbd>W A S D</kbd> Move</span><span><kbd>LMB</kbd> Attack</span><span><kbd>RMB / Q</kbd> Parry</span><span><kbd>SPACE</kbd> Dash</span><span><kbd>E</kbd> Continue</span></div><span className="footer-note">GREEN = PERFECT <i/> ORANGE = REGULAR</span></footer>
+  </main>;
+}
+function WeaponPicker({weapon,setWeapon}){return <div className="weapons"><span className="field-label">CHOOSE YOUR WEAPON</span>{Object.entries(WEAPONS).map(([id,w],i)=><button key={id} className={`weapon ${weapon===id?'selected':''}`} onClick={()=>setWeapon(id)} aria-pressed={weapon===id}><span className="weapon-icon">{['†','⚔','╱'][i]}</span><div><b>{w.name}</b><small>{['Fast & precise','Balanced & versatile','Wide & forgiving'][i]}</small></div><span className="selection-dot"/><span className="weapon-tooltip">{w.desc}<br/>{w.perk}</span></button>)}</div>;}
