@@ -69,7 +69,10 @@ Returned projectiles travel at 1.65× their incoming speed. A small correction
 home onto enemies and switch targets when an enemy dies. Enemy volleys take
 turns with at least 180ms between shooters. Shotgun and boss spreads remain
 intact. Holding Q or right click blocks frontal, parryable attacks after the
-parry window, reducing damage by 60%.
+parry window, reducing health damage by 80%. Every blocked attack also spends its full raw
+damage against a 100-point shield capacity, before armor. At 100 damage the
+shield breaks, blocking is disabled for 3 seconds, and the shield then fully
+recovers. Parrying remains available during recovery.
 
 ## Implemented
 
@@ -78,7 +81,15 @@ parry window, reducing damage by 60%.
   perfect streaks, regular parries, Internal Damage, levels and per-player upgrades.
 - Dagger / Sword / Long Sword: different reach, sweep, damage, timing and perfect
   parry effects. Player weapons are melee only; deflection is their ranged counter.
-- Five ranged enemies: archer, pistol, homing seeker, scatter shotgun, mortar.
+- Ranged enemies: archer, pistol, homing seeker, scatter shotgun, predictive mortar, and a long-range rail turret.
+- Brawlers and lancers fill roughly half the encounter slots. Parrying their
+  melee strikes stuns them for 1 second. Local repulsion keeps enemies apart.
+- Non-boss enemies roll a 10% defensive parry chance when the player approaches.
+  Purple wind-ups last as long as their normal attacks, followed by a 300ms
+  guard. Attacking into the guard stuns the player for 0.5 seconds.
+- Mortars lead movement, launch visible arcing shells, and explode with particles,
+  sound and nearby screen shake. Railgun shots have red laser tells and require
+  dodging; enemy attack aim is locked during its wind-up.
   Telegraphs, projectile collision, cover, and marked unparryable AOE hazards.
 - Seeded random cover and room enemy placement/composition, progressive difficulty,
   eight rewards, and a two-phase machine-gun boss after four rooms.
