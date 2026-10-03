@@ -57,7 +57,7 @@ test('held RMB becomes directional chip-damage block; red attacks bypass both de
   step(g,{a:{parry:1,guard:true}},1/60);assert.equal(p.blocking,false);
   for(let n=0;n<18;n++)step(g,{a:{parry:1,guard:true}},1/60);
   assert.equal(p.blocking,true);assert.equal(hitPlayer(g,p,20,true,0),'block');
-  assert.equal(p.hp,92);assert.equal(p.internal,15);
+  assert.equal(p.hp,96);assert.equal(p.internal,15);
   p.invuln=0;assert.equal(hitPlayer(g,p,20,true,Math.PI),'hurt');
   p.invuln=0;p.parryLeft=.2;p.parryAge=0;
   assert.equal(hitPlayer(g,p,10,false,0),'hurt');
