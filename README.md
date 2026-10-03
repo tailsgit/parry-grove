@@ -54,7 +54,8 @@ those players access. Room codes do not bypass the site's access restrictions.
 | Right click / Q | Parry once; hold to block afterward; release and tap to parry again |
 | Space | Dash; movement direction or aim direction while stationary |
 | E / Next room button | Continue once all surviving players chose rewards |
-| Escape | Pause/resume solo only |
+| I / Upgrades button | View collected upgrades and stack counts; pauses solo play |
+| Escape | Close upgrades or pause/resume solo only |
 
 Face the source of a projectile. The first 90ms of a guard are perfect (green),
 with the rest regular (orange); guard length depends on the weapon. A successful
@@ -107,8 +108,16 @@ capacity each, only up to 50 remaining capacity; this can repair a broken shield
 - Online rooms for 1–4 independent clients, readiness, host-only start, invalid/full
   code errors, consistent combat snapshots, individual rewards, player colors,
   heartbeat disconnects, and automatic host transfer.
-- Procedural pixel characters/arena, particles, green/orange guard arcs, text cues,
-  health bars, sound effects, small shake and cosmetic perfect-parry hit-stop.
+- Full-screen arena with in-game health, shield, internal damage, EXP, cooldown,
+  room, boss and party HUD. Rewards, lobby and run controls sit inside the screen.
+- Press I or click Upgrades to review every collected upgrade and its stack count.
+  Browsing pauses solo play; co-op continues.
+- Five room palettes with flowers, autumn leaves, stone paving, marsh pools and
+  foundry grates. Enemies carry distinct bows, pistols, double-barrel shotguns,
+  seeker launchers, mortar tubes, coil railguns, melee weapons and boss gatling guns.
+- Animated weapon sweeps, melee wind-up wedges, recoil and muzzle flashes,
+  impact sparks, expanding parry rings, green perfect-parry edge flashes,
+  sound effects, shake and cosmetic hit-stop.
 
 ## Architecture and tuning
 
@@ -140,7 +149,8 @@ can replace polling without rewriting combat.
 ## Decisions where the design was unspecified
 
 - Four regular rooms and one deterministic area boss finish the slice. There is
-  one colorful courtyard area; random cover changes its lanes each encounter.
+  five visual themes: Sunlit Grove, Amber Orchard, Forgotten Courtyard,
+  Moonlit Marsh, and Brass Foundry. Random cover changes each encounter.
 - Perfect means the first 90ms after pressing parry. The guard covers a forward
   130-degree half-angle; attacks from behind bypass it. Streaks end after 3s
   without a perfect parry, a missed guard, a regular parry, or an unguarded hit.
@@ -179,9 +189,9 @@ room transition, host leave/timeout, and clean restart. The production smoke tes
 checks rendered menu HTML and the built Worker room endpoint. No production
 cheat/debug endpoints are added for testing.
 
-Arena rendering was inspected at wide and compact dimensions. An interactive
-browser was unavailable in the development environment, so browser input, audio
-playback, CSS layout, and real cross-internet co-op still need human playtesting.
+Arena rendering, menu, pause controls and collected-upgrade panel were inspected
+in the local browser. Audio and real cross-internet co-op still benefit from
+human playtesting.
 
 ## Still to expand
 

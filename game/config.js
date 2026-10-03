@@ -39,3 +39,11 @@ export const UPGRADES = [
   { id: 'perfection', name: 'Perfection', icon: '✧', desc: 'Perfect parries restore 5 shield, up to 50 capacity.', apply: p => { p.shieldRestore = (p.shieldRestore||0)+5; } },
 ];
 export const COLORS = ['#94e8cf', '#aebdff', '#ffd478', '#ffa5be'];
+
+export const ROOM_THEMES = [
+  {name:'Sunlit Grove', floor:['#73996e','#80a775','#759b6d'], border:'#d4c7a1', edge:'#315e44', detail:'#b9d18c', stone:'#bab793', highlight:'#d7d1a9', scenery:'flowers'},
+  {name:'Amber Orchard', floor:['#a78659','#b89463','#9b7c53'], border:'#dfbf88', edge:'#734c36', detail:'#edb460', stone:'#bca27b', highlight:'#e1c392', scenery:'leaves'},
+  {name:'Forgotten Courtyard', floor:['#8b9d99','#97aaa5','#82948f'], border:'#ced2bc', edge:'#435e5c', detail:'#c1d2c4', stone:'#9aada9', highlight:'#c5d2cd', scenery:'tiles'},
+  {name:'Moonlit Marsh', floor:['#506f78','#587d86','#496873'], border:'#a8bcb8', edge:'#293f55', detail:'#8acabd', stone:'#778f9c', highlight:'#adc6cf', scenery:'water'},
+  {name:'Brass Foundry', floor:['#796758','#887362','#716051'], border:'#c6a267', edge:'#3f3534', detail:'#dda05b', stone:'#9d8270', highlight:'#ceb096', scenery:'forge'},
+];
