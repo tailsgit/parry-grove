@@ -5,8 +5,9 @@ export const BALANCE = {
   perfectWindow: .09, parryIframes: .06, parryCooldown: .5, enemyShotGap: .18, deflectSpeed: 1.65, deflectAssistCone: .35, deflectAssistTurn: .18, parryCone: Math.PI * .72,
   blockReduction: .8, blockSpeed: .65, shieldCapacity: 100, shieldRecovery: 3, enemyMeleeStun: 1, playerParryStun: .5,
   separationRadius: 64, separationSpeed: 110, enemyParryChance: .1, enemyParryRange: 115,
-  regularChip: .08, regularStored: .65, internalDelay: 2.5, internalDecay: 9,
-  meleeCleanse: 8, streakTimeout: 3, streakBonus: .16, hurtIframes: .32,
+  regularChip: .08, regularStored: .65,
+  meleeCleanse: 2, streakTimeout: 3, streakBonus: .16, hurtIframes: .32,
+  bossSlamRadius: 145, bossSlamTell: .65, bossSlamCooldown: 3, bossRepositionSpeed: 270,
   encounters: 4, baseEnemies: 3, partyEnemies: 2, disconnectSeconds: 12,
 };
 export const WEAPONS = {
@@ -20,10 +21,10 @@ export const ENEMIES = {
   homing: { name: 'Seeker', hp: 62, speed: 55, projectile: 170, damage: 12, rate: 2.2, tell: .6, color: '#c8a2ff' },
   shotgun: { name: 'Scatter', hp: 70, speed: 80, projectile: 310, damage: 9, rate: 2.3, tell: .55, color: '#f8b56e' },
   mortar: { name: 'Mortar', hp: 58, speed: 40, damage: 24, rate: 3, tell: .75, color: '#82d7ed' },
-  brawler: { name: 'Brawler', hp: 58, speed: 96, melee: true, range: 58, arc: 1.8, damage: 16, rate: 1.5, tell: .55, color: '#dd9b72' },
-  lancer: { name: 'Lancer', hp: 64, speed: 82, melee: true, range: 90, arc: .9, damage: 19, rate: 1.9, tell: .65, color: '#a9b9e8' },
-  railgun: { name: 'Rail Turret', hp: 60, speed: 25, projectile: 850, damage: 25, rate: 3.2, tell: 1, color: '#ed7ca2' },
-  boss: { name: 'The Brass Warden', hp: 550, speed: 36, projectile: 250, damage: 12, rate: .95, tell: .5, color: '#ffce72' },
+  brawler: { name: 'Brawler', hp: 58, speed: 96, melee: true, range: 90, arc: 1.8, damage: 16, rate: 1.5, tell: .3, color: '#dd9b72' },
+  lancer: { name: 'Lancer', hp: 64, speed: 82, melee: true, range: 130, arc: .9, damage: 19, rate: 1.9, tell: .4, color: '#a9b9e8' },
+  railgun: { name: 'Rail Turret', hp: 60, speed: 25, projectile: 850, projectileRadius: 9, damage: 25, rate: 3.2, tell: 1, color: '#ed7ca2' },
+  boss: { name: 'The Brass Warden', hp: 550, speed: 95, projectile: 250, damage: 12, rate: .95, tell: .5, color: '#ffce72' },
 };
 export const UPGRADES = [
   { id: 'vitality', name: 'Heartwood', icon: '♥', desc: '+25 maximum health. Heal 25.', apply: p => { p.maxHp += 25; p.hp = Math.min(p.maxHp, p.hp + 25); } },

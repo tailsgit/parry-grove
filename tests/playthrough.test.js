@@ -19,10 +19,12 @@ for(const weapon of ['dagger','sword','longsword'])test(`normal-health full play
   for(const bullet of g.bullets.filter(b=>!b.owner)){
    const vx=p.x-bullet.x,vy=p.y-bullet.y,s2=bullet.vx**2+bullet.vy**2,t=(vx*bullet.vx+vy*bullet.vy)/s2;
    const miss=Math.hypot(vx-bullet.vx*t,vy-bullet.vy*t);
-   if(t>0&&t<.10&&miss<20&&!p.parryCd){seq++;angle=Math.atan2(-bullet.vy,-bullet.vx);break;}
+   if(bullet.unparryable&&t>0&&t<.22&&miss<30){mx=-bullet.vy;my=bullet.vx;if(t<.12&&!p.dashCd)dash++;break;}
+   if(!bullet.unparryable&&t>0&&t<.10&&miss<20&&!p.parryCd){seq++;angle=Math.atan2(-bullet.vy,-bullet.vx);break;}
   }
   if(enemy.guardLeft>0||enemy.action==='parry'&&enemy.tell>0){mx=p.x-enemy.x;my=p.y-enemy.y;}
   if(enemy.stun<=0&&enemy.tell>0&&enemy.action!=='parry'&&['brawler','lancer'].includes(enemy.kind)&&distance(p,enemy)<110&&enemy.tell<.08&&!p.parryCd){seq++;angle=Math.atan2(enemy.y-p.y,enemy.x-p.x);}
+  if(enemy.kind==='boss'&&enemy.danger&&enemy.tell>0&&distance(p,enemy)<250){mx=p.x-enemy.x;my=p.y-enemy.y;}
   const hazard=g.hazards.find(h=>distance(p,h)<h.r+30&&h.remaining<.5);if(hazard){mx=p.x-hazard.x||1;my=p.y-hazard.y||1;if(!p.dashCd)dash++;}
   step(g,{bot:{mx,my,angle,attack:!(enemy.guardLeft>0),parry:seq,dash,interact}},1/60);
  }
