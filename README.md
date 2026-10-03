@@ -61,7 +61,8 @@ with the rest regular (orange); guard length depends on the weapon. A successful
 parry grants 60ms of immunity and redirects a projectile in your aim direction. Perfect parries increase
 melee damage by 16% per streak count; regular parries deal 8% immediate damage
 and store 65% in the Internal Damage meter. An unguarded hit releases the entire
-meter. Base melee hits clear 2 internal damage. Internal damage never heals over time. Red danger attacks and mortar circles cannot be parried or blocked. Step or dash away.
+meter. Base melee hits clear 2 internal damage. Internal damage never heals over time. Red danger attacks cannot be parried, but can be blocked while facing their source.
+Blocking spends shield capacity; dodging or leaving the area avoids that cost.
 
 Returned projectiles travel at 1.65× their incoming speed. A small correction
 (up to about 10°) helps shots aimed near an enemy connect; returned seekers then
@@ -70,8 +71,9 @@ turns with at least 180ms between shooters. Shotgun and boss spreads remain
 intact. Holding Q or right click blocks frontal, parryable attacks after the
 parry window, reducing health damage by 80%. Every blocked attack also spends its full raw
 damage against a 100-point shield capacity, before armor. At 100 damage the
-shield breaks, blocking is disabled for 3 seconds, and the shield then fully
-recovers. Parrying remains available during recovery.
+shield breaks and blocking is disabled. Shield capacity never automatically
+recovers, including between rooms. With Perfection, perfect parries restore 5
+capacity each, only up to 50 remaining capacity; this can repair a broken shield.
 
 ## Implemented
 
@@ -89,14 +91,17 @@ recovers. Parrying remains available during recovery.
   guard. Attacking into the guard stuns the player for 0.5 seconds.
 - Mortars lead movement, launch visible arcing shells, and explode with particles,
   sound and nearby screen shake. Railgun shots have red laser tells and require
-  dodging; their shots are 3× thicker with a matching hitbox. Enemy attack aim is
+  blocking or dodging. After a 350ms wind-up they emit a fixed 18-pixel beam
+  that stays dangerous for one second along its entire visible length. Cover
+  stops the beam. Enemy attack aim is
   locked during its wind-up.
-- The boss repositions at 270 pixels/sec in short bursts, alternates parryable
+- The boss repositions at 230 pixels/sec in short bursts at least 3.8 seconds
+  apart, choosing clear paths toward, away from or around the player. It alternates parryable
   and red volleys, and punishes close camping with a red 145-pixel shockwave
-  after a 650ms tell. The shockwave cannot be blocked or parried.
+  after an 850ms tell. The shockwave can be blocked, but cannot be parried.
   Telegraphs, projectile collision, cover, and marked unparryable AOE hazards.
 - Seeded random cover and room enemy placement/composition, progressive difficulty,
-  eight rewards, and a two-phase machine-gun boss after four rooms.
+  ten rewards, and a two-phase machine-gun boss after four rooms.
 - Party-size scaling at each room entrance: larger arena, more enemies, modest
   health scaling, and boss adds/health. Death/victory and fresh restarts.
 - Online rooms for 1–4 independent clients, readiness, host-only start, invalid/full
@@ -147,7 +152,9 @@ can replace polling without rewriting combat.
   revive with half maximum HP in the next room. Survivors heal 8 HP on transition.
 - Upgrades are independent random choices. All survivors must choose before
   anyone can press E to advance; E works anywhere after the reward phase.
-- Levels require four kills and grant +5 maximum HP, +5% damage, and 10 healing.
+- Each kill grants 1 EXP, including bosses. The next level needs 2^current-level
+  kills (2, 4, 8, 16...). Level-ups grant +10 maximum HP, heal 15% of the new
+  maximum, and add +5% melee damage. EXP progress is visible in the HUD.
 - A 12s missed heartbeat disconnects a player. A returning page gets a clear
   disconnection message; rejoining an active run is deliberately unsupported.
 - A backgrounded solo tab pauses. Online runs do not pause; if all clients stop,
@@ -185,3 +192,21 @@ list is present, but the transport and timing need real-player latency testing.
 Next: playtest parry windows/dash timing with humans, upgrade the room transport
 to a WebSocket authoritative room service with input prediction/reconciliation,
 then add a second area and boss after the combat tuning settles.
+
+## Updated upgrades
+
+| Upgrade | Effect |
+| --- | --- |
+| Heartwood | +25 maximum HP, then heal 10% of the new maximum |
+| Keen Edge | +20% melee damage |
+| Windrunner | +15% movement speed |
+| Ghost Step | +50ms dash immunity, capped at 300ms |
+| Longstride | +30% dash distance |
+| Barkskin | +10% damage reduction, capped at 50% |
+| Stillwater | +25ms perfect window, capped at 165ms |
+| Clear Mind | Melee hits clear 2 more internal damage |
+| Vampire | Every kill restores 1% of maximum HP |
+| Perfection | Perfect parries restore 5 shield, up to 50 remaining capacity |
+
+Each enemy bullet has a seeded 40% chance to lead the player's velocity. Boss
+mortars use the same arcing shell, impact marker, and explosion as mortar enemies.

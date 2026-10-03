@@ -26,10 +26,10 @@ test('railgun thickness is tripled and its collision radius matches the wider sh
 test('camping by the boss triggers a telegraphed unparryable shockwave and retreat',()=>{
  const {p,g}=setup(),e=spawnEnemy(g,'boss',260,200);e.cooldown=100;
  step(g,{a:{parry:1,guard:true,angle:0}},1/60);
- const h=g.hazards[0];assert.equal(e.action,'slam');assert.equal(e.danger,true);assert.equal(h.kind,'shockwave');assert.equal(h.r,B.bossSlamRadius);assert.equal(h.total,.65);
+ const h=g.hazards[0];assert.equal(e.action,'slam');assert.equal(e.danger,true);assert.equal(h.kind,'shockwave');assert.equal(h.r,B.bossSlamRadius);assert.equal(h.total,.85);
  const before=distance(p,e);
  for(let n=0;n<65;n++)step(g,{a:{parry:n+2,guard:true,angle:0}},1/60);
- assert.ok(p.hp<100);assert.equal(p.shieldDamage,0);assert.ok(distance(p,e)>before+60);
+ assert.ok(p.hp<100);assert.equal(p.shieldDamage,26);assert.ok(distance(p,e)>before+30);
 });
 test('boss frequently repositions and mixes parryable and red projectile volleys',()=>{
  const {p,g}=setup(),e=spawnEnemy(g,'boss',650,200);p.hp=p.maxHp=100000;e.cooldown=0;e.repositionCd=100;
