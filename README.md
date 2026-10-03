@@ -61,8 +61,7 @@ with the rest regular (orange); guard length depends on the weapon. A successful
 parry grants 60ms of immunity and redirects a projectile in your aim direction. Perfect parries increase
 melee damage by 16% per streak count; regular parries deal 8% immediate damage
 and store 65% in the Internal Damage meter. An unguarded hit releases the entire
-meter. Melee hits clear 8 internal damage, and it decays after 2.5s without a
-regular parry. Red danger attacks and mortar circles cannot be parried or blocked. Step or dash away.
+meter. Base melee hits clear 2 internal damage. Internal damage never heals over time. Red danger attacks and mortar circles cannot be parried or blocked. Step or dash away.
 
 Returned projectiles travel at 1.65× their incoming speed. A small correction
 (up to about 10°) helps shots aimed near an enemy connect; returned seekers then
@@ -82,14 +81,19 @@ recovers. Parrying remains available during recovery.
 - Dagger / Sword / Long Sword: different reach, sweep, damage, timing and perfect
   parry effects. Player weapons are melee only; deflection is their ranged counter.
 - Ranged enemies: archer, pistol, homing seeker, scatter shotgun, predictive mortar, and a long-range rail turret.
-- Brawlers and lancers fill roughly half the encounter slots. Parrying their
+- Brawlers and lancers fill roughly half the encounter slots. Their wind-ups
+  are 300ms / 400ms and their reach is 90 / 130 pixels. Parrying their
   melee strikes stuns them for 1 second. Local repulsion keeps enemies apart.
 - Non-boss enemies roll a 10% defensive parry chance when the player approaches.
   Purple wind-ups last as long as their normal attacks, followed by a 300ms
   guard. Attacking into the guard stuns the player for 0.5 seconds.
 - Mortars lead movement, launch visible arcing shells, and explode with particles,
   sound and nearby screen shake. Railgun shots have red laser tells and require
-  dodging; enemy attack aim is locked during its wind-up.
+  dodging; their shots are 3× thicker with a matching hitbox. Enemy attack aim is
+  locked during its wind-up.
+- The boss repositions at 270 pixels/sec in short bursts, alternates parryable
+  and red volleys, and punishes close camping with a red 145-pixel shockwave
+  after a 650ms tell. The shockwave cannot be blocked or parried.
   Telegraphs, projectile collision, cover, and marked unparryable AOE hazards.
 - Seeded random cover and room enemy placement/composition, progressive difficulty,
   eight rewards, and a two-phase machine-gun boss after four rooms.
