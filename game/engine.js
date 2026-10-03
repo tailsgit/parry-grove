@@ -26,7 +26,7 @@ export function spawnEnemy(g, kind, x, y) {
 }
 export function generateRoom(g) {
   g.encounterParty = g.players.length; g.width = 900 + (g.encounterParty-1)*120; g.height = 570 + (g.encounterParty-1)*45;
-  g.enemies=[]; g.bullets=[]; g.hazards=[]; g.obstacles=[]; g.intro=1.5;
+  g.nextEnemyShot=g.time; g.enemies=[]; g.bullets=[]; g.hazards=[]; g.obstacles=[]; g.intro=1.5;
   // Broad lanes and safe entrance keep random cover from creating unreachable enemies.
   const count = g.room===B.encounters?2:3+Math.floor(random(g)*3);
   for(let i=0;i<count;i++) {
@@ -115,6 +115,15 @@ function melee(g,p) {
     if(++n>=w.targets)break;
   }
 }
+function deflectionTarget(g,b,angle,cone=Math.PI) {
+  return g.enemies.filter(e=>e.hp>0&&!blocked(g,b,e)&&Math.abs(angleDiff(Math.atan2(e.y-b.y,e.x-b.x),angle))<=cone)
+    .sort((a,c)=>distance(a,b)-distance(c,b))[0];
+}
+function steer(b,target,turn) {
+  const angle=Math.atan2(b.vy,b.vx),speed=Math.hypot(b.vx,b.vy);
+  const adjusted=angle+clamp(angleDiff(Math.atan2(target.y-b.y,target.x-b.x),angle),-turn,turn);
+  b.vx=Math.cos(adjusted)*speed;b.vy=Math.sin(adjusted)*speed;
+}
 function fire(g,e,p) {
   const c=ENEMIES[e.kind],base=Math.atan2(p.y-e.y,p.x-e.x);e.angle=base;
   if(e.kind==='mortar') {g.hazards.push({id:++g.serial,x:p.x,y:p.y,r:60,remaining:1.2,total:1.2,damage:c.damage});event(g,'mortar',p.x,p.y);return;}
@@ -161,7 +170,8 @@ export function step(g,inputs,dt) {
     if(e.hp<=0)continue;const c=ENEMIES[e.kind];const p=alive.reduce((a,b)=>distance(a,e)<distance(b,e)?a:b);
     e.angle=Math.atan2(p.y-e.y,p.x-e.x);
     if(g.intro>0)continue;
-    if(e.tell>0){e.tell-=dt;if(e.tell<=0){fire(g,e,p);e.cooldown=c.rate/(1+g.room*.07);}continue;}
+    if(e.fireReadyAt!=null)continue;
+    if(e.tell>0){e.tell-=dt;if(e.tell<=0){e.tell=.001;e.fireReadyAt=g.time;}continue;}
     e.cooldown-=dt;
     if(e.cooldown<=0){e.burst++;e.danger=e.kind==='mortar'||((e.kind==='pistol'||e.kind==='boss')&&e.burst%3===0);e.tell=e.danger?Math.max(.8,c.tell):c.tell;e.target=p.id;continue;}
     // Stay in ranged distance; a small orbit gives cover encounters moving targets.
@@ -170,8 +180,18 @@ export function step(g,inputs,dt) {
     move(g,e,(Math.cos(e.angle)*toward+Math.cos(e.angle+Math.PI/2)*.25)*c.speed*dt,(Math.sin(e.angle)*toward+Math.sin(e.angle+Math.PI/2)*.25)*c.speed*dt,e.kind==='boss'?25:15);
     for(const a of g.enemies)if(a.id!==e.id&&a.hp>0&&distance(a,e)<27){const an=Math.atan2(e.y-a.y,e.x-a.x);move(g,e,Math.cos(an)*30*dt,Math.sin(an)*30*dt,15);}
   }
+  // Completed telegraphs take turns in order; an enemy volley stays intact.
+  if(g.time+1e-9>=(g.nextEnemyShot??0)) {
+    const e=g.enemies.filter(e=>e.hp>0&&e.fireReadyAt!=null).sort((a,b)=>a.fireReadyAt-b.fireReadyAt||a.id-b.id)[0];
+    if(e){const p=alive.reduce((a,b)=>distance(a,e)<distance(b,e)?a:b);fire(g,e,p);e.fireReadyAt=null;e.tell=0;e.cooldown=ENEMIES[e.kind].rate/(1+g.room*.07);g.nextEnemyShot=g.time+B.enemyShotGap;}
+  }
   for(const b of g.bullets) {
-    if(b.kind==='homing'&&!b.owner){const p=alive.find(p=>p.id===b.target)||alive[0];let a=Math.atan2(b.vy,b.vx);a+=clamp(angleDiff(Math.atan2(p.y-b.y,p.x-b.x),a),-dt*1.35,dt*1.35);const s=Math.hypot(b.vx,b.vy);b.vx=Math.cos(a)*s;b.vy=Math.sin(a)*s;}
+    if(b.kind==='homing') {
+      const target=b.owner
+        ? g.enemies.find(e=>e.hp>0&&e.id===b.target)||deflectionTarget(g,b,Math.atan2(b.vy,b.vx))
+        : alive.find(p=>p.id===b.target)||alive[0];
+      if(target){b.target=target.id;steer(b,target,dt*1.35);}
+    }
     const prev={x:b.x,y:b.y};b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
     if(b.x<25||b.x>g.width-25||b.y<25||b.y>g.height-25||g.obstacles.some(o=>inside(b,o,3))){b.life=0;continue;}
     if(b.owner) {
@@ -180,8 +200,14 @@ export function step(g,inputs,dt) {
       const outcome=hitPlayer(g,p,b.damage,!b.unparryable,Math.atan2(-b.vy,-b.vx));
       if(outcome==='immune')continue;
       if(outcome==='perfect'||outcome==='regular') {
-        // Aim deflections with the mouse instead of requiring exact incoming-angle reflection.
-        const s=Math.hypot(b.vx,b.vy)*1.3;b.vx=Math.cos(p.angle)*s;b.vy=Math.sin(p.angle)*s;b.owner=p.id;b.damage*=outcome==='perfect'?2:1;b.life=4;b.x=p.x+Math.cos(p.angle)*24;b.y=p.y+Math.sin(p.angle)*24;
+        // Preserve the player's aim, with a small correction toward nearby visible enemies.
+        const s=Math.hypot(b.vx,b.vy)*B.deflectSpeed;
+        b.x=p.x;b.y=p.y;
+        const assisted=deflectionTarget(g,b,p.angle,B.deflectAssistCone);
+        const a=p.angle+(assisted?clamp(angleDiff(Math.atan2(assisted.y-p.y,assisted.x-p.x),p.angle),-B.deflectAssistTurn,B.deflectAssistTurn):0);
+        b.vx=Math.cos(a)*s;b.vy=Math.sin(a)*s;b.owner=p.id;b.damage*=outcome==='perfect'?2:1;b.life=4;
+        b.target=(assisted|| (b.kind==='homing'?deflectionTarget(g,b,a):null))?.id??null;
+        b.x=p.x+Math.cos(a)*24;b.y=p.y+Math.sin(a)*24;
       }else b.life=0;
       break;
     }

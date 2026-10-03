@@ -2,7 +2,7 @@
 export const BALANCE = {
   hp: 100, internalMax: 100, speed: 210, radius: 12,
   dashSpeed: 780, dashTime: .16, dashIframes: .1, dashCooldown: .85,
-  perfectWindow: .09, parryIframes: .06, parryCooldown: .5, parryCone: Math.PI * .72,
+  perfectWindow: .09, parryIframes: .06, parryCooldown: .5, enemyShotGap: .18, deflectSpeed: 1.65, deflectAssistCone: .35, deflectAssistTurn: .18, parryCone: Math.PI * .72,
   blockReduction: .6, blockSpeed: .65,
   regularChip: .08, regularStored: .65, internalDelay: 2.5, internalDecay: 9,
   meleeCleanse: 8, streakTimeout: 3, streakBonus: .16, hurtIframes: .32,

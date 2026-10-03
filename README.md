@@ -14,12 +14,13 @@ needed. The site currently has restricted access; a room code does not grant
 site access.
 
 Move with **WASD**, aim with the **mouse**, hold **left click** to attack, press
-**right click or Q** to parry, and press **Space** to dash. For co-op, choose
+**right click or Q** to parry, keep either held to block after the parry window,
+and press **Space** to dash. For co-op, choose
 **Create co-op room**, share the six-character code with players who can access
 the site, have everyone ready up, and let the host start the run.
 
-The combat improvements in [PR #1](https://github.com/tailsgit/parry-grove/pull/1)
-are on a separate branch and have not yet been published to the live game.
+The hosted Sites copy does not automatically update from GitHub. For the latest
+local changes, run the game on your computer using the instructions below.
 
 ## Run locally
 
@@ -50,7 +51,7 @@ those players access. Room codes do not bypass the site's access restrictions.
 | WASD / arrow keys | Move |
 | Mouse | Aim |
 | Left click (hold) | Melee attack |
-| Right click / Q | Parry once; tap again for another attempt |
+| Right click / Q | Parry once; hold to block afterward; release and tap to parry again |
 | Space | Dash; movement direction or aim direction while stationary |
 | E / Next room button | Continue once all surviving players chose rewards |
 | Escape | Pause/resume solo only |
@@ -61,7 +62,14 @@ parry grants 60ms of immunity and redirects a projectile in your aim direction. 
 melee damage by 16% per streak count; regular parries deal 8% immediate damage
 and store 65% in the Internal Damage meter. An unguarded hit releases the entire
 meter. Melee hits clear 8 internal damage, and it decays after 2.5s without a
-regular parry. Orange mortar circles cannot be parried. Step or dash away.
+regular parry. Red danger attacks and mortar circles cannot be parried or blocked. Step or dash away.
+
+Returned projectiles travel at 1.65× their incoming speed. A small correction
+(up to about 10°) helps shots aimed near an enemy connect; returned seekers then
+home onto enemies and switch targets when an enemy dies. Enemy volleys take
+turns with at least 180ms between shooters. Shotgun and boss spreads remain
+intact. Holding Q or right click blocks frontal, parryable attacks after the
+parry window, reducing damage by 60%.
 
 ## Implemented
 
