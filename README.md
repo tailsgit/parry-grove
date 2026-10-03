@@ -4,6 +4,23 @@ A playable vertical slice of the attached 2D co-op roguelike design. One charact
 three weapons, four randomized encounters, then the Brass Warden boss. Desktop
 mouse and keyboard are required.
 
+## Play online
+
+**[Play Parry Grove on ChatGPT Sites](https://parry-grove.tailsails.chatgpt.site)**
+
+Open the link on a desktop computer, sign in to ChatGPT with an account that has
+access to the site, choose a weapon, and click **Play solo**. No installation is
+needed. The site currently has restricted access; a room code does not grant
+site access.
+
+Move with **WASD**, aim with the **mouse**, hold **left click** to attack, press
+**right click or Q** to parry, and press **Space** to dash. For co-op, choose
+**Create co-op room**, share the six-character code with players who can access
+the site, have everyone ready up, and let the host start the run.
+
+The combat improvements in [PR #1](https://github.com/tailsgit/parry-grove/pull/1)
+are on a separate branch and have not yet been published to the live game.
+
 ## Run locally
 
 Requires Node.js 22.13+ (Node 24 is also tested). From this project folder:
