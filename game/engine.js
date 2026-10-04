@@ -46,7 +46,7 @@ export function spawnEnemy(g, kind, x, y) {
   const c = ENEMIES[kind]; const scale = 1+g.room*.12 + (g.encounterParty-1)*(kind==='boss'?.48:.12);
   const e=runtime(g).enemies.acquire();
   e.id=++g.serial;e.kind=kind;e.x=x;e.y=y;e.hp=c.hp*scale;e.maxHp=c.hp*scale;e.angle=0;e.cooldown=1+random(g);e.tell=0;e.target='';e.burst=0;e.danger=false;e.stun=0;e.guardLeft=0;e.guardAge=0;e.nearPlayer=false;e.parryAttemptCd=0;e.action='attack';e.swing=0;e.repositionLeft=0;e.repositionCd=0;e.slamCd=0;
-  e.dead=undefined;e.fireReadyAt=undefined;e.tellTotal=undefined;e.recoil=undefined;e.repositionX=undefined;e.repositionY=undefined;
+  e.routeX=undefined;e.routeY=undefined;e.dead=undefined;e.fireReadyAt=undefined;e.tellTotal=undefined;e.recoil=undefined;e.repositionX=undefined;e.repositionY=undefined;
   g.enemies.push(e); return e;
 }
 export function generateRoom(g) {
@@ -76,6 +76,7 @@ export function generateRoom(g) {
       spawnEnemy(g,kind,pos.x,pos.y);
     }
   }
+  g.scenerySeed=g.seed;
 }
 function insideXY(x,y,o,r=0){return x>o.x-r&&x<o.x+o.w+r&&y>o.y-r&&y<o.y+o.h+r;}
 function inside(p,o,r=0){return insideXY(p.x,p.y,o,r);}
@@ -91,6 +92,34 @@ function segmentDistance(p,ax,ay,bx,by) {
 }
 function blocked(g,a,b) {
   for(const o of g.obstacles)for(let t=0;t<=1;t+=.1)if(insideXY(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,o))return true;return false;
+}
+// Exact segment/rectangle test; movement routes inflate cover by body radius.
+function clearSegment(g,x,y,tx,ty,margin=0){
+  const dx=tx-x,dy=ty-y;
+  for(const o of g.obstacles){
+    let start=0,end=1;
+    const left=o.x-margin,right=o.x+o.w+margin,top=o.y-margin,bottom=o.y+o.h+margin;
+    if(dx===0){if(x<left||x>right)continue;}else{const a=(left-x)/dx,b=(right-x)/dx;start=Math.max(start,Math.min(a,b));end=Math.min(end,Math.max(a,b));}
+    if(start>end)continue;
+    if(dy===0){if(y<top||y>bottom)continue;}else{const a=(top-y)/dy,b=(bottom-y)/dy;start=Math.max(start,Math.min(a,b));end=Math.min(end,Math.max(a,b));}
+    if(start<=end)return false;
+  }
+  return true;
+}
+export function hasLineOfSight(g,a,b){return clearSegment(g,a.x,a.y,b.x,b.y);}
+function seekSight(g,e,p){
+  const radius=e.kind==='boss'?29:18;
+  if(e.routeX!=null&&(Math.hypot(e.routeX-e.x,e.routeY-e.y)<6||!clearSegment(g,e.x,e.y,e.routeX,e.routeY,radius)))e.routeX=undefined;
+  if(e.routeX==null){
+    let best=Infinity;
+    for(const o of g.obstacles)for(let corner=0;corner<4;corner++){
+      const x=corner%2?o.x+o.w+radius+8:o.x-radius-8,y=corner<2?o.y-radius-8:o.y+o.h+radius+8;
+      const gap=Math.hypot(x-e.x,y-e.y);
+      if(gap<8||x<30+radius||x>g.width-30-radius||y<30+radius||y>g.height-30-radius||!clearSegment(g,e.x,e.y,x,y,radius))continue;
+      const score=gap+Math.hypot(p.x-x,p.y-y);if(score<best){best=score;e.routeX=x;e.routeY=y;}
+    }
+  }
+  return e.routeX==null?Math.atan2(p.y-e.y,p.x-e.x)+(e.id%2?1:-1)*Math.PI/2:Math.atan2(e.routeY-e.y,e.routeX-e.x);
 }
 export const xpRequired = level => 2 ** level;
 export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0) {
@@ -197,6 +226,7 @@ function beamEnd(g,e,angle) {
   return end;
 }
 function fire(g,e,p) {
+  if(!hasLineOfSight(g,e,p))return false;
   e.recoil=.24;
   const c=ENEMIES[e.kind],base=e.angle;
   if(c.melee){
@@ -267,9 +297,13 @@ export function step(g,inputs,dt) {
     const c=ENEMIES[e.kind],p=nearest(alive,e),d=distance(e,p);
     let vx=0,vy=0;
     if(g.intro<=0){
-      if(e.kind==='boss'&&e.repositionLeft>0){
+      if(!hasLineOfSight(g,e,p)&&!(e.action==='slam'&&e.tell>0)){
+        e.tell=0;e.fireReadyAt=null;e.tellTotal=undefined;e.action='attack';e.repositionLeft=0;e.cooldown=Math.max(e.cooldown,.1);
+        e.angle=Math.atan2(p.y-e.y,p.x-e.x);const direction=seekSight(g,e,p);vx=Math.cos(direction)*c.speed;vy=Math.sin(direction)*c.speed;
+      }else if(e.kind==='boss'&&e.repositionLeft>0){
         vx=e.repositionX*B.bossRepositionSpeed;vy=e.repositionY*B.bossRepositionSpeed;
       }else if(e.tell<=0&&e.fireReadyAt==null&&e.guardLeft<=0){
+        e.routeX=undefined;
         e.angle=Math.atan2(p.y-e.y,p.x-e.x);
         const near=d<B.enemyParryRange;
         if(e.kind!=='boss'&&near&&!e.nearPlayer&&!e.parryAttemptCd){
@@ -279,7 +313,7 @@ export function step(g,inputs,dt) {
         e.nearPlayer=near;
         if(e.kind==='boss'&&d<B.bossSlamRadius+10&&!e.slamCd){
           e.action='slam';e.danger=true;e.tell=B.bossSlamTell;e.tellTotal=B.bossSlamTell;e.slamCd=B.bossSlamCooldown;
-          hazard(g,e.x,e.y,B.bossSlamRadius,B.bossSlamTell,26,'shockwave');
+          hazard(g,e.x,e.y,B.bossSlamRadius,B.bossSlamTell,20,'shockwave');
           event(g,'bossslam',e.x,e.y,'DODGE · SHOCKWAVE');
         }else if(e.kind==='boss'&&!e.repositionCd){
           repositionBoss(g,e,p);vx=e.repositionX*B.bossRepositionSpeed;vy=e.repositionY*B.bossRepositionSpeed;
@@ -287,7 +321,6 @@ export function step(g,inputs,dt) {
           e.cooldown-=dt;
           if(e.cooldown<=0&&(!c.melee||d<=c.range+B.radius-24)){
             e.burst++;e.action='attack';e.danger=e.kind==='mortar'||e.kind==='railgun'||(e.kind==='pistol'&&e.burst%3===0)||(e.kind==='boss'&&e.burst%2===0);
-            if(e.kind==='railgun'){const aim=predictedAim(g,e,p,850);e.angle=aim.angle;}
             e.tell=e.danger&&e.kind!=='railgun'?Math.max(.8,c.tell):c.tell;e.tellTotal=e.tell;e.target=p.id;
           }else{
             const desired=c.melee?c.range*.7:e.kind==='railgun'?430:e.kind==='boss'?250:e.kind==='shotgun'?145:210;
@@ -319,7 +352,7 @@ export function step(g,inputs,dt) {
   // Completed telegraphs take turns in order; an enemy volley stays intact.
   if(g.time+1e-9>=(g.nextEnemyShot??0)) {
     let e;for(const candidate of g.enemies)if(candidate.hp>0&&candidate.fireReadyAt!=null&&(!e||candidate.fireReadyAt<e.fireReadyAt||(candidate.fireReadyAt===e.fireReadyAt&&candidate.id<e.id)))e=candidate;
-    if(e){const p=nearest(alive,e);fire(g,e,p);e.fireReadyAt=null;e.tell=0;e.cooldown=ENEMIES[e.kind].rate/(1+g.room*.07);g.nextEnemyShot=g.time+B.enemyShotGap;if(e.kind==='boss')repositionBoss(g,e,p);}
+    if(e){const p=nearest(alive,e);const fired=fire(g,e,p)!==false;e.fireReadyAt=null;e.tell=0;e.cooldown=fired?ENEMIES[e.kind].rate/(1+g.room*.07):.1;if(fired)g.nextEnemyShot=g.time+B.enemyShotGap;if(e.kind==='boss')repositionBoss(g,e,p);}
   }
   r.collisionDirty=true;
   for(const b of g.bullets) {

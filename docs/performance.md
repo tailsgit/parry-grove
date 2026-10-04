@@ -83,3 +83,8 @@ The development-only browser harness is `tests/renderer-fidelity.html`. Serve it
 from a temporary folder containing `game/` pointing at the optimized game modules
 and `baseline/` containing the original renderer and its config. It never loads
 in the production game. It reports pixel differences and CPU renderer timings.
+
+The later scenery fix stores a separate `scenerySeed`. The browser harness
+feeds this fixed seed to the original renderer so both renderers compare the
+same intended static scenery. Combat-state fingerprints exclude only this visual
+metadata; attack, movement and collision state remain included.
