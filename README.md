@@ -220,3 +220,9 @@ then add a second area and boss after the combat tuning settles.
 
 Each enemy bullet has a seeded 40% chance to lead the player's velocity. Boss
 mortars use the same arcing shell, impact marker, and explosion as mortar enemies.
+
+## Performance
+
+See [the implementation plan and measurements](docs/performance.md) for pooled
+entities/VFX, spatial broad-phase checks and fidelity-preserving Canvas command
+batching. Run `node scripts/performance-benchmark.mjs` for local simulation timings.
