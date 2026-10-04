@@ -1,0 +1,20 @@
+<!doctype html><html><meta charset="utf-8"><head><title>Parry Grove performance verification</title><style>body{background:#132c27;color:#fff2bd;font:16px monospace;margin:20px}canvas{display:block;width:641.25px;height:479.75px}main{display:flex;gap:12px}pre{white-space:pre-wrap}</style></head><body><h1>Pixel fidelity and renderer benchmark</h1><pre id="results">Running…</pre><main><section><h2>Original</h2><canvas id="old"></canvas></section><section><h2>Optimized</h2><canvas id="new"></canvas></section></main><script type="module">
+import {Renderer as Old} from './baseline/renderer.js';import {Renderer as Fresh} from './game/renderer.js';import {createGame,player,spawnEnemy} from './game/engine.js';import {ENEMIES} from './game/config.js';
+const report=document.querySelector('#results'),a=document.querySelector('#old'),b=document.querySelector('#new');
+let randomSeed=1;Math.random=()=>{randomSeed=(Math.imul(randomSeed,1664525)+1013904223)>>>0;return randomSeed/4294967296;};
+const kinds=Object.keys(ENEMIES),output=[];let differences=0,checks=0;
+for(const size of [[641.25,479.75],[924,760]])for(const dpr of [1,1.5,2])for(let room=0;room<5;room++){
+ a.style.width=b.style.width=size[0]+'px';a.style.height=b.style.height=size[1]+'px';
+ Object.defineProperty(window,'devicePixelRatio',{value:dpr,configurable:true});const old=new Old(a),fresh=new Fresh(b);old.muted=fresh.muted=true;
+ const g=createGame([player('p','Adventurer','sword')],314159);g.room=room;g.intro=0;g.enemies.length=0;for(let i=0;i<kinds.length;i++)spawnEnemy(g,kinds[i],100+i%5*150,120+Math.floor(i/5)*160);
+ g.players[0].swing=.1;g.players[0].parryLeft=.2;g.events=[{id:1,time:0,kind:'perfect',who:'p',x:200,y:200,text:'PERFECT ×1'},{id:2,time:0,kind:'hit',who:'p',x:400,y:180,text:'20'}];
+ for(let frame=0;frame<18;frame++){g.time=frame/60;if(frame===9)g.seed++;randomSeed=17;old.draw(g,'p',1/60);randomSeed=17;fresh.draw(g,'p',1/60);if([0,3,9,17].includes(frame)){const x=old.ctx.getImageData(0,0,a.width,a.height).data,y=fresh.ctx.getImageData(0,0,b.width,b.height).data;let count=0;for(let n=0;n<x.length;n++)if(x[n]!==y[n])count++;differences+=count;checks++;if(count)output.push('Mismatch room '+room+' DPR '+dpr+' frame '+frame+': '+count+' channels');}}
+}
+output.unshift('Pixel comparisons: '+checks+'; differing channels: '+differences);
+a.style.width=b.style.width='924px';a.style.height=b.style.height='760px';Object.defineProperty(window,'devicePixelRatio',{value:1,configurable:true});
+for(const count of [12,180]){const g=createGame([player('p','Adventurer','sword')],314159);g.intro=0;g.events=[];g.enemies.length=0;for(let i=0;i<count;i++)spawnEnemy(g,kinds[i%kinds.length],70+i%20*40,70+Math.floor(i/20)*45);const timings=[],drawCounts=[];
+ for(const [Type,canvas] of [[Old,a],[Fresh,b]]){const benchCanvas=document.createElement('canvas');benchCanvas.style.cssText='width:924px;height:760px;position:absolute;left:-9999px';document.body.append(benchCanvas);const renderer=new Type(benchCanvas),samples=[];for(let trial=0;trial<5;trial++){for(let n=0;n<10;n++)renderer.draw(g,'p',1/60);const start=performance.now();for(let n=0;n<600;n++)renderer.draw(g,'p',1/60);samples.push((performance.now()-start)/600);}samples.sort((a,b)=>a-b);timings.push(samples[2]);let rectangles=0,colors=0;if(Type===Old)renderer.floor(g,{set fillStyle(value){colors++;},fillRect(){rectangles++;}});else{rectangles=renderer.floorBatch.count;let previous=-1;for(let i=0;i<rectangles;i++){const material=renderer.floorBatch.materials[i];if(material!==previous){colors++;previous=material;}}}drawCounts.push([rectangles,colors]);}
+ output.push('Floor rectangles / color assignments: '+drawCounts[0].join(' / ')+' → '+drawCounts[1].join(' / '));output.push('Renderer '+count+' enemies: '+timings[0].toFixed(3)+' → '+timings[1].toFixed(3)+' ms/frame; '+(timings[0]/timings[1]).toFixed(2)+'× speedup');
+}
+report.textContent=output.join('\n');document.title=differences?'FAIL: pixel differences':'PASS: exact pixels';
+</script></body></html>
