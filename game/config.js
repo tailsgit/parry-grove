@@ -8,7 +8,7 @@ export const BALANCE = {
   regularChip: .08, regularStored: .65,
   meleeCleanse: 2, streakTimeout: 3, streakBonus: .16, hurtIframes: .32,
   bossSlamRadius: 145, bossSlamTell: .85, bossSlamCooldown: 3, bossRepositionSpeed: 230,
-  encounters: 4, baseEnemies: 3, partyEnemies: 2, disconnectSeconds: 12,
+  encounters: 4, levels: 2, magnetDuration: 5, baseEnemies: 3, partyEnemies: 2, disconnectSeconds: 12,
 };
 export const WEAPONS = {
   dagger: { name: 'Dagger', damage: 31, range: 48, arc: .42, cooldown: .23, parry: .18, targets: 1, perk: 'Perfect parry: +1 streak', desc: 'Close range · highest damage · precise timing' },
@@ -24,7 +24,17 @@ export const ENEMIES = {
   brawler: { name: 'Brawler', hp: 58, speed: 96, melee: true, range: 90, arc: 1.8, damage: 16, rate: 1.5, tell: .3, color: '#dd9b72' },
   lancer: { name: 'Lancer', hp: 64, speed: 82, melee: true, range: 130, arc: .9, damage: 19, rate: 1.9, tell: .4, color: '#a9b9e8' },
   railgun: { name: 'Rail Turret', hp: 60, speed: 25, projectile: 850, projectileRadius: 9, damage: 25, rate: 3.2, tell: .35, color: '#ed7ca2' },
-  boss: { name: 'The Brass Warden', hp: 550, speed: 95, projectile: 250, damage: 12, rate: .95, tell: .5, color: '#ffce72' },
+  miner: { name: 'Mine-Layer', hp: 58, speed: 150, damage: 20, rate: 5, dropRange: 150, safeDistance: 450, tell: .25, color: '#dec17a', special: true },
+  ricochet: { name: 'Ricochet Gunner', hp: 64, speed: 70, projectile: 300, damage: 12, rate: 1.9, tell: .45, color: '#f3a36b' },
+  suicide: { name: 'Suicide Bomber', hp: 45, speed: 180, damage: 38, rate: 1, tell: .3, color: '#ff7868', special: true },
+  cluster: { name: 'Cluster Grenadier', hp: 72, speed: 60, damage: 11, rate: 2.7, tell: .6, color: '#acb779' },
+  magnet: { name: 'The Conductor', hp: 62, speed: 75, projectile: 440, damage: 0, rate: 3.5, tell: .45, color: '#77d9ed' },
+  sine: { name: 'Sin-Shooter', hp: 60, speed: 75, projectile: 245, damage: 12, rate: 1.7, tell: .45, color: '#c1a6f2' },
+  riot: { name: 'Riot Shield', hp: 115, speed: 58, melee: true, range: 80, arc: 1.65, damage: 4, rate: 1.7, tell: .4, color: '#9cb5c0' },
+  boomerang: { name: 'Boomerang Thrower', hp: 65, speed: 80, projectile: 280, projectileRadius: 9, damage: 14, rate: 1.9, tell: .5, color: '#e9a7c4' },
+  twinBomber: { name: 'The Bomber', boss: true, hp: 440, speed: 135, damage: 24, rate: 1.65, tell: .5, color: '#f39e67' },
+  twinRicochet: { name: 'The Ricochet', boss: true, hp: 470, speed: 80, projectile: 335, damage: 13, rate: 1.25, tell: .45, color: '#bcc47b' },
+  boss: { name: 'The Brass Warden', boss: true, hp: 550, speed: 95, projectile: 250, damage: 12, rate: .95, tell: .5, color: '#ffce72' },
 };
 export const UPGRADES = [
   { id: 'vitality', name: 'Heartwood', icon: '♥', desc: '+25 maximum health, then heal 10% of maximum HP.', apply: p => { p.maxHp += 25; p.hp = Math.min(p.maxHp, p.hp + p.maxHp*.1); } },
@@ -47,3 +57,10 @@ export const ROOM_THEMES = [
   {name:'Moonlit Marsh', floor:['#506f78','#587d86','#496873'], border:'#a8bcb8', edge:'#293f55', detail:'#8acabd', stone:'#778f9c', highlight:'#adc6cf', scenery:'water'},
   {name:'Brass Foundry', floor:['#796758','#887362','#716051'], border:'#c6a267', edge:'#3f3534', detail:'#dda05b', stone:'#9d8270', highlight:'#ceb096', scenery:'forge'},
 ];
+
+export const LEVELS = [
+  {name:'Sunlit Grove',theme:0,enemies:['bow','pistol','homing','shotgun','mortar','brawler','lancer','railgun'],bosses:['boss']},
+  {name:'Brass Foundry',theme:4,enemies:['miner','ricochet','suicide','cluster','magnet','sine','riot','boomerang'],bosses:['twinBomber','twinRicochet']},
+];
+export const isBoss = kind => ENEMIES[kind]?.boss===true;
+export const levelTheme = game => ROOM_THEMES[LEVELS[game.stage??0]?.theme??0];

@@ -2,10 +2,10 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {WEAPONS} from '../game/config.js';
 import {createGame,player,step,chooseUpgrade,distance} from '../game/engine.js';
-for(const weapon of ['dagger','sword','longsword'])test(`normal-health full playthrough: ${weapon}`,()=>{
+for(const weapon of ['dagger','sword','longsword'])test(`normal-health Level 1 playthrough: ${weapon}`,()=>{
  const p=player('bot','Bot',weapon),g=createGame([p],42);let seq=0,dash=0,interact=0,endedAt;
  for(let n=0;n<60000;n++){
-  if(g.phase==='death'||g.phase==='victory'){endedAt=n/60;break;}
+  if(g.phase==='death'||g.phase==='levelclear'){endedAt=n/60;break;}
   if(g.phase==='upgrade'){chooseUpgrade(g,p.id,p.offers.find(id=>id==='vitality')||p.offers.find(id=>id==='edge')||p.offers[0]);step(g,{bot:{interact:++interact}},1/60);continue;}
   const enemy=g.enemies.reduce((a,b)=>!a||distance(p,b)<distance(p,a)?b:a,null);if(!enemy)continue;
   const target={x:enemy.x,y:enemy.y};let angle=Math.atan2(target.y-p.y,target.x-p.x);
@@ -30,5 +30,5 @@ for(const weapon of ['dagger','sword','longsword'])test(`normal-health full play
   const hazard=g.hazards.find(h=>h.kind!=='beam'&&distance(p,h)<h.r+30&&h.remaining<.5);if(hazard){mx=p.x-hazard.x||1;my=p.y-hazard.y||1;if(!p.dashCd)dash++;}
   step(g,{bot:{mx,my,angle,guard,attack:!(enemy.guardLeft>0),parry:seq,dash,interact}},1/60);
  }
- assert.equal(g.phase,'victory');assert.equal(g.room,4);assert.ok(p.hp>0);assert.ok(p.perfects>0);assert.equal(p.kills,19);assert.ok(endedAt<180);
+ assert.equal(g.phase,'levelclear');assert.equal(g.room,4);assert.ok(p.hp>0);assert.ok(p.perfects>0);assert.equal(p.kills,19);assert.ok(endedAt<180);
 });

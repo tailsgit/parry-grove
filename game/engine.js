@@ -1,12 +1,13 @@
+import {specialEnemy,fireSpecial,frontShield,shieldBlocks,prepareProjectile,ricochetMove,projectileDistance,dartHit,specialHazard,dashBlast} from './level2.js';
 import { ObjectPool, SpatialGrid, compact } from './performance.js';
-import { BALANCE as B, WEAPONS, ENEMIES, UPGRADES } from './config.js';
+import { BALANCE as B, WEAPONS, ENEMIES, UPGRADES, LEVELS, isBoss } from './config.js';
 const runtimes=new WeakMap(),hazardClocks=new WeakMap();
 function pooledHazard(){const h={};hazardClocks.set(h,{});return h;}
 const EMPTY_INPUT={};
 const PLAYER_TIMERS=['attackCd','parryCd','dashCd','invuln','swing','streakLeft','stun'];
 const ENEMY_TIMERS=['stun','guardLeft','parryAttemptCd','swing','recoil','repositionLeft','repositionCd','slamCd'];
 const SHOTGUN_OFFSETS=[-.3,-.15,0,.15,.3],BOSS_OFFSETS=[-.5,-.25,0,.25,.5],SINGLE_OFFSET=[0];
-const liveEnemy=e=>e.hp>0,liveBullet=b=>b.life>0,liveHazard=h=>h.kind==='beam'?h.remaining>0:h.remaining>-.25;
+const liveEnemy=e=>e.hp>0,liveBullet=b=>b.life>0,liveHazard=h=>h.kind==='mine'||(h.kind==='beam'?h.remaining>0:h.remaining>-.25);
 function runtime(g,prewarm=false) {
   let r=runtimes.get(g);if(r)return r;
   r={bullets:new ObjectPool(()=>({}),prewarm?256:0),enemies:new ObjectPool(()=>({}),prewarm?64:0),hazards:new ObjectPool(pooledHazard,prewarm?32:0),events:new ObjectPool(()=>({}),prewarm?72:0),alive:[],peers:[],melee:[],separation:new SpatialGrid(B.separationRadius),collisions:new SpatialGrid(64),collisionDirty:true,aim:{},beamEnd:{}};
@@ -14,11 +15,13 @@ function runtime(g,prewarm=false) {
 }
 function clear(array,pool){for(const value of array)pool.release(value);array.length=0;}
 function bullet(g,x,y,vx,vy,damage,kind,predictive,unparryable,target,radius) {
-  const b=runtime(g).bullets.acquire();b.id=++g.serial;b.x=x;b.y=y;b.vx=vx;b.vy=vy;b.damage=damage;b.kind=kind;b.predictive=predictive;b.unparryable=unparryable;b.target=target;b.radius=radius;b.owner='';b.life=7;g.bullets.push(b);
+  const b=runtime(g).bullets.acquire();b.id=++g.serial;b.x=x;b.y=y;b.vx=vx;b.vy=vy;b.damage=damage;b.kind=kind;b.predictive=predictive;b.unparryable=unparryable;b.target=target;b.radius=radius;b.owner='';b.life=7;
+  b.ricochet=undefined;b.bounces=undefined;b.wave=undefined;b.waveAngle=undefined;b.waveSpeed=undefined;b.waveAge=undefined;b.centerX=undefined;b.centerY=undefined;b.thrower=undefined;b.flightAge=undefined;b.returning=undefined;b.curveSide=undefined;b.contactAt=undefined;b.contactPlayer=undefined;
+  g.bullets.push(b);return b;
 }
 function hazard(g,x,y,r,remaining,damage,kind,sx,sy,ex,ey) {
-  const h=runtime(g).hazards.acquire();h.id=++g.serial;h.x=x;h.y=y;h.r=r;h.remaining=remaining;h.total=remaining;h.damage=damage;h.kind=kind;h.sx=sx;h.sy=sy;h.ex=ex;h.ey=ey;h.done=undefined;
-  let hits=hazardClocks.get(h);if(!hits){hits={};hazardClocks.set(h,hits);}for(const key in hits)delete hits[key];h.nextHits=kind==='beam'?hits:undefined;g.hazards.push(h);
+  const h=runtime(g).hazards.acquire();h.id=++g.serial;h.x=x;h.y=y;h.r=r;h.remaining=remaining;h.total=remaining;h.damage=damage;h.kind=kind;h.sx=sx;h.sy=sy;h.ex=ex;h.ey=ey;h.done=undefined;h.triggerRadius=undefined;h.armed=undefined;h.source=undefined;h.flight=undefined;h.settle=undefined;h.target=undefined;h.dashOnly=undefined;
+  let hits=hazardClocks.get(h);if(!hits){hits={};hazardClocks.set(h,hits);}for(const key in hits)delete hits[key];h.nextHits=kind==='beam'?hits:undefined;g.hazards.push(h);return h;
 }
 function nearest(players,e){let best=players[0];for(let i=1;i<players.length;i++)if(!(distance(best,e)<distance(players[i],e)))best=players[i];return best;}
 function rebuildCollisions(g,r){r.collisions.reset(g.width,g.height);for(let i=0;i<g.enemies.length;i++){const e=g.enemies[i];if(e.hp>0)r.collisions.insert(i,e.x,e.y);}r.collisionDirty=false;}
@@ -35,7 +38,7 @@ export function player(id, name, weapon = 'sword', slot = 0) {
     seenParry: 0, seenDash: 0, seenInteract: 0, upgrades: [], offers: [], chosen: false, kills: 0, perfects: 0, regulars: 0 };
 }
 export function createGame(players, seed = Date.now()>>>0) {
-  const g = { seed, time: 0, room: 0, phase: 'combat', players, enemies: [], bullets: [], hazards: [], obstacles: [], events: [], serial: 0, eventSerial: 0, width: 900, height: 570, intro: 1.8, encounterParty: players.length };
+  const g = { seed, time: 0, stage:0, room: 0, phase: 'combat', players, enemies: [], bullets: [], hazards: [], obstacles: [], events: [], serial: 0, eventSerial: 0, width: 900, height: 570, intro: 1.8, encounterParty: players.length };
   runtime(g,true);generateRoom(g);return g;
 }
 export function event(g, kind, x, y, text = '', who = '') {
@@ -43,10 +46,10 @@ export function event(g, kind, x, y, text = '', who = '') {
   const e=pool.acquire();e.id=++g.eventSerial;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;g.events.push(e);
 }
 export function spawnEnemy(g, kind, x, y) {
-  const c = ENEMIES[kind]; const scale = 1+g.room*.12 + (g.encounterParty-1)*(kind==='boss'?.48:.12);
+  const c = ENEMIES[kind]; const scale = 1+g.room*.12 + (g.encounterParty-1)*(isBoss(kind)?.48:.12);
   const e=runtime(g).enemies.acquire();
   e.id=++g.serial;e.kind=kind;e.x=x;e.y=y;e.hp=c.hp*scale;e.maxHp=c.hp*scale;e.angle=0;e.cooldown=1+random(g);e.tell=0;e.target='';e.burst=0;e.danger=false;e.stun=0;e.guardLeft=0;e.guardAge=0;e.nearPlayer=false;e.parryAttemptCd=0;e.action='attack';e.swing=0;e.repositionLeft=0;e.repositionCd=0;e.slamCd=0;
-  e.routeX=undefined;e.routeY=undefined;e.dead=undefined;e.fireReadyAt=undefined;e.tellTotal=undefined;e.recoil=undefined;e.repositionX=undefined;e.repositionY=undefined;
+  e.routeX=undefined;e.routeY=undefined;e.dead=undefined;e.fireReadyAt=undefined;e.tellTotal=undefined;e.recoil=undefined;e.repositionX=undefined;e.repositionY=undefined;e.minesLaid=kind==='miner'?0:undefined;e.mineTimer=undefined;e.mineState=kind==='miner'?'approach':undefined;e.wanderTimer=undefined;e.wanderAngle=undefined;e.primed=undefined;e.aiVX=undefined;e.aiVY=undefined;
   g.enemies.push(e); return e;
 }
 export function generateRoom(g) {
@@ -59,24 +62,25 @@ export function generateRoom(g) {
     const o={x:300+random(g)*(g.width-470),y:85+random(g)*(g.height-210),w:40+Math.floor(random(g)*2)*24,h:40};
     if(g.obstacles.every(a=>Math.hypot(a.x-o.x,a.y-o.y)>110))g.obstacles.push(o);
   }
-  g.players.forEach((p,i)=>{p.x=130;p.y=g.height/2+(i-(g.players.length-1)/2)*40;p.invuln=1.5;p.chosen=false;p.offers=[];p.dashLeft=0;p.parryLeft=0;p.swing=0;p.blocking=false;p.guardHeld=false;p.stun=0;p.vx=0;p.vy=0;});
+  g.players.forEach((p,i)=>{p.x=130;p.y=g.height/2+(i-(g.players.length-1)/2)*40;p.invuln=1.5;p.chosen=false;p.offers=[];p.dashLeft=0;p.parryLeft=0;p.swing=0;p.blocking=false;p.guardHeld=false;p.stun=0;p.vx=0;p.vy=0;p.magnetLeft=undefined;});
   if(g.room===B.encounters) {
     g.obstacles=g.obstacles.filter(o=>!inside({x:g.width-210,y:g.height/2},o,50));
-    spawnEnemy(g,'boss',g.width-210,g.height/2);
-    for(let i=1;i<g.encounterParty;i++)spawnEnemy(g,i%2?'bow':'mortar',g.width-140,100+i*90);
+    if((g.stage??0)===0){spawnEnemy(g,'boss',g.width-210,g.height/2);for(let i=1;i<g.encounterParty;i++)spawnEnemy(g,i%2?'bow':'mortar',g.width-140,100+i*90);}
+    else {g.obstacles=g.obstacles.filter(o=>!inside({x:g.width-230,y:g.height/2-100},o,50)&&!inside({x:g.width-170,y:g.height/2+100},o,50));spawnEnemy(g,'twinBomber',g.width-230,g.height/2-100);spawnEnemy(g,'twinRicochet',g.width-170,g.height/2+100);}
   } else {
     const kinds=['bow','pistol','homing','shotgun','mortar'];
-    const n=B.baseEnemies+g.room+B.partyEnemies*(g.encounterParty-1);
+    const n=B.baseEnemies+g.room+B.partyEnemies*(g.encounterParty-1)+((g.stage??0)>0?2:0);
     for(let i=0;i<n;i++) {
       let kind=i%2===0?(i%4===0?'brawler':'lancer'):kinds[(g.room+i)%Math.min(5,2+g.room+g.encounterParty-1)];
       if(g.room>=2&&i===1)kind='railgun';
       if(g.room===3&&i===0)kind='mortar';
+      if((g.stage??0)>0)kind=LEVELS[g.stage].enemies[(i+g.room*3)%LEVELS[g.stage].enemies.length];
       let pos={x:380+random(g)*(g.width-440),y:70+random(g)*(g.height-140)};
       for(let k=0;k<20&&g.obstacles.some(o=>inside(pos,o,30));k++)pos={x:380+random(g)*(g.width-440),y:70+random(g)*(g.height-140)};
       spawnEnemy(g,kind,pos.x,pos.y);
     }
   }
-  g.scenerySeed=g.seed;
+  if(g.sceneryStage!==(g.stage??0)){g.scenerySeed=g.seed;g.sceneryStage=g.stage??0;}
 }
 function insideXY(x,y,o,r=0){return x>o.x-r&&x<o.x+o.w+r&&y>o.y-r&&y<o.y+o.h+r;}
 function inside(p,o,r=0){return insideXY(p.x,p.y,o,r);}
@@ -106,9 +110,9 @@ function clearSegment(g,x,y,tx,ty,margin=0){
   }
   return true;
 }
-export function hasLineOfSight(g,a,b){return clearSegment(g,a.x,a.y,b.x,b.y);}
+export function hasLineOfSight(g,a,b){return clearSegment(g,a.x,a.y,b.x,b.y)&&!shieldBlocks(g,a,b,b);}
 function seekSight(g,e,p){
-  const radius=e.kind==='boss'?29:18;
+  const radius=isBoss(e.kind)?29:18;
   if(e.routeX!=null&&(Math.hypot(e.routeX-e.x,e.routeY-e.y)<6||!clearSegment(g,e.x,e.y,e.routeX,e.routeY,radius)))e.routeX=undefined;
   if(e.routeX==null){
     let best=Infinity;
@@ -170,15 +174,16 @@ function melee(g,p) {
   const candidates=runtime(g).melee;candidates.length=0;for(const e of g.enemies)if(e.hp>0&&distance(e,p)<=w.range+29)candidates.push(e);
   candidates.sort((a,b)=>distance(a,p)-distance(b,p));
   for(const e of candidates) {
-    const gap=distance(e,p),radius=e.kind==='boss'?29:18;
+    const gap=distance(e,p),radius=isBoss(e.kind)?29:18;
     // Intersect the body with the swing sector; touching enemies cannot fall through its center.
     const bodyAngle=Math.asin(Math.min(1,radius/(gap||1)));
-    if(e.hp<=0||gap>w.range+radius||(gap>B.radius+radius&&Math.abs(angleDiff(Math.atan2(e.y-p.y,e.x-p.x),p.angle))>w.arc/2+bodyAngle)||blocked(g,p,e))continue;
+    if(e.hp<=0||gap>w.range+radius||(gap>B.radius+radius&&Math.abs(angleDiff(Math.atan2(e.y-p.y,e.x-p.x),p.angle))>w.arc/2+bodyAngle)||blocked(g,p,e)||shieldBlocks(g,p,e,e))continue;
+    if(frontShield(e,p.x,p.y)){event(g,'shieldhit',e.x,e.y,'FLANK THE SHIELD',p.id);continue;}
     if(e.guardLeft>0&&Math.abs(angleDiff(Math.atan2(p.y-e.y,p.x-e.x),e.angle))<B.parryCone){
       p.stun=B.playerParryStun;p.blocking=false;p.guardHeld=false;p.parryLeft=0;p.dashLeft=0;p.swing=0;
       e.guardLeft=0;event(g,'enemyparry',p.x,p.y,'PARRIED · STUNNED',p.id);break;
     }
-    const d=w.damage*p.damage*(1+p.streak*B.streakBonus);e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
+    const d=p.name==='hacker'?e.hp:w.damage*p.damage*(1+p.streak*B.streakBonus);e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
     event(g,'hit',e.x,e.y,`${Math.round(d)}`,p.id);
     if(e.hp<=0)kill(g,e,p);
     if(++n>=w.targets)break;
@@ -229,6 +234,7 @@ function fire(g,e,p) {
   if(!hasLineOfSight(g,e,p))return false;
   e.recoil=.24;
   const c=ENEMIES[e.kind],base=e.angle;
+  if(fireSpecial(g,e,p,LEVEL2_API))return;
   if(c.melee){
     e.swing=.2;event(g,'meleeswing',e.x,e.y);
     if(distance(e,p)<=c.range+B.radius&&!blocked(g,e,p)&&Math.abs(angleDiff(Math.atan2(p.y-e.y,p.x-e.x),e.angle))<=c.arc/2){
@@ -258,6 +264,11 @@ export function chooseUpgrade(g,id,upgradeId) {
 }
 export function step(g,inputs,dt) {
   dt=clamp(dt,0,1/30);g.time+=dt;
+  if(g.phase==='levelclear'){
+    const ready=g.players.some(p=>p.hp>0&&(inputs[p.id]?.interact||0)>p.seenInteract);
+    if(ready){for(const p of g.players)p.seenInteract=inputs[p.id]?.interact||0;g.stage=(g.stage??0)+1;g.room=0;g.phase='combat';generateRoom(g);}
+    return;
+  }
   if(g.phase!=='combat') {
     if(g.phase==='upgrade'&&g.players.every(p=>p.hp<=0||p.chosen)) {
       const ready=g.players.some(p=>(inputs[p.id]?.interact||0)>p.seenInteract);
@@ -268,6 +279,7 @@ export function step(g,inputs,dt) {
   g.intro=Math.max(0,g.intro-dt);
   for(const p of g.players) {
     for(const k of PLAYER_TIMERS)p[k]=Math.max(0,(p[k]||0)-dt);
+    if(p.magnetLeft>0)p.magnetLeft=Math.max(0,p.magnetLeft-dt);
     if(!p.streakLeft)p.streak=0;
     if(p.parryLeft>0){p.parryLeft-=dt;p.parryAge+=dt;if(p.parryLeft<=0&&!p.parrySuccess){p.streak=0;event(g,'miss',p.x,p.y,'MISS',p.id);}}
     const i=inputs[p.id]||EMPTY_INPUT; if(p.hp<=0)continue;
@@ -297,7 +309,8 @@ export function step(g,inputs,dt) {
     const c=ENEMIES[e.kind],p=nearest(alive,e),d=distance(e,p);
     let vx=0,vy=0;
     if(g.intro<=0){
-      if(!hasLineOfSight(g,e,p)&&!(e.action==='slam'&&e.tell>0)){
+      if(specialEnemy(g,e,p,dt,LEVEL2_API)){vx=e.aiVX;vy=e.aiVY;}
+      else if(!hasLineOfSight(g,e,p)&&!(e.action==='slam'&&e.tell>0)){
         e.tell=0;e.fireReadyAt=null;e.tellTotal=undefined;e.action='attack';e.repositionLeft=0;e.cooldown=Math.max(e.cooldown,.1);
         e.angle=Math.atan2(p.y-e.y,p.x-e.x);const direction=seekSight(g,e,p);vx=Math.cos(direction)*c.speed;vy=Math.sin(direction)*c.speed;
       }else if(e.kind==='boss'&&e.repositionLeft>0){
@@ -306,7 +319,7 @@ export function step(g,inputs,dt) {
         e.routeX=undefined;
         e.angle=Math.atan2(p.y-e.y,p.x-e.x);
         const near=d<B.enemyParryRange;
-        if(e.kind!=='boss'&&near&&!e.nearPlayer&&!e.parryAttemptCd){
+        if(!isBoss(e.kind)&&near&&!e.nearPlayer&&!e.parryAttemptCd){
           e.parryAttemptCd=2;
           if(random(g)<B.enemyParryChance){e.action='parry';e.danger=false;e.tell=c.tell;e.target=p.id;}
         }
@@ -323,9 +336,10 @@ export function step(g,inputs,dt) {
             e.burst++;e.action='attack';e.danger=e.kind==='mortar'||e.kind==='railgun'||(e.kind==='pistol'&&e.burst%3===0)||(e.kind==='boss'&&e.burst%2===0);
             e.tell=e.danger&&e.kind!=='railgun'?Math.max(.8,c.tell):c.tell;e.tellTotal=e.tell;e.target=p.id;
           }else{
-            const desired=c.melee?c.range*.7:e.kind==='railgun'?430:e.kind==='boss'?250:e.kind==='shotgun'?145:210;
+            const desired=c.melee?c.range*.7:e.kind==='twinBomber'?180:e.kind==='railgun'?430:e.kind==='boss'?250:e.kind==='shotgun'?145:210;
             const toward=d>desired?1:d<desired-40?-.65:0;
             vx=Math.cos(e.angle)*toward*c.speed;vy=Math.sin(e.angle)*toward*c.speed;
+            if(e.kind==='twinBomber'){vx+=Math.cos(e.angle+Math.PI/2)*.65*c.speed;vy+=Math.sin(e.angle+Math.PI/2)*.65*c.speed;}
             if(!c.melee){vx+=Math.cos(e.angle+Math.PI/2)*.25*c.speed;vy+=Math.sin(e.angle+Math.PI/2)*.25*c.speed;}
           }
         }
@@ -347,7 +361,7 @@ export function step(g,inputs,dt) {
       if(gap<B.separationRadius){const force=1-gap/B.separationRadius;rx+=(gap?dx/gap:e.id<a.id?-1:1)*force;ry+=(gap?dy/gap:0)*force;}
     }
     const magnitude=Math.max(1,Math.hypot(rx,ry));
-    move(g,e,(vx+rx/magnitude*B.separationSpeed)*dt,(vy+ry/magnitude*B.separationSpeed)*dt,e.kind==='boss'?29:18);
+    move(g,e,(vx+rx/magnitude*B.separationSpeed)*dt,(vy+ry/magnitude*B.separationSpeed)*dt,isBoss(e.kind)?29:18);
   }
   // Completed telegraphs take turns in order; an enemy volley stays intact.
   if(g.time+1e-9>=(g.nextEnemyShot??0)) {
@@ -356,6 +370,9 @@ export function step(g,inputs,dt) {
   }
   r.collisionDirty=true;
   for(const b of g.bullets) {
+    if(b.life<=0)continue;
+    if(b.kind==='magnet'||b.ricochet||b.wave||b.thrower||alive.some(p=>(p.magnetLeft||0)>0))prepareProjectile(g,b,dt,alive,LEVEL2_API);
+    if(b.life<=0)continue;
     if(b.kind==='homing') {
       const target=b.owner
         ? g.enemies.find(e=>e.hp>0&&e.id===b.target)||deflectionTarget(g,b,Math.atan2(b.vy,b.vx))
@@ -363,13 +380,18 @@ export function step(g,inputs,dt) {
       if(target){b.target=target.id;steer(b,target,dt*1.35);}
     }
     const previousX=b.x,previousY=b.y;b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
-    if(b.x<25||b.x>g.width-25||b.y<25||b.y>g.height-25||g.obstacles.some(o=>inside(b,o,b.radius||3))){b.life=0;continue;}
+    const bounced=ricochetMove(g,b,previousX,previousY,dt,LEVEL2_API);
+    if(b.life<=0)continue;
+    if(b.thrower&&(b.x<29||b.x>g.width-29||b.y<29||b.y>g.height-29)){b.x=clamp(b.x,29,g.width-29);b.y=clamp(b.y,29,g.height-29);b.returning=true;}
+    if(!bounced&&!b.thrower&&(b.x<25||b.x>g.width-25||b.y<25||b.y>g.height-25||g.obstacles.some(o=>inside(b,o,b.radius||3)))){b.life=0;continue;}
     if(b.owner) {
+      if((g.stage??0)>0&&shieldBlocks(g,{x:previousX,y:previousY},b)){event(g,'shieldhit',b.x,b.y,'BLOCKED');b.life=0;continue;}
       if(r.collisionDirty&&g.enemies.length>=32)rebuildCollisions(g,r);
       const candidates=g.enemies.length>=32?r.collisions.query(Math.min(previousX,b.x)-29,Math.min(previousY,b.y)-29,Math.max(previousX,b.x)+29,Math.max(previousY,b.y)+29):null;
-      for(let index=0;index<(candidates?candidates.length:g.enemies.length);index++){const e=g.enemies[candidates?candidates[index]:index];if(e.hp>0&&segmentDistance(e,previousX,previousY,b.x,b.y)<(e.kind==='boss'?29:18)){const p=g.players.find(p=>p.id===b.owner);e.hp-=b.damage;event(g,'hit',e.x,e.y,`${Math.round(b.damage)}`,p?.id);if(e.hp<=0)kill(g,e,p);b.life=0;break;}}
-    } else for(const p of alive)if(segmentDistance(p,previousX,previousY,b.x,b.y)<B.radius+(b.radius||3)+2){
-      const outcome=hitPlayer(g,p,b.damage,!b.unparryable,Math.atan2(-b.vy,-b.vx));
+      for(let index=0;index<(candidates?candidates.length:g.enemies.length);index++){const e=g.enemies[candidates?candidates[index]:index];if(e.hp>0&&projectileDistance(b,e,previousX,previousY,b.x,b.y,segmentDistance)<(isBoss(e.kind)?29:18)){if(frontShield(e,previousX,previousY)){event(g,'shieldhit',e.x,e.y,'BLOCKED');b.life=0;break;}const p=g.players.find(p=>p.id===b.owner),damage=p?.name==='hacker'?e.hp:b.damage;e.hp-=damage;event(g,'hit',e.x,e.y,`${Math.round(damage)}`,p?.id);if(e.hp<=0)kill(g,e,p);b.life=0;break;}}
+    } else for(const p of alive)if(projectileDistance(b,p,previousX,previousY,b.x,b.y,segmentDistance)<B.radius+(b.radius||3)+2){
+      if(b.contactPlayer===p.id&&g.time<(b.contactAt||0))continue;
+      const outcome=b.kind==='magnet'?dartHit(g,b,p,LEVEL2_API):hitPlayer(g,p,b.damage,!b.unparryable,Math.atan2(-b.vy,-b.vx));
       if(outcome==='immune')continue;
       if(outcome==='perfect'||outcome==='regular') {
         // Preserve the player's aim, with a small correction toward nearby visible enemies.
@@ -377,14 +399,16 @@ export function step(g,inputs,dt) {
         b.x=p.x;b.y=p.y;
         const assisted=deflectionTarget(g,b,p.angle,B.deflectAssistCone);
         const a=p.angle+(assisted?clamp(angleDiff(Math.atan2(assisted.y-p.y,assisted.x-p.x),p.angle),-B.deflectAssistTurn,B.deflectAssistTurn):0);
+        b.wave=false;b.thrower=undefined;
         b.vx=Math.cos(a)*s;b.vy=Math.sin(a)*s;b.owner=p.id;b.damage*=outcome==='perfect'?2:1;b.life=4;
         b.target=(assisted|| (b.kind==='homing'?deflectionTarget(g,b,a):null))?.id??null;
         b.x=p.x+Math.cos(a)*24;b.y=p.y+Math.sin(a)*24;
-      }else b.life=0;
+      }else if(b.thrower){b.contactPlayer=p.id;b.contactAt=g.time+.35;}else b.life=0;
       break;
     }
   }
   for(const h of g.hazards) {
+    if(specialHazard(g,h,dt,alive,LEVEL2_API))continue;
     if(h.kind==='beam'&&h.remaining>0){
       for(const p of alive)if(segmentDistance(p,h.x,h.y,h.ex,h.ey)<h.r+B.radius&&g.time>=(h.nextHits[p.id]||0)){
         h.nextHits[p.id]=g.time+.2;
@@ -392,14 +416,16 @@ export function step(g,inputs,dt) {
       }
       h.remaining-=dt;
     }else{
-      h.remaining-=dt;if(h.remaining<=0&&!h.done){h.done=true;event(g,'explosion',h.x,h.y);for(const p of alive)if(distance(p,h)<h.r+B.radius)hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x));}
+      h.remaining-=dt;if(h.remaining<=0&&!h.done){h.done=true;event(g,'explosion',h.x,h.y);for(const p of alive)if(distance(p,h)<h.r+B.radius){if(h.dashOnly)dashBlast(g,p,h.damage,LEVEL2_API);else hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x));}}
     }
   }
   compact(g.hazards,liveHazard,r.hazards);compact(g.bullets,liveBullet,r.bullets);compact(g.enemies,liveEnemy,r.enemies);
   if(!g.players.some(p=>p.hp>0)){g.phase='death';return;}
   if(!g.enemies.length) {
     clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);
-    if(g.room===B.encounters) {g.phase='victory';event(g,'victory',g.width/2,g.height/2);}
+    if(g.room===B.encounters) {g.phase=(g.stage??0)+1<LEVELS.length?'levelclear':'victory';event(g,g.phase==='victory'?'victory':'levelclear',g.width/2,g.height/2,g.phase==='levelclear'?'LEVEL COMPLETE':'');}
     else {g.phase='upgrade';for(const p of g.players){p.chosen=p.hp<=0;const pool=[...UPGRADES];p.offers=[];for(let n=0;n<3;n++){const j=Math.floor(random(g)*pool.length);p.offers.push(pool.splice(j,1)[0].id);}}event(g,'clear',g.width/2,g.height/2,'ROOM CLEARED');}
   }
 }
+
+const LEVEL2_API={bullet,hazard,event,random,move,hasLineOfSight,seekSight,hitPlayer,kill,distance,steer,predictedAim};
