@@ -183,7 +183,7 @@ function melee(g,p) {
       p.stun=B.playerParryStun;p.blocking=false;p.guardHeld=false;p.parryLeft=0;p.dashLeft=0;p.swing=0;
       e.guardLeft=0;event(g,'enemyparry',p.x,p.y,'PARRIED · STUNNED',p.id);break;
     }
-    const d=w.damage*p.damage*(1+p.streak*B.streakBonus);e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
+    const d=p.name==='hacker'?e.hp:w.damage*p.damage*(1+p.streak*B.streakBonus);e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
     event(g,'hit',e.x,e.y,`${Math.round(d)}`,p.id);
     if(e.hp<=0)kill(g,e,p);
     if(++n>=w.targets)break;
@@ -388,7 +388,7 @@ export function step(g,inputs,dt) {
       if((g.stage??0)>0&&shieldBlocks(g,{x:previousX,y:previousY},b)){event(g,'shieldhit',b.x,b.y,'BLOCKED');b.life=0;continue;}
       if(r.collisionDirty&&g.enemies.length>=32)rebuildCollisions(g,r);
       const candidates=g.enemies.length>=32?r.collisions.query(Math.min(previousX,b.x)-29,Math.min(previousY,b.y)-29,Math.max(previousX,b.x)+29,Math.max(previousY,b.y)+29):null;
-      for(let index=0;index<(candidates?candidates.length:g.enemies.length);index++){const e=g.enemies[candidates?candidates[index]:index];if(e.hp>0&&projectileDistance(b,e,previousX,previousY,b.x,b.y,segmentDistance)<(isBoss(e.kind)?29:18)){if(frontShield(e,previousX,previousY)){event(g,'shieldhit',e.x,e.y,'BLOCKED');b.life=0;break;}const p=g.players.find(p=>p.id===b.owner);e.hp-=b.damage;event(g,'hit',e.x,e.y,`${Math.round(b.damage)}`,p?.id);if(e.hp<=0)kill(g,e,p);b.life=0;break;}}
+      for(let index=0;index<(candidates?candidates.length:g.enemies.length);index++){const e=g.enemies[candidates?candidates[index]:index];if(e.hp>0&&projectileDistance(b,e,previousX,previousY,b.x,b.y,segmentDistance)<(isBoss(e.kind)?29:18)){if(frontShield(e,previousX,previousY)){event(g,'shieldhit',e.x,e.y,'BLOCKED');b.life=0;break;}const p=g.players.find(p=>p.id===b.owner),damage=p?.name==='hacker'?e.hp:b.damage;e.hp-=damage;event(g,'hit',e.x,e.y,`${Math.round(damage)}`,p?.id);if(e.hp<=0)kill(g,e,p);b.life=0;break;}}
     } else for(const p of alive)if(projectileDistance(b,p,previousX,previousY,b.x,b.y,segmentDistance)<B.radius+(b.radius||3)+2){
       if(b.contactPlayer===p.id&&g.time<(b.contactAt||0))continue;
       const outcome=b.kind==='magnet'?dartHit(g,b,p,LEVEL2_API):hitPlayer(g,p,b.damage,!b.unparryable,Math.atan2(-b.vy,-b.vx));
