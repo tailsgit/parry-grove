@@ -116,7 +116,7 @@ export class Renderer {
     c.globalAlpha=1;c.fillStyle=color;c.font='bold 11px monospace';c.textAlign='center';if(!attract)c.fillText(p.name,0,-29);c.restore();
   }
   enemy(c,e){const cfg=ENEMIES[e.kind],boss=isBoss(e.kind);c.save();c.translate(Math.round(e.x),Math.round(e.y));const s=boss?1.8:1;c.scale(s,s);c.fillStyle='#294b3a66';c.beginPath();c.ellipse(0,13,16,6,0,0,TAU);c.fill();c.fillStyle='#5a5148';c.fillRect(-10,7,7,9);c.fillRect(4,7,7,9);c.fillStyle=cfg.color;c.fillRect(-12,-5,24,16);c.fillStyle='#f6e0b6';c.fillRect(-8,-17,16,13);c.fillStyle='#574d42';c.fillRect(-10,-19,20,7);c.fillRect(-7,-10,14,3);c.fillStyle='#fff2d3';c.fillRect(-5,-10,3,2);c.fillRect(3,-10,3,2);this.weapon(c,e,cfg);
-    if(e.kind==='miner'){c.fillStyle='#dec17a';c.font='bold 10px monospace';c.textAlign='center';c.fillText(`MINE ${(Math.max(0,e.mineTimer??cfg.rate)).toFixed(1)}s`,0,-31);}
+    if(e.kind==='miner'){c.fillStyle='#dec17a';c.font='bold 10px monospace';c.textAlign='center';c.fillText(e.mineState==='hold'?`HOLD ${(e.mineTimer||0).toFixed(1)}s`:e.mineState==='flee'?'FLEE':'APPROACH',0,-31);}
     if(e.kind==='suicide'&&e.primed){c.save();c.strokeStyle='#ff294d';c.lineWidth=3;c.globalAlpha=.5;c.beginPath();c.arc(0,0,260,0,TAU);c.stroke();c.globalAlpha=1;c.fillStyle='#ff294d';c.font='bold 12px monospace';c.textAlign='center';c.fillText('DASH ONLY',0,-48);c.restore();}
     if(boss&&e.repositionLeft>0){c.fillStyle='#ffce7255';for(let i=1;i<4;i++)c.fillRect(-e.repositionX*i*10-10,-e.repositionY*i*10-6,20,20);}
     if(e.kind==='railgun'&&e.tell>0){c.save();c.rotate(e.angle);c.strokeStyle='#ff294d';c.globalAlpha=.55;c.lineWidth=2;c.setLineDash([8,8]);c.beginPath();c.moveTo(25,0);c.lineTo(1200,0);c.stroke();c.restore();}

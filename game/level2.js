@@ -6,7 +6,23 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function specialEnemy(g,e,p,dt,api){
   const c=ENEMIES[e.kind];
   if(e.kind==='miner'){
-    e.mineTimer=(e.mineTimer??c.rate)-dt;e.wanderTimer=(e.wanderTimer??0)-dt;
+    e.mineTimer=Math.max(0,(e.mineTimer??0)-dt);
+    e.mineState??='approach';e.aiVX=0;e.aiVY=0;
+    const gap=api.distance(e,p);
+    if(e.mineState==='hold'){
+      if(e.mineTimer>1e-9)return true;
+      e.mineState='approach';
+    }
+    if(e.mineState==='approach'){
+      if(gap<=c.dropRange&&api.hasLineOfSight(g,e,p)&&e.mineTimer<=1e-9){
+        const h=api.hazard(g,e.x,e.y,110,.35,c.damage,'mine');h.triggerRadius=52;h.armed=false;h.source=e.id;e.minesLaid++;e.mineTimer=c.rate;e.mineState='flee';e.wanderTimer=0;api.event(g,'mine',e.x,e.y,'MINE');
+      }else{
+        const angle=api.hasLineOfSight(g,e,p)?Math.atan2(p.y-e.y,p.x-e.x):api.seekSight(g,e,p);
+        e.angle=angle;e.aiVX=Math.cos(angle)*c.speed;e.aiVY=Math.sin(angle)*c.speed;return true;
+      }
+    }
+    if(gap>=c.safeDistance){e.mineState='hold';return true;}
+    e.wanderTimer=(e.wanderTimer??0)-dt;
     const away=Math.atan2(e.y-p.y,e.x-p.x);
     if(e.wanderTimer<=0){e.wanderTimer=.25+api.random(g)*.45;e.wanderAngle=away+(api.random(g)-.5)*.7;}
     // Flee along clear lanes; near walls/cover choose a safe tangent rather than
@@ -20,7 +36,6 @@ export function specialEnemy(g,e,p,dt,api){
       if(!blocked&&score>best){angle=candidate;best=score;moving=true;if(i===0)break;}
     }
     e.angle=angle;e.aiVX=moving?Math.cos(angle)*c.speed:0;e.aiVY=moving?Math.sin(angle)*c.speed:0;
-    if(e.mineTimer<=1e-9){const h=api.hazard(g,e.x,e.y,110,.35,c.damage,'mine');h.triggerRadius=52;h.armed=false;h.source=e.id;e.minesLaid++;e.mineTimer=c.rate;api.event(g,'mine',e.x,e.y,'MINE');}
     return true;
   }
   if(e.kind==='suicide'){

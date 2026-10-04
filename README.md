@@ -240,7 +240,7 @@ offer the same upgrades and combat rules; room 5 requires defeating both bosses.
 
 | Enemy | Attack and counterplay |
 | --- | --- |
-| Mine-Layer | Keeps away from the player; places unlimited mines on a five-second cooldown. Mines arm and detonate on proximity. |
+| Mine-Layer | Approaches to 150 pixels, instantly drops a mine, flees to 450 pixels, then holds until its five-second cooldown ends before approaching again. No lifetime mine limit. Mines arm and detonate on proximity. |
 | Ricochet Gunner | Wall and stone-cover reflections; two bounces, removed at the third impact. |
 | Suicide Bomber | Charges, then a random short red fuse. Its large DASH ONLY blast requires precisely timed dash invulnerability; block and parry do not stop it. |
 | Cluster Grenadier | Arcing grenade rests for 220ms after landing, then splits into exactly five projectiles. |
