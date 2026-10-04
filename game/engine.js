@@ -110,6 +110,13 @@ function clearSegment(g,x,y,tx,ty,margin=0){
   }
   return true;
 }
+// Shield facing turns at a bounded rate; movement still follows its own route.
+function faceEnemy(e,p,dt){
+  const target=Math.atan2(p.y-e.y,p.x-e.x),rate=ENEMIES[e.kind].turnSpeed;
+  if(!rate){e.angle=target;return;}
+  const limit=rate*dt;e.angle+=Math.max(-limit,Math.min(limit,angleDiff(target,e.angle)));
+  e.angle=Math.atan2(Math.sin(e.angle),Math.cos(e.angle));
+}
 export function hasLineOfSight(g,a,b){return clearSegment(g,a.x,a.y,b.x,b.y)&&!shieldBlocks(g,a,b,b);}
 function seekSight(g,e,p){
   const radius=isBoss(e.kind)?29:18;
@@ -318,12 +325,12 @@ export function step(g,inputs,dt) {
       else if(e.kind==='boss'&&!hasLineOfSight(g,e,p)&&d<=B.bossSlamRadius+B.radius&&!e.slamCd){bossSlam(g,e);}
       else if(!hasLineOfSight(g,e,p)&&!inAoERange(e,p)&&!(e.action==='slam'&&e.tell>0)){
         e.tell=0;e.fireReadyAt=null;e.tellTotal=undefined;e.action='attack';e.repositionLeft=0;e.cooldown=Math.max(e.cooldown,.1);
-        e.angle=Math.atan2(p.y-e.y,p.x-e.x);const direction=seekSight(g,e,p);vx=Math.cos(direction)*c.speed;vy=Math.sin(direction)*c.speed;
+        faceEnemy(e,p,dt);const direction=seekSight(g,e,p);vx=Math.cos(direction)*c.speed;vy=Math.sin(direction)*c.speed;
       }else if(e.kind==='boss'&&e.repositionLeft>0){
         vx=e.repositionX*B.bossRepositionSpeed;vy=e.repositionY*B.bossRepositionSpeed;
       }else if(e.tell<=0&&e.fireReadyAt==null&&e.guardLeft<=0){
         e.routeX=undefined;
-        e.angle=Math.atan2(p.y-e.y,p.x-e.x);
+        faceEnemy(e,p,dt);
         const near=d<B.enemyParryRange;
         if(!isBoss(e.kind)&&near&&!e.nearPlayer&&!e.parryAttemptCd){
           e.parryAttemptCd=2;
@@ -342,7 +349,8 @@ export function step(g,inputs,dt) {
           }else{
             const desired=c.melee?c.range*.7:e.kind==='twinBomber'?180:e.kind==='railgun'?430:e.kind==='boss'?250:e.kind==='shotgun'?145:210;
             const toward=d>desired?1:d<desired-40?-.65:0;
-            vx=Math.cos(e.angle)*toward*c.speed;vy=Math.sin(e.angle)*toward*c.speed;
+            const movementAngle=e.kind==='riot'?Math.atan2(p.y-e.y,p.x-e.x):e.angle;
+            vx=Math.cos(movementAngle)*toward*c.speed;vy=Math.sin(movementAngle)*toward*c.speed;
             if(e.kind==='twinBomber'){vx+=Math.cos(e.angle+Math.PI/2)*.65*c.speed;vy+=Math.sin(e.angle+Math.PI/2)*.65*c.speed;}
             if(!c.melee){vx+=Math.cos(e.angle+Math.PI/2)*.25*c.speed;vy+=Math.sin(e.angle+Math.PI/2)*.25*c.speed;}
           }
