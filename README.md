@@ -255,3 +255,11 @@ offer the same upgrades and combat rules; room 5 requires defeating both bosses.
 All new projectiles, enemies and hazards use the existing object pools. Ricochet
 collision uses swept reflected segments and reused scratch storage; multiplayer
 snapshots carry the same simulation state.
+
+## Enemy encyclopedia
+
+Open **Settings → Enemy encyclopedia** from the menu or during a run. All 19
+enemies and bosses have a static portrait drawn from their actual game artwork,
+a mechanics explanation and counterplay advice. Search by name or mechanic,
+or filter by campaign level. Settings pauses solo play; co-op continues.
+Use **Close / Esc** to return to the game.
