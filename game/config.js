@@ -24,7 +24,7 @@ export const ENEMIES = {
   brawler: { name: 'Brawler', hp: 58, speed: 96, melee: true, range: 90, arc: 1.8, damage: 16, rate: 1.5, tell: .3, color: '#dd9b72' },
   lancer: { name: 'Lancer', hp: 64, speed: 82, melee: true, range: 130, arc: .9, damage: 19, rate: 1.9, tell: .4, color: '#a9b9e8' },
   railgun: { name: 'Rail Turret', hp: 60, speed: 25, projectile: 850, projectileRadius: 9, damage: 25, rate: 3.2, tell: .35, color: '#ed7ca2' },
-  miner: { name: 'Mine-Layer', hp: 58, speed: 150, damage: 20, rate: 1.1, tell: .25, color: '#dec17a', special: true },
+  miner: { name: 'Mine-Layer', hp: 58, speed: 150, damage: 20, rate: 5, tell: .25, color: '#dec17a', special: true },
   ricochet: { name: 'Ricochet Gunner', hp: 64, speed: 70, projectile: 300, damage: 12, rate: 1.9, tell: .45, color: '#f3a36b' },
   suicide: { name: 'Suicide Bomber', hp: 45, speed: 180, damage: 38, rate: 1, tell: .3, color: '#ff7868', special: true },
   cluster: { name: 'Cluster Grenadier', hp: 72, speed: 60, damage: 11, rate: 2.7, tell: .6, color: '#acb779' },

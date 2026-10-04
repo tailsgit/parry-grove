@@ -240,7 +240,7 @@ offer the same upgrades and combat rules; room 5 requires defeating both bosses.
 
 | Enemy | Attack and counterplay |
 | --- | --- |
-| Mine-Layer | Erratic movement; places only three mines during its lifetime, then evades. Mines arm and detonate on proximity. |
+| Mine-Layer | Keeps away from the player; places unlimited mines on a five-second cooldown. Mines arm and detonate on proximity. |
 | Ricochet Gunner | Wall and stone-cover reflections; two bounces, removed at the third impact. |
 | Suicide Bomber | Charges, then a random short red fuse. Its large DASH ONLY blast requires precisely timed dash invulnerability; block and parry do not stop it. |
 | Cluster Grenadier | Arcing grenade rests for 220ms after landing, then splits into exactly five projectiles. |
@@ -248,7 +248,7 @@ offer the same upgrades and combat rules; room 5 requires defeating both bosses.
 | Sin-Shooter | Shots follow a sine wave; step into the curves or parry. |
 | Riot Shield | Front-facing mobile cover protects allies. Flank it or parry its low-damage, strong-knockback melee strike to stun it. |
 | Boomerang Thrower | One wide-arcing projectile at a time; dodge the outgoing and returning passes. Red boomerangs may be blocked, but not parried. |
-| Twin bosses | The mobile Bomber plants mines and lobs explosive grenades while the Ricochet fires bouncing spreads. Both must fall. |
+| Twin bosses | The mobile Bomber plants mines and lobs cluster grenades that pause on landing and scatter five shots while the Ricochet fires bouncing spreads. Both must fall. |
 
 All new projectiles, enemies and hazards use the existing object pools. Ricochet
 collision uses swept reflected segments and reused scratch storage; multiplayer

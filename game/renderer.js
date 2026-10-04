@@ -116,7 +116,7 @@ export class Renderer {
     c.globalAlpha=1;c.fillStyle=color;c.font='bold 11px monospace';c.textAlign='center';if(!attract)c.fillText(p.name,0,-29);c.restore();
   }
   enemy(c,e){const cfg=ENEMIES[e.kind],boss=isBoss(e.kind);c.save();c.translate(Math.round(e.x),Math.round(e.y));const s=boss?1.8:1;c.scale(s,s);c.fillStyle='#294b3a66';c.beginPath();c.ellipse(0,13,16,6,0,0,TAU);c.fill();c.fillStyle='#5a5148';c.fillRect(-10,7,7,9);c.fillRect(4,7,7,9);c.fillStyle=cfg.color;c.fillRect(-12,-5,24,16);c.fillStyle='#f6e0b6';c.fillRect(-8,-17,16,13);c.fillStyle='#574d42';c.fillRect(-10,-19,20,7);c.fillRect(-7,-10,14,3);c.fillStyle='#fff2d3';c.fillRect(-5,-10,3,2);c.fillRect(3,-10,3,2);this.weapon(c,e,cfg);
-    if(e.kind==='miner'){c.fillStyle='#dec17a';c.font='bold 10px monospace';c.textAlign='center';c.fillText(e.minesLaid>=3?'EVADING':`${3-(e.minesLaid||0)} MINES`,0,-31);}
+    if(e.kind==='miner'){c.fillStyle='#dec17a';c.font='bold 10px monospace';c.textAlign='center';c.fillText(`MINE ${(Math.max(0,e.mineTimer??cfg.rate)).toFixed(1)}s`,0,-31);}
     if(e.kind==='suicide'&&e.primed){c.save();c.strokeStyle='#ff294d';c.lineWidth=3;c.globalAlpha=.5;c.beginPath();c.arc(0,0,260,0,TAU);c.stroke();c.globalAlpha=1;c.fillStyle='#ff294d';c.font='bold 12px monospace';c.textAlign='center';c.fillText('DASH ONLY',0,-48);c.restore();}
     if(boss&&e.repositionLeft>0){c.fillStyle='#ffce7255';for(let i=1;i<4;i++)c.fillRect(-e.repositionX*i*10-10,-e.repositionY*i*10-6,20,20);}
     if(e.kind==='railgun'&&e.tell>0){c.save();c.rotate(e.angle);c.strokeStyle='#ff294d';c.globalAlpha=.55;c.lineWidth=2;c.setLineDash([8,8]);c.beginPath();c.moveTo(25,0);c.lineTo(1200,0);c.stroke();c.restore();}
@@ -136,7 +136,7 @@ export class Renderer {
     else if(e.kind==='mortar'){c.fillRect(6,8,25,5);c.save();c.rotate(-.6);c.fillStyle='#697f86';c.fillRect(12,-7,25,14);c.fillStyle='#263a44';c.fillRect(33,-8,6,16);c.restore();}
     else if(e.kind==='railgun'){c.fillRect(7,-7,15,14);c.fillStyle='#adb9c1';c.fillRect(17,-8,38,4);c.fillRect(17,4,38,4);c.fillStyle='#ef86ad';for(let x=23;x<50;x+=8)c.fillRect(x,-10,3,20);}
     else if(e.kind==='boss'){c.fillRect(6,-10,16,20);c.fillStyle='#9c9580';for(let y=-8;y<=8;y+=8)c.fillRect(21,y,27,5);c.fillStyle='#ecc77a';c.fillRect(17,-13,7,26);}
-    else if(e.kind==='miner'){c.fillStyle='#655139';c.fillRect(-17,-8,13,20);c.fillStyle='#dec17a';for(let i=0;i<3-(e.minesLaid||0);i++){c.beginPath();c.arc(-10,-4+i*6,3,0,TAU);c.fill();}}
+    else if(e.kind==='miner'){c.fillStyle='#655139';c.fillRect(-17,-8,13,20);c.fillStyle='#dec17a';for(let i=0;i<3;i++){c.beginPath();c.arc(-10,-4+i*6,3,0,TAU);c.fill();}}
     else if(e.kind==='suicide'){c.fillStyle='#ff7868';c.fillRect(-9,-5,18,13);c.fillStyle=e.primed?'#fff2af':'#453e3a';c.fillRect(-7,-2,4,7);c.fillRect(3,-2,4,7);c.strokeStyle='#e9c97a';c.lineWidth=2;c.beginPath();c.moveTo(0,-5);c.lineTo(5,-12);c.stroke();}
     else if(e.kind==='riot'){c.fillStyle=e.stun>0?'#65727a':'#d2dde0';c.fillRect(14,-22,10,44);c.fillStyle='#45586a';c.fillRect(17,-19,5,38);c.fillStyle='#b6e1ef';c.fillRect(17,-13,5,10);c.fillStyle='#e8c66a';c.fillRect(17,4,5,4);}
     else if(e.kind==='boomerang'){c.strokeStyle='#e9a7c4';c.lineWidth=6;c.beginPath();c.arc(16,0,14,-1.25,1.25);c.stroke();}

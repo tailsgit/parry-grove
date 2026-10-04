@@ -6,14 +6,21 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function specialEnemy(g,e,p,dt,api){
   const c=ENEMIES[e.kind];
   if(e.kind==='miner'){
-    e.mineTimer=(e.mineTimer??.8)-dt;e.wanderTimer=(e.wanderTimer??0)-dt;
+    e.mineTimer=(e.mineTimer??c.rate)-dt;e.wanderTimer=(e.wanderTimer??0)-dt;
     const away=Math.atan2(e.y-p.y,e.x-p.x);
-    if(e.wanderTimer<=0){e.wanderTimer=.25+api.random(g)*.45;e.wanderAngle=away+(api.random(g)-.5)*(e.minesLaid>=3?.7:3.6);}
-    let angle=e.minesLaid>=3?away:e.wanderAngle;
-    const margin=65;if(e.x<margin||e.x>g.width-margin||e.y<margin||e.y>g.height-margin)angle=Math.atan2(g.height/2-e.y,g.width/2-e.x);
-    if(!api.hasLineOfSight(g,e,p)){const route=api.seekSight(g,e,p);angle=e.minesLaid>=3?route+Math.PI/2:route;}
-    e.angle=angle;e.aiVX=Math.cos(angle)*c.speed;e.aiVY=Math.sin(angle)*c.speed;
-    if(e.mineTimer<=0&&e.minesLaid<3){const h=api.hazard(g,e.x,e.y,110,.35,c.damage,'mine');h.triggerRadius=52;h.armed=false;h.source=e.id;e.minesLaid++;e.mineTimer=c.rate;api.event(g,'mine',e.x,e.y,'MINE');}
+    if(e.wanderTimer<=0){e.wanderTimer=.25+api.random(g)*.45;e.wanderAngle=away+(api.random(g)-.5)*.7;}
+    // Flee along clear lanes; near walls/cover choose a safe tangent rather than
+    // routing toward the player. Look ahead farther than this tick's movement.
+    let angle=e.wanderAngle,moving=false,best=(e.x-p.x)**2+(e.y-p.y)**2;
+    for(let i=0;i<13;i++){
+      const candidate=i===0?angle:away+(i-1)*TAU/12,dx=Math.cos(candidate)*55,dy=Math.sin(candidate)*55;
+      const x=e.x+dx,y=e.y+dy;if(x<48||x>g.width-48||y<48||y>g.height-48)continue;
+      let blocked=false;for(const o of g.obstacles){for(let n=1;n<=3;n++){const sx=e.x+dx*n/3,sy=e.y+dy*n/3;if(sx>o.x-20&&sx<o.x+o.w+20&&sy>o.y-20&&sy<o.y+o.h+20){blocked=true;break;}}if(blocked)break;}
+      const score=(x-p.x)**2+(y-p.y)**2;
+      if(!blocked&&score>best){angle=candidate;best=score;moving=true;if(i===0)break;}
+    }
+    e.angle=angle;e.aiVX=moving?Math.cos(angle)*c.speed:0;e.aiVY=moving?Math.sin(angle)*c.speed:0;
+    if(e.mineTimer<=1e-9){const h=api.hazard(g,e.x,e.y,110,.35,c.damage,'mine');h.triggerRadius=52;h.armed=false;h.source=e.id;e.minesLaid++;e.mineTimer=c.rate;api.event(g,'mine',e.x,e.y,'MINE');}
     return true;
   }
   if(e.kind==='suicide'){
@@ -37,7 +44,7 @@ export function fireSpecial(g,e,p,api){
     return true;
   }
   if(e.kind==='cluster'||e.kind==='twinBomber'){
-    const h=api.hazard(g,p.x,p.y,e.kind==='cluster'?24:100,.65,c.damage,e.kind==='cluster'?'cluster':'grenade',e.x,e.y);h.flight=.65;h.settle=e.kind==='cluster'?.22:.25;h.target=p.id;
+    const h=api.hazard(g,p.x,p.y,24,.65,c.damage,'cluster',e.x,e.y);h.flight=.65;h.settle=.22;h.target=p.id;
     if(e.kind==='twinBomber'){const mine=api.hazard(g,e.x,e.y,120,.35,20,'mine');mine.triggerRadius=58;mine.armed=false;mine.source=e.id;}
     api.event(g,'mortar',e.x,e.y);return true;
   }
