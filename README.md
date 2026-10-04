@@ -248,7 +248,7 @@ offer the same upgrades and combat rules; room 5 requires defeating both bosses.
 | Cluster Grenadier | Arcing grenade rests for 220ms after landing, then splits into exactly five projectiles. |
 | Conductor | Fast tracking dart deals no damage. Parry or dodge it: blocking still attaches the dart. For five seconds, all hostile room projectiles bend toward the marked player; returned projectiles remain friendly. |
 | Sin-Shooter | Shots follow a sine wave; step into the curves or parry. |
-| Riot Shield | Moves at 110 pixels/sec and actively repositions between the player and nearby allies, prioritizing ranged allies. Its front-facing shield provides mobile cover. Flank it or parry its low-damage, strong-knockback melee strike to stun it. |
+| Riot Shield | Moves at 110 pixels/sec and actively repositions between the player and nearby allies, prioritizing ranged allies. Its front-facing shield provides mobile cover and turns at 135 degrees/sec, giving a dash flank time to connect. Flank it or parry its low-damage, strong-knockback melee strike to stun it. |
 | Boomerang Thrower | One wide-arcing projectile at a time; dodge the outgoing and returning passes. Red boomerangs may be blocked, but not parried. |
 | Twin bosses | The mobile Bomber plants mines and lobs cluster grenades that pause on landing and scatter five shots while the Ricochet fires bouncing spreads. Both must fall. |
 

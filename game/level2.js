@@ -65,7 +65,6 @@ export function escortRiot(g,e,p,dt,api){
   const gap=Math.min(c.escortGap,length*.45);
   escortGoal.x=clamp(e.escortX+dx/length*gap,48,g.width-48);escortGoal.y=clamp(e.escortY+dy/length*gap,48,g.height-48);
   if(!api.clearSegment(g,escortGoal.x,escortGoal.y,escortGoal.x,escortGoal.y,18))return false;
-  e.angle=Math.atan2(p.y-e.y,p.x-e.x);
   const remaining=api.distance(e,escortGoal);
   if(remaining<=6){e.aiVX=0;e.aiVY=0;e.routeX=undefined;return true;}
   const angle=api.clearSegment(g,e.x,e.y,escortGoal.x,escortGoal.y,18)?Math.atan2(escortGoal.y-e.y,escortGoal.x-e.x):api.seekSight(g,e,escortGoal);
@@ -103,7 +102,7 @@ export function fireSpecial(g,e,p,api){
 export function frontShield(e,x,y){return e.kind==='riot'&&e.stun<=0&&Math.abs(angleDelta(Math.atan2(y-e.y,x-e.x),e.angle))<Math.PI*.48;}
 export function shieldBlocks(g,a,b,ignore){
   if((g.stage??0)===0)return false;
-  for(const e of g.enemies){if(e===ignore||e.hp<=0||!frontShield(e,a.x,a.y))continue;const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((e.x-a.x)*dx+(e.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);if(Math.hypot(a.x+dx*t-e.x,a.y+dy*t-e.y)<26)return true;}
+  for(const e of g.enemies){if(e===ignore||e===a||e.hp<=0||!frontShield(e,a.x,a.y))continue;const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((e.x-a.x)*dx+(e.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);if(Math.hypot(a.x+dx*t-e.x,a.y+dy*t-e.y)<26)return true;}
   return false;
 }
 export function prepareProjectile(g,b,dt,alive,api){
