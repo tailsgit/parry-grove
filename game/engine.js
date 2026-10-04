@@ -1,4 +1,4 @@
-import {specialEnemy,fireSpecial,frontShield,shieldBlocks,prepareProjectile,ricochetMove,projectileDistance,dartHit,specialHazard,dashBlast} from './level2.js';
+import {specialEnemy,escortRiot,fireSpecial,frontShield,shieldBlocks,prepareProjectile,ricochetMove,projectileDistance,dartHit,specialHazard,dashBlast} from './level2.js';
 import { ObjectPool, SpatialGrid, compact } from './performance.js';
 import { BALANCE as B, WEAPONS, ENEMIES, UPGRADES, LEVELS, isBoss } from './config.js';
 const runtimes=new WeakMap(),hazardClocks=new WeakMap();
@@ -49,7 +49,7 @@ export function spawnEnemy(g, kind, x, y) {
   const c = ENEMIES[kind]; const scale = 1+g.room*.12 + (g.encounterParty-1)*(isBoss(kind)?.48:.12);
   const e=runtime(g).enemies.acquire();
   e.id=++g.serial;e.kind=kind;e.x=x;e.y=y;e.hp=c.hp*scale;e.maxHp=c.hp*scale;e.angle=0;e.cooldown=1+random(g);e.tell=0;e.target='';e.burst=0;e.danger=false;e.stun=0;e.guardLeft=0;e.guardAge=0;e.nearPlayer=false;e.parryAttemptCd=0;e.action='attack';e.swing=0;e.repositionLeft=0;e.repositionCd=0;e.slamCd=0;
-  e.routeX=undefined;e.routeY=undefined;e.dead=undefined;e.fireReadyAt=undefined;e.tellTotal=undefined;e.recoil=undefined;e.repositionX=undefined;e.repositionY=undefined;e.minesLaid=kind==='miner'?0:undefined;e.mineTimer=undefined;e.mineState=kind==='miner'?'approach':undefined;e.wanderTimer=undefined;e.wanderAngle=undefined;e.primed=undefined;e.aiVX=undefined;e.aiVY=undefined;
+  e.routeX=undefined;e.routeY=undefined;e.dead=undefined;e.fireReadyAt=undefined;e.tellTotal=undefined;e.recoil=undefined;e.repositionX=undefined;e.repositionY=undefined;e.minesLaid=kind==='miner'?0:undefined;e.mineTimer=undefined;e.mineState=kind==='miner'?'approach':undefined;e.wanderTimer=undefined;e.wanderAngle=undefined;e.primed=undefined;e.aiVX=undefined;e.aiVY=undefined;e.escortClock=undefined;e.protectedAlly=undefined;e.escortX=undefined;e.escortY=undefined;
   g.enemies.push(e); return e;
 }
 export function generateRoom(g) {
@@ -271,7 +271,7 @@ export function step(g,inputs,dt) {
   dt=clamp(dt,0,1/30);g.time+=dt;
   if(g.phase==='levelclear'){
     const ready=g.players.some(p=>p.hp>0&&(inputs[p.id]?.interact||0)>p.seenInteract);
-    if(ready){for(const p of g.players)p.seenInteract=inputs[p.id]?.interact||0;g.stage=(g.stage??0)+1;g.room=0;g.phase='combat';generateRoom(g);}
+    if(ready){for(const p of g.players){p.seenInteract=inputs[p.id]?.interact||0;p.shieldDamage=0;p.shieldBroken=false;}g.stage=(g.stage??0)+1;g.room=0;g.phase='combat';generateRoom(g);}
     return;
   }
   if(g.phase!=='combat') {
@@ -358,6 +358,7 @@ export function step(g,inputs,dt) {
       }
     }
     if(e.stun>0)continue;
+    if(e.kind==='riot'&&g.intro<=0&&e.tell<=0&&e.guardLeft<=0&&e.fireReadyAt==null&&escortRiot(g,e,p,dt,LEVEL2_API)){vx=e.aiVX;vy=e.aiVY;}
     let rx=0,ry=0;
     const nearby=useGrid?r.separation.query(e.x-B.separationRadius,e.y-B.separationRadius,e.x+B.separationRadius,e.y+B.separationRadius):null;
     for(let i=0;i<(nearby?nearby.length:peerCount);i++){const a=peers[nearby?nearby[i]:i];if(a.id===e.id)continue;
@@ -432,4 +433,4 @@ export function step(g,inputs,dt) {
   }
 }
 
-const LEVEL2_API={bullet,hazard,event,random,move,hasLineOfSight,seekSight,hitPlayer,kill,distance,steer,predictedAim};
+const LEVEL2_API={bullet,hazard,event,random,move,hasLineOfSight,seekSight,hitPlayer,kill,distance,steer,predictedAim,clearSegment};

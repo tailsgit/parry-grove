@@ -47,6 +47,30 @@ export function specialEnemy(g,e,p,dt,api){
   }
   return false;
 }
+const escortGoal={x:0,y:0};
+export function escortRiot(g,e,p,dt,api){
+  const c=ENEMIES[e.kind];e.escortClock=Math.max(0,(e.escortClock||0)-dt);
+  // Refresh ally selection four times per second rather than scanning every tick.
+  if(e.escortClock<=0){
+    e.escortClock=.25;e.protectedAlly=undefined;let best=Infinity;
+    for(const ally of g.enemies){
+      if(ally===e||ally.hp<=0||ally.kind==='riot'||ENEMIES[ally.kind].invulnerable)continue;
+      const gap=api.distance(e,ally);if(gap>c.escortRadius)continue;
+      const score=api.distance(p,ally)+gap*.5+(ENEMIES[ally.kind].melee?200:0);
+      if(score<best){best=score;e.protectedAlly=ally.id;e.escortX=ally.x;e.escortY=ally.y;}
+    }
+  }
+  if(e.protectedAlly==null)return false;
+  const dx=p.x-e.escortX,dy=p.y-e.escortY,length=Math.hypot(dx,dy)||1;
+  const gap=Math.min(c.escortGap,length*.45);
+  escortGoal.x=clamp(e.escortX+dx/length*gap,48,g.width-48);escortGoal.y=clamp(e.escortY+dy/length*gap,48,g.height-48);
+  if(!api.clearSegment(g,escortGoal.x,escortGoal.y,escortGoal.x,escortGoal.y,18))return false;
+  e.angle=Math.atan2(p.y-e.y,p.x-e.x);
+  const remaining=api.distance(e,escortGoal);
+  if(remaining<=6){e.aiVX=0;e.aiVY=0;e.routeX=undefined;return true;}
+  const angle=api.clearSegment(g,e.x,e.y,escortGoal.x,escortGoal.y,18)?Math.atan2(escortGoal.y-e.y,escortGoal.x-e.x):api.seekSight(g,e,escortGoal);
+  const speed=Math.min(c.speed,remaining/Math.max(dt,1e-6));e.aiVX=Math.cos(angle)*speed;e.aiVY=Math.sin(angle)*speed;return true;
+}
 export function fireSpecial(g,e,p,api){
   const c=ENEMIES[e.kind],a=e.angle;
   if(e.kind==='riot'){

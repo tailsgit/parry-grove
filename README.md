@@ -72,8 +72,8 @@ turns with at least 180ms between shooters. Shotgun and boss spreads remain
 intact. Holding Q or right click blocks frontal attacks after the
 parry window, reducing health damage by 80%. Every blocked attack also spends its full raw
 damage against a 100-point shield capacity, before armor. At 100 damage the
-shield breaks and blocking is disabled. Shield capacity never automatically
-recovers, including between rooms. With Perfection, perfect parries restore 5
+shield breaks and blocking is disabled. Shield capacity fully restores when advancing to the next level, but never
+regenerates with time or between rooms. With Perfection, perfect parries restore 5
 capacity each, only up to 50 remaining capacity; this can repair a broken shield.
 
 ## Implemented
@@ -236,8 +236,8 @@ patterns use a fixed scenery seed and remain unchanged throughout combat.
 ## Level 2: Brass Foundry
 
 Clear Level 1’s fifth room and press **E / Enter Level 2**. Your current health,
-maximum health, shield, EXP level, weapon, stats and collected upgrades carry
-forward. Each level keeps one fixed background across all five rooms. Rooms 1–4
+maximum health, EXP level, weapon, stats and collected upgrades carry
+forward; shield capacity fully restores. Each level keeps one fixed background across all five rooms. Rooms 1–4
 offer the same upgrades and combat rules; room 5 requires defeating both bosses.
 
 | Enemy | Attack and counterplay |
@@ -248,7 +248,7 @@ offer the same upgrades and combat rules; room 5 requires defeating both bosses.
 | Cluster Grenadier | Arcing grenade rests for 220ms after landing, then splits into exactly five projectiles. |
 | Conductor | Fast tracking dart deals no damage. Parry or dodge it: blocking still attaches the dart. For five seconds, all hostile room projectiles bend toward the marked player; returned projectiles remain friendly. |
 | Sin-Shooter | Shots follow a sine wave; step into the curves or parry. |
-| Riot Shield | Front-facing mobile cover protects allies. Flank it or parry its low-damage, strong-knockback melee strike to stun it. |
+| Riot Shield | Moves at 110 pixels/sec and actively repositions between the player and nearby allies, prioritizing ranged allies. Its front-facing shield provides mobile cover. Flank it or parry its low-damage, strong-knockback melee strike to stun it. |
 | Boomerang Thrower | One wide-arcing projectile at a time; dodge the outgoing and returning passes. Red boomerangs may be blocked, but not parried. |
 | Twin bosses | The mobile Bomber plants mines and lobs cluster grenades that pause on landing and scatter five shots while the Ricochet fires bouncing spreads. Both must fall. |
 
