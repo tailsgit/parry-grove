@@ -6,12 +6,10 @@ mouse and keyboard are required.
 
 ## Play online
 
-**[Play Parry Grove on ChatGPT Sites](https://parry-grove.tailsails.chatgpt.site)**
+**[Play Parry Grove on Cloudflare](https://parry-grove.parry-grove-game.workers.dev)**
 
-Open the link on a desktop computer, sign in to ChatGPT with an account that has
-access to the site, choose a weapon, and click **Play solo**. No installation is
-needed. The site currently has restricted access; a room code does not grant
-site access.
+Open the link on a desktop computer, choose a weapon, and click **Play solo**. No
+installation or sign-in is needed.
 
 Move with **WASD**, aim with the **mouse**, hold **left click** to attack, press
 **right click or Q** to parry, keep either held to block after the parry window,
@@ -19,8 +17,40 @@ and press **Space** to dash. For co-op, choose
 **Create co-op room**, share the six-character code with players who can access
 the site, have everyone ready up, and let the host start the run.
 
-The hosted Sites copy does not automatically update from GitHub. For the latest
-local changes, run the game on your computer using the instructions below.
+The Cloudflare copy serves the current production build. Use the deploy command
+below for local changes; the GitHub Actions deployment updates it on pushes to
+`main` after the workflow and repository secrets are pushed to GitHub.
+
+## Deploy to Cloudflare
+
+The production target is a Cloudflare Worker with static assets, a D1 lobby
+database, and one Durable Object per active room. To create the production D1
+database, apply its schema, build the Worker, and deploy it, authenticate Wrangler
+and run:
+
+```sh
+npx wrangler login
+npm run deploy:cloudflare
+```
+
+The first deployment creates the `parry-grove-production` D1 database. Its ID is
+stored in the ignored `.cloudflare/deploy.json` file on that computer. Later local
+deployments reuse that database. The deployed game is available at
+`https://parry-grove.parry-grove-game.workers.dev`.
+
+To deploy automatically when changes reach GitHub `main`, add these Actions
+repository secrets under **Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID |
+| `CLOUDFLARE_API_TOKEN` | API token with Workers Scripts: Edit and D1: Edit permissions |
+| `CLOUDFLARE_D1_DATABASE_ID` | `database_id` from `.cloudflare/deploy.json` after the first deployment |
+
+The included GitHub Actions workflow applies the idempotent lobby schema, builds,
+and deploys on each push to `main`; it can also be run manually from the Actions
+tab. Keep production secrets out of Git. The Cloudflare Free plan can host a small
+hobby game, but its daily Worker, Durable Object, and D1 limits apply.
 
 ## Run locally
 
@@ -106,7 +136,7 @@ capacity each, only up to 50 remaining capacity; this can repair a broken shield
 - Party-size scaling at each room entrance: larger arena, more enemies, modest
   health scaling, and boss adds/health. Death/victory and fresh restarts.
 - Online rooms for 1–4 independent clients, readiness, host-only start, invalid/full
-  code errors, consistent combat snapshots, individual rewards, player colors,
+  code errors, authoritative WebSocket combat, individual rewards, player colors,
   heartbeat disconnects, and automatic host transfer.
 - Full-screen arena with in-game health, shield, internal damage, EXP, cooldown,
   room, boss and party HUD. Rewards, lobby and run controls sit inside the screen.
@@ -126,9 +156,11 @@ capacity each, only up to 50 remaining capacity; this can repair a broken shield
 | `game/config.js` | Balance values, enemy/weapon definitions, upgrade registry |
 | `game/engine.js` | Shared fixed-step combat, room generation and progression |
 | `game/renderer.js` | Canvas 2D pixel art, visual feedback and synthesized sound |
-| `game/Game.jsx` | React screen, controls, solo loop, online transport, HUD |
+| `game/Game.jsx` | React screen, controls, solo loop, predicted WebSocket client, HUD |
 | `game/rooms.js` | Lobby state, readiness, timeout, host transfer, input validation |
-| `app/api/room/route.ts` | Server-authoritative room API and atomic revision updates |
+| `app/api/room/route.ts` | Lobby API and atomic D1 room updates |
+| `game/room-realtime.ts` | Per-room Durable Object, WebSocket sessions, compact snapshots |
+| `app/api/room/socket/route.ts` | Authenticated WebSocket upgrade to the room object |
 | `db/schema.ts` / `drizzle/` | Room database schema and deployment migration |
 
 React/Vinext provides the shell and server routes; the game itself uses Canvas 2D
@@ -136,15 +168,19 @@ and a small dependency-free simulation rather than a full game framework. This
 keeps collision/combat reusable in browser solo play and the authoritative server
 without duplicating mechanics or requiring a headless rendering framework.
 
-The deployed server uses Cloudflare Workers and D1. Each input request advances
-shared simulation at up to 60Hz, with bounded catch-up. Revision compare-and-swap
-prevents concurrent clients from overwriting a room. Clients cannot submit HP,
-enemy positions, damage, or upgrade effects. Session tokens authorize a player's
-own inputs and stay out of public snapshots. Online snapshots use HTTP polling
-(65ms gap plus round-trip time) with short local movement extrapolation. Co-op
-latency is higher than local solo play; this is a prototype transport, not a
-competitive action-game backend. The room API is isolated so WebSocket transport
-can replace polling without rewriting combat.
+The lobby and room codes use D1. Once a run starts, a room Durable Object owns its
+live simulation and WebSocket sessions; control messages advance the shared
+simulation with bounded catch-up, and compact snapshots are broadcast at up to
+30Hz.
+Active simulation updates no longer read or rewrite room state through D1. The
+object stores its live state persistently and writes the room back to D1 when
+returning to the lobby. Clients cannot submit HP, enemy positions, damage, or upgrade effects.
+Session tokens authorize a player's own socket and stay out of public snapshots.
+Clients briefly predict their own movement and interpolate players, enemies,
+projectiles, and hazards between snapshots. Hits, health, and progression remain
+server-authoritative.
+Co-op latency still depends on network quality; this is a prototype transport,
+not a competitive action-game backend.
 
 ## Decisions where the design was unspecified
 
@@ -199,9 +235,8 @@ Multiple characters/areas/bosses, authored sprites and animations, persistent pr
 balance/playfeel testing are not included. The design's complete initial content
 list is present, but the transport and timing need real-player latency testing.
 
-Next: playtest parry windows/dash timing with humans, upgrade the room transport
-to a WebSocket authoritative room service with input prediction/reconciliation,
-then add a second area and boss after the combat tuning settles.
+Next: playtest parry windows, dash timing, and co-op latency with humans, then add
+a second area and boss after the combat tuning settles.
 
 ## Updated upgrades
 

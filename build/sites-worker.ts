@@ -2,8 +2,23 @@ import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 
+export { RoomRealtime } from "../game/room-realtime";
+
 export default {
   fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+    const url = new URL(request.url);
+    if (url.pathname === "/api/room/socket") {
+      const code = (url.searchParams.get("code") || "").trim().toUpperCase();
+      if (!/^[A-Z2-9]{6}$/.test(code)) {
+        return Response.json({ error: "Enter a valid six-character room code." }, { status: 400 });
+      }
+      if (!env.ROOMS) {
+        return Response.json({ error: "Realtime rooms are not configured." }, { status: 503 });
+      }
+      // Preserve the Worker WebSocket upgrade response without passing it through
+      // the app router's response finalizer.
+      return env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(request);
+    }
     let binding = ctx.props?.CONNECTORS;
     // Local preview emulates the same request-scoped capability. This branch and
     // the auxiliary service binding are absent from production builds.

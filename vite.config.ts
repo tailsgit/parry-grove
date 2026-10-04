@@ -15,14 +15,17 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const managedLinux = readExecutionProfile() === "managed-linux";
 
 const localBindingConfig = {
+  name: process.env.CLOUDFLARE_WORKER_NAME ?? "parry-grove",
   main: "./build/sites-worker.ts",
   compatibility_flags: ["nodejs_compat"],
   d1_databases: d1
     ? [
         {
           binding: d1,
-          database_name: "site-creator-d1",
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          database_name: process.env.CLOUDFLARE_D1_DATABASE_NAME ?? "site-creator-d1",
+          database_id:
+            process.env.CLOUDFLARE_D1_DATABASE_ID ??
+            SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
         },
       ]
     : [],
@@ -34,6 +37,10 @@ const localBindingConfig = {
         },
       ]
     : [],
+  durable_objects: {
+    bindings: [{ name: "ROOMS", class_name: "RoomRealtime" }],
+  },
+  migrations: [{ tag: "v1", new_sqlite_classes: ["RoomRealtime"] }],
 };
 
 export default defineConfig(async ({ command }) => {
