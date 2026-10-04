@@ -1,7 +1,7 @@
 # Parry Grove
 
 A playable vertical slice of the attached 2D co-op roguelike design. One character,
-three weapons, four randomized encounters, then the Brass Warden boss. Desktop
+three weapons, two levels of five rooms each, and persistent run upgrades. Desktop
 mouse and keyboard are required.
 
 ## Play online
@@ -62,14 +62,14 @@ with the rest regular (orange); guard length depends on the weapon. A successful
 parry grants 60ms of immunity and redirects a projectile in your aim direction. Perfect parries increase
 melee damage by 16% per streak count; regular parries deal 8% immediate damage
 and store 65% in the Internal Damage meter. An unguarded hit releases the entire
-meter. Base melee hits clear 2 internal damage. Internal damage never heals over time. Red danger attacks cannot be parried, but can be blocked while facing their source.
+meter. Base melee hits clear 2 internal damage. Internal damage never heals over time. Red danger attacks cannot be parried, but can normally be blocked while facing their source. Suicide blasts explicitly marked DASH ONLY require dash invulnerability.
 Blocking spends shield capacity; dodging or leaving the area avoids that cost.
 
 Returned projectiles travel at 1.65× their incoming speed. A small correction
 (up to about 10°) helps shots aimed near an enemy connect; returned seekers then
 home onto enemies and switch targets when an enemy dies. Enemy volleys take
 turns with at least 180ms between shooters. Shotgun and boss spreads remain
-intact. Holding Q or right click blocks frontal, parryable attacks after the
+intact. Holding Q or right click blocks frontal attacks after the
 parry window, reducing health damage by 80%. Every blocked attack also spends its full raw
 damage against a 100-point shield capacity, before armor. At 100 damage the
 shield breaks and blocking is disabled. Shield capacity never automatically
@@ -102,7 +102,7 @@ capacity each, only up to 50 remaining capacity; this can repair a broken shield
   after an 850ms tell for 20 raw damage. The shockwave can be blocked, but cannot be parried.
   Telegraphs, projectile collision, cover, and marked unparryable AOE hazards.
 - Seeded random cover and room enemy placement/composition, progressive difficulty,
-  ten rewards, and a two-phase machine-gun boss after four rooms.
+  ten rewards, and two five-room levels. Level 1 ends with the Brass Warden; Level 2 ends with the twin Bomber and Ricochet bosses.
 - Party-size scaling at each room entrance: larger arena, more enemies, modest
   health scaling, and boss adds/health. Death/victory and fresh restarts.
 - Online rooms for 1–4 independent clients, readiness, host-only start, invalid/full
@@ -230,3 +230,26 @@ batching. Run `node scripts/performance-benchmark.mjs` for local simulation timi
 Enemies require clear line of sight before winding up or firing. Losing sight
 cancels a pending shot; enemies move around cover to regain sight. Room background
 patterns use a fixed scenery seed and remain unchanged throughout combat.
+
+## Level 2: Brass Foundry
+
+Clear Level 1’s fifth room and press **E / Enter Level 2**. Your current health,
+maximum health, shield, EXP level, weapon, stats and collected upgrades carry
+forward. Each level keeps one fixed background across all five rooms. Rooms 1–4
+offer the same upgrades and combat rules; room 5 requires defeating both bosses.
+
+| Enemy | Attack and counterplay |
+| --- | --- |
+| Mine-Layer | Erratic movement; places only three mines during its lifetime, then evades. Mines arm and detonate on proximity. |
+| Ricochet Gunner | Wall and stone-cover reflections; two bounces, removed at the third impact. |
+| Suicide Bomber | Charges, then a random short red fuse. Its large DASH ONLY blast requires precisely timed dash invulnerability; block and parry do not stop it. |
+| Cluster Grenadier | Arcing grenade rests for 220ms after landing, then splits into exactly five projectiles. |
+| Conductor | Fast tracking dart deals no damage. Parry or dodge it: blocking still attaches the dart. For five seconds, all hostile room projectiles bend toward the marked player; returned projectiles remain friendly. |
+| Sin-Shooter | Shots follow a sine wave; step into the curves or parry. |
+| Riot Shield | Front-facing mobile cover protects allies. Flank it or parry its low-damage, strong-knockback melee strike to stun it. |
+| Boomerang Thrower | One wide-arcing projectile at a time; dodge the outgoing and returning passes. Red boomerangs may be blocked, but not parried. |
+| Twin bosses | The mobile Bomber plants mines and lobs explosive grenades while the Ricochet fires bouncing spreads. Both must fall. |
+
+All new projectiles, enemies and hazards use the existing object pools. Ricochet
+collision uses swept reflected segments and reused scratch storage; multiplayer
+snapshots carry the same simulation state.
