@@ -6,6 +6,6 @@ export function stressGame(engine,count){
 export function stressInput(tick,input){input.mx=.4;input.my=.3;input.angle=.5;input.attack=true;input.guard=true;input.parry=Math.floor(tick/30);input.dash=0;}
 export function canonical(value){
   if(Array.isArray(value))return value.map(canonical);
-  if(value&&typeof value==='object'){const result={};for(const key of Object.keys(value).sort())if(value[key]!==undefined)result[key]=canonical(value[key]);return result;}
+  if(value&&typeof value==='object'){const result={};for(const key of Object.keys(value).sort())if(key!=='scenerySeed'&&value[key]!==undefined)result[key]=canonical(value[key]);return result;}
   return value;
 }

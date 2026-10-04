@@ -71,16 +71,16 @@ export class Renderer {
   addLabel(e,color){const l=this.labelPool.acquire();l.x=e.x;l.y=e.y-25;l.text=e.text;l.life=.9;l.color=color;l.large=e.kind==='perfect';this.labels.push(l);}
   addRing(e){const r=this.ringPool.acquire();r.x=e.x;r.y=e.y;r.kind=e.kind;r.life=.28;this.rings.push(r);}
   drawFloor(g,c,aligned){
-    const stamp=this.floorStamp,batch=this.floorBatch;
-    if(stamp.seed!==g.seed||stamp.room!==g.room||stamp.width!==g.width||stamp.height!==g.height||stamp.aligned!==aligned){
-      batch.count=0;this.floor(g,batch,aligned);stamp.seed=g.seed;stamp.room=g.room;stamp.width=g.width;stamp.height=g.height;stamp.aligned=aligned;
+    const stamp=this.floorStamp,batch=this.floorBatch,scenerySeed=g.scenerySeed??g.room;
+    if(stamp.seed!==scenerySeed||stamp.room!==g.room||stamp.width!==g.width||stamp.height!==g.height||stamp.aligned!==aligned){
+      batch.count=0;this.floor(g,batch,aligned);stamp.seed=scenerySeed;stamp.room=g.room;stamp.width=g.width;stamp.height=g.height;stamp.aligned=aligned;
     }
     batch.replay(c);
   }
   floor(g,c,aligned=false) {
     const t=this.theme||ROOM_THEMES[0];c.fillStyle=t.floor[0];c.fillRect(0,0,g.width,g.height);
     for(let y=32;y<g.height-32;y+=32)for(let x=32;x<g.width-32;x+=32){
-      const n=((x*73+y*97+g.seed)%19);if(!aligned||n%3!==0){c.fillStyle=t.floor[n%3];c.fillRect(x,y,32,32);}
+      const n=((x*73+y*97+(g.scenerySeed??g.room))%19);if(!aligned||n%3!==0){c.fillStyle=t.floor[n%3];c.fillRect(x,y,32,32);}
       c.fillStyle=t.detail;
       if(t.scenery==='flowers'&&n%4===0){c.fillRect(x+8,y+11,3,7);if(n%2===0){c.fillStyle='#f5d6ae';c.fillRect(x+6,y+9,7,4);}}
       if(t.scenery==='leaves'&&n<7){c.fillRect(x+8,y+15,7,4);c.fillStyle='#d17b48';c.fillRect(x+19,y+7,5,3);}

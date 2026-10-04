@@ -92,14 +92,14 @@ capacity each, only up to 50 remaining capacity; this can repair a broken shield
   guard. Attacking into the guard stuns the player for 0.5 seconds.
 - Mortars lead movement, launch visible arcing shells, and explode with particles,
   sound and nearby screen shake. Railgun shots have red laser tells and require
-  blocking or dodging. After a 350ms wind-up they emit a fixed 18-pixel beam
+  blocking or dodging. Railguns aim at the current player position without prediction. After a 350ms wind-up they emit a fixed 18-pixel beam
   that stays dangerous for one second along its entire visible length. Cover
   stops the beam. Enemy attack aim is
   locked during its wind-up.
 - The boss repositions at 230 pixels/sec in short bursts at least 3.8 seconds
   apart, choosing clear paths toward, away from or around the player. It alternates parryable
   and red volleys, and punishes close camping with a red 145-pixel shockwave
-  after an 850ms tell. The shockwave can be blocked, but cannot be parried.
+  after an 850ms tell for 20 raw damage. The shockwave can be blocked, but cannot be parried.
   Telegraphs, projectile collision, cover, and marked unparryable AOE hazards.
 - Seeded random cover and room enemy placement/composition, progressive difficulty,
   ten rewards, and a two-phase machine-gun boss after four rooms.
@@ -218,7 +218,7 @@ then add a second area and boss after the combat tuning settles.
 | Vampire | Every kill restores 1% of maximum HP |
 | Perfection | Perfect parries restore 5 shield, up to 50 remaining capacity |
 
-Each enemy bullet has a seeded 40% chance to lead the player's velocity. Boss
+Each non-railgun enemy bullet has a seeded 40% chance to lead the player's velocity. Boss
 mortars use the same arcing shell, impact marker, and explosion as mortar enemies.
 
 ## Performance
@@ -226,3 +226,7 @@ mortars use the same arcing shell, impact marker, and explosion as mortar enemie
 See [the implementation plan and measurements](docs/performance.md) for pooled
 entities/VFX, spatial broad-phase checks and fidelity-preserving Canvas command
 batching. Run `node scripts/performance-benchmark.mjs` for local simulation timings.
+
+Enemies require clear line of sight before winding up or firing. Losing sight
+cancels a pending shot; enemies move around cover to regain sight. Room background
+patterns use a fixed scenery seed and remain unchanged throughout combat.
