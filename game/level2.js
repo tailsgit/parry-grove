@@ -14,7 +14,7 @@ export function specialEnemy(g,e,p,dt,api){
       e.mineState='approach';
     }
     if(e.mineState==='approach'){
-      if(gap<=c.dropRange&&api.hasLineOfSight(g,e,p)&&e.mineTimer<=1e-9){
+      if(gap<=c.dropRange&&(api.hasLineOfSight(g,e,p)||gap<=c.aoeRadius+B.radius)&&e.mineTimer<=1e-9){
         const h=api.hazard(g,e.x,e.y,110,.35,c.damage,'mine');h.triggerRadius=52;h.armed=false;h.source=e.id;e.minesLaid++;e.mineTimer=c.rate;e.mineState='flee';e.wanderTimer=0;api.event(g,'mine',e.x,e.y,'MINE');
       }else{
         const angle=api.hasLineOfSight(g,e,p)?Math.atan2(p.y-e.y,p.x-e.x):api.seekSight(g,e,p);
@@ -40,12 +40,36 @@ export function specialEnemy(g,e,p,dt,api){
   }
   if(e.kind==='suicide'){
     e.angle=Math.atan2(p.y-e.y,p.x-e.x);
-    if(!e.primed&&api.distance(e,p)<72&&api.hasLineOfSight(g,e,p)){e.primed=true;e.tell=.22+api.random(g)*.18;e.tellTotal=e.tell;api.event(g,'fuse',e.x,e.y,'DASH AT DETONATION');}
-    if(e.primed){e.tell-=dt;e.aiVX=0;e.aiVY=0;if(e.tell<=0){const h=api.hazard(g,e.x,e.y,260,0,c.damage,'suicideBlast');h.dashOnly=true;e.hp=0;api.kill(g,e,null);}}
+    if(!e.primed&&(api.distance(e,p)<72||(!api.hasLineOfSight(g,e,p)&&api.distance(e,p)<=c.aoeRadius+B.radius))){e.primed=true;e.tell=.22+api.random(g)*.18;e.tellTotal=e.tell;api.event(g,'fuse',e.x,e.y,'DASH AT DETONATION');}
+    if(e.primed){e.tell-=dt;e.aiVX=0;e.aiVY=0;if(e.tell<=0){const h=api.hazard(g,e.x,e.y,c.aoeRadius,0,c.damage,'suicideBlast');h.dashOnly=true;e.hp=0;api.kill(g,e,null);}}
     else{const angle=api.hasLineOfSight(g,e,p)?e.angle:api.seekSight(g,e,p);e.aiVX=Math.cos(angle)*c.speed;e.aiVY=Math.sin(angle)*c.speed;}
     return true;
   }
   return false;
+}
+const escortGoal={x:0,y:0};
+export function escortRiot(g,e,p,dt,api){
+  const c=ENEMIES[e.kind];e.escortClock=Math.max(0,(e.escortClock||0)-dt);
+  // Refresh ally selection four times per second rather than scanning every tick.
+  if(e.escortClock<=0){
+    e.escortClock=.25;e.protectedAlly=undefined;let best=Infinity;
+    for(const ally of g.enemies){
+      if(ally===e||ally.hp<=0||ally.kind==='riot'||ENEMIES[ally.kind].invulnerable)continue;
+      const gap=api.distance(e,ally);if(gap>c.escortRadius)continue;
+      const score=api.distance(p,ally)+gap*.5+(ENEMIES[ally.kind].melee?200:0);
+      if(score<best){best=score;e.protectedAlly=ally.id;e.escortX=ally.x;e.escortY=ally.y;}
+    }
+  }
+  if(e.protectedAlly==null)return false;
+  const dx=p.x-e.escortX,dy=p.y-e.escortY,length=Math.hypot(dx,dy)||1;
+  const gap=Math.min(c.escortGap,length*.45);
+  escortGoal.x=clamp(e.escortX+dx/length*gap,48,g.width-48);escortGoal.y=clamp(e.escortY+dy/length*gap,48,g.height-48);
+  if(!api.clearSegment(g,escortGoal.x,escortGoal.y,escortGoal.x,escortGoal.y,18))return false;
+  e.angle=Math.atan2(p.y-e.y,p.x-e.x);
+  const remaining=api.distance(e,escortGoal);
+  if(remaining<=6){e.aiVX=0;e.aiVY=0;e.routeX=undefined;return true;}
+  const angle=api.clearSegment(g,e.x,e.y,escortGoal.x,escortGoal.y,18)?Math.atan2(escortGoal.y-e.y,escortGoal.x-e.x):api.seekSight(g,e,escortGoal);
+  const speed=Math.min(c.speed,remaining/Math.max(dt,1e-6));e.aiVX=Math.cos(angle)*speed;e.aiVY=Math.sin(angle)*speed;return true;
 }
 export function fireSpecial(g,e,p,api){
   const c=ENEMIES[e.kind],a=e.angle;
