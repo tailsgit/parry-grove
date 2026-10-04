@@ -227,8 +227,10 @@ See [the implementation plan and measurements](docs/performance.md) for pooled
 entities/VFX, spatial broad-phase checks and fidelity-preserving Canvas command
 batching. Run `node scripts/performance-benchmark.mjs` for local simulation timings.
 
-Enemies require clear line of sight before winding up or firing. Losing sight
-cancels a pending shot; enemies move around cover to regain sight. Room background
+Direct attacks require clear line of sight. AoE attacks may wind up and fire
+through cover when the player overlaps their physical radius; this includes
+close boss shockwaves and nearby mines/explosions. Outside that radius, losing
+sight cancels a pending shot and enemies move around cover to regain sight. Room background
 patterns use a fixed scenery seed and remain unchanged throughout combat.
 
 ## Level 2: Brass Foundry
@@ -240,9 +242,9 @@ offer the same upgrades and combat rules; room 5 requires defeating both bosses.
 
 | Enemy | Attack and counterplay |
 | --- | --- |
-| Mine-Layer | Approaches to 150 pixels, instantly drops a mine, flees to 450 pixels, then holds until its five-second cooldown ends before approaching again. No lifetime mine limit. Mines arm and detonate on proximity. |
+| Mine-Layer | Approaches to 150 pixels, instantly drops a mine, flees to 450 pixels, then holds until its five-second cooldown ends before approaching again. The five-second timer ticks throughout retreat and hold. No lifetime mine limit. Mines arm and detonate on proximity. |
 | Ricochet Gunner | Wall and stone-cover reflections; two bounces, removed at the third impact. |
-| Suicide Bomber | Charges, then a random short red fuse. Its large DASH ONLY blast requires precisely timed dash invulnerability; block and parry do not stop it. |
+| Suicide Bomber | Immune to all player damage (including hacker hits) until it detonates itself. Charges, then a random short red fuse; players hidden inside its blast radius also trigger the fuse through cover. Its large DASH ONLY blast requires precisely timed dash invulnerability; block and parry do not stop it. |
 | Cluster Grenadier | Arcing grenade rests for 220ms after landing, then splits into exactly five projectiles. |
 | Conductor | Fast tracking dart deals no damage. Parry or dodge it: blocking still attaches the dart. For five seconds, all hostile room projectiles bend toward the marked player; returned projectiles remain friendly. |
 | Sin-Shooter | Shots follow a sine wave; step into the curves or parry. |

@@ -14,7 +14,7 @@ export function specialEnemy(g,e,p,dt,api){
       e.mineState='approach';
     }
     if(e.mineState==='approach'){
-      if(gap<=c.dropRange&&api.hasLineOfSight(g,e,p)&&e.mineTimer<=1e-9){
+      if(gap<=c.dropRange&&(api.hasLineOfSight(g,e,p)||gap<=c.aoeRadius+B.radius)&&e.mineTimer<=1e-9){
         const h=api.hazard(g,e.x,e.y,110,.35,c.damage,'mine');h.triggerRadius=52;h.armed=false;h.source=e.id;e.minesLaid++;e.mineTimer=c.rate;e.mineState='flee';e.wanderTimer=0;api.event(g,'mine',e.x,e.y,'MINE');
       }else{
         const angle=api.hasLineOfSight(g,e,p)?Math.atan2(p.y-e.y,p.x-e.x):api.seekSight(g,e,p);
@@ -40,8 +40,8 @@ export function specialEnemy(g,e,p,dt,api){
   }
   if(e.kind==='suicide'){
     e.angle=Math.atan2(p.y-e.y,p.x-e.x);
-    if(!e.primed&&api.distance(e,p)<72&&api.hasLineOfSight(g,e,p)){e.primed=true;e.tell=.22+api.random(g)*.18;e.tellTotal=e.tell;api.event(g,'fuse',e.x,e.y,'DASH AT DETONATION');}
-    if(e.primed){e.tell-=dt;e.aiVX=0;e.aiVY=0;if(e.tell<=0){const h=api.hazard(g,e.x,e.y,260,0,c.damage,'suicideBlast');h.dashOnly=true;e.hp=0;api.kill(g,e,null);}}
+    if(!e.primed&&(api.distance(e,p)<72||(!api.hasLineOfSight(g,e,p)&&api.distance(e,p)<=c.aoeRadius+B.radius))){e.primed=true;e.tell=.22+api.random(g)*.18;e.tellTotal=e.tell;api.event(g,'fuse',e.x,e.y,'DASH AT DETONATION');}
+    if(e.primed){e.tell-=dt;e.aiVX=0;e.aiVY=0;if(e.tell<=0){const h=api.hazard(g,e.x,e.y,c.aoeRadius,0,c.damage,'suicideBlast');h.dashOnly=true;e.hp=0;api.kill(g,e,null);}}
     else{const angle=api.hasLineOfSight(g,e,p)?e.angle:api.seekSight(g,e,p);e.aiVX=Math.cos(angle)*c.speed;e.aiVY=Math.sin(angle)*c.speed;}
     return true;
   }
