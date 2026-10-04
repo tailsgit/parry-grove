@@ -1,4 +1,4 @@
-CREATE TABLE `game_rooms` (
+CREATE TABLE IF NOT EXISTS `game_rooms` (
 	`code` text PRIMARY KEY NOT NULL,
 	`state` text NOT NULL,
 	`revision` integer DEFAULT 0 NOT NULL,

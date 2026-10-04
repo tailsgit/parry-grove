@@ -27,6 +27,14 @@ export async function POST(request: Request) {
       const r=JSON.parse(row.state);
       let m=r.members.find((m:{id:string;token:string})=>m.id===body.id&&m.token===body.token);
       if(body.action!=='join'&&!m)return Response.json({error:'You have disconnected. Join a new lobby.'},{status:401});
+      if(r.game&&['input','poll','leave'].includes(body.action)) {
+        if(env.ROOMS){
+          const realtimeResponse=await env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(new Request(`https://room.internal/state?code=${code}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:m?.id,token:m?.token,action:body.action,input:body.input})}));
+          // Service binding responses have immutable headers. Return a fresh response
+          // because the app router may add headers while finalizing the route.
+          return new Response(realtimeResponse.body,{status:realtimeResponse.status,statusText:realtimeResponse.statusText,headers:new Headers(realtimeResponse.headers)});
+        }
+      }
       if(m)m.lastSeen=now;
       // Apply fresh controls before bounded catch-up to avoid another polling interval of input delay.
       if(m&&body.action==='input')applyAction(r,m,body,now);
