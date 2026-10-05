@@ -37,7 +37,7 @@ export const ENEMIES = {
   boss: { name: 'The Brass Warden', boss: true, hp: 550, speed: 95, projectile: 250, damage: 12, rate: .95, tell: .5, color: '#ffce72' },
 };
 export const UPGRADES = [
-  { id: 'vitality', name: 'Heartwood', icon: '♥', desc: '+25 maximum health, then heal 10% of maximum HP.', apply: p => { p.maxHp += 25; p.hp = Math.min(p.maxHp, p.hp + p.maxHp*.1); } },
+  { id: 'vitality', name: 'Heartwood', icon: '♥', desc: '+25 maximum health, then heal 10% of maximum HP.', apply: p => { p.maxHp += Math.floor(25*(p.healthFactor??1)); p.hp = Math.min(p.maxHp, p.hp + p.maxHp*.1); } },
   { id: 'edge', name: 'Keen Edge', icon: '⚔', desc: '+20% melee damage.', apply: p => { p.damage += .2; } },
   { id: 'speed', name: 'Windrunner', icon: '↗', desc: '+15% movement speed.', apply: p => { p.speed += .15; } },
   { id: 'dash', name: 'Ghost Step', icon: '◇', desc: '+0.05s dash invulnerability, up to 0.3s.', apply: p => { p.dashIframes = Math.min(.3, p.dashIframes + .05); p.dashTime = Math.max(p.dashTime, p.dashIframes); } },
@@ -47,6 +47,20 @@ export const UPGRADES = [
   { id: 'cleanse', name: 'Clear Mind', icon: '✦', desc: 'Melee hits clear 2 more internal damage.', apply: p => { p.cleanse += 2; } },
   { id: 'vampire', name: 'Vampire', icon: '♠', desc: 'Every kill restores 1% of maximum HP.', apply: p => { p.vampire = (p.vampire||0)+.01; } },
   { id: 'perfection', name: 'Perfection', icon: '✧', desc: 'Perfect parries restore 5 shield, up to 50 capacity.', apply: p => { p.shieldRestore = (p.shieldRestore||0)+5; } },
+  {id:'stun',name:'Lingering Steel',icon:'⌛',desc:'Melee parries stun enemies for 0.5s longer, up to +2s.',apply:p=>{p.stunBonus=Math.min(2,(p.stunBonus||0)+.5);}},
+  {id:'area',name:'Wide Wake',icon:'◯',desc:'+20% melee swing coverage and effect radius, up to +80%.',apply:p=>{p.areaScale=Math.min(1.8,(p.areaScale||1)+.2);}},
+  {id:'returnForce',name:'Returning Force',icon:'↶',desc:'+25% reflected projectile damage.',apply:p=>{p.returnPower=(p.returnPower||1)+.25;}},
+  {id:'dashSpark',name:'Spark Step',icon:'ϟ',desc:'Dashing emits a small shock pulse dealing 8 damage; additional stacks add 8.',apply:p=>{p.dashPulse=(p.dashPulse||0)+8;}},
+  {id:'punish',name:'Opportunist',icon:'⚑',desc:'+30% melee damage against stunned enemies.',apply:p=>{p.stunDamage=(p.stunDamage||0)+.3;}},
+  {id:'recovery',name:'Green Spark',icon:'✚',desc:'Perfect parries heal 2 HP.',apply:p=>{p.parryHeal=(p.parryHeal||0)+2;}},
+  {id:'stunNova',name:'Stun Nova',icon:'✺',kind:'synergy',requires:['stun','area'],desc:'Perfect parries stun surrounding enemies. Requires Lingering Steel + Wide Wake.',apply:p=>{p.stunNova=true;}},
+  {id:'thunderStep',name:'Thunder Step',icon:'⚡',kind:'synergy',requires:['dashSpark','area'],desc:'Dash pulses deal double damage and briefly stun enemies. Requires Spark Step + Wide Wake.',apply:p=>{p.thunderStep=true;}},
+  {id:'rebound',name:'Living Mirrors',icon:'✧',kind:'synergy',requires:['returnForce','recovery'],desc:'Perfect parries fire three friendly shards. Requires Returning Force + Green Spark.',apply:p=>{p.mirror=true;p.mirrorShots=(p.mirrorShots||0)+3;}},
+  {id:'echoBlade',name:'Echo Blade',icon:'☽',kind:'relic',desc:'Every third successful melee strike releases a 30-damage pulse.',apply:p=>{p.echoBlade=true;}},
+  {id:'mirrorEngine',name:'Mirror Engine',icon:'❖',kind:'relic',desc:'Perfect parries fire three friendly shards toward enemies.',apply:p=>{p.mirror=true;p.mirrorShots=(p.mirrorShots||0)+3;}},
+  {id:'stormHeart',name:'Storm Heart',icon:'ϟ',kind:'relic',desc:'Gain a 24-damage dash pulse and Thunder Step’s stun effect.',apply:p=>{p.dashPulse=(p.dashPulse||0)+12;p.thunderStep=true;}},
+  {id:'bloodroot',name:'Bloodroot',icon:'♥',kind:'relic',desc:'Kills heal 3% more maximum HP; gain 10% armor, up to 50%.',apply:p=>{p.vampire=(p.vampire||0)+.03;p.armor=Math.min(.5,p.armor+.1);}},
+  {id:'overdrive',name:'Overdrive Core',icon:'⚔',kind:'relic',desc:'+60% melee damage and +25% reflected damage.',apply:p=>{p.damage+=.6;p.returnPower=(p.returnPower||1)+.25;}},
 ];
 export const COLORS = ['#94e8cf', '#aebdff', '#ffd478', '#ffa5be'];
 

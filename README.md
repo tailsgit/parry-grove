@@ -307,3 +307,20 @@ Teleport preserves stats and upgrades and revives downed players. Setting HP
 above your current maximum raises that maximum and clears internal damage.
 In co-op, only the room host can use these controls: teleport moves the whole
 party, while custom HP changes apply to the host.
+
+## Drafts, Scrap, shops and sacrifices
+
+Runs now begin in a physical weapon-kit draft: three pickups solo, or players +
+two in co-op. Walk to a kit and press **E**; the first player to grab it owns it.
+Every kit has attached upgrades and some have health/shield tradeoffs. Remaining
+pickups disappear once everyone chooses.
+
+Kills earn shared **Scrap**, spent at vending machines in extra stops between
+combat rooms. A shop is guaranteed before each boss. Stock is limited and shared;
+purchases affect the buyer. Scrap survives individual co-op deaths but disappears
+when the run ends. The host chooses routes and uses the arena exit to continue.
+
+Six new passives unlock three exclusive combinations with an increased offer
+chance. Sacrifice altars offer powerful relics for a permanent 25% maximum-health
+penalty that also scales future health gains. Accepting is optional and individual.
+See [the complete kit, synergy, economy and altar rules](docs/run-systems.md).

@@ -1,4 +1,5 @@
-import { createGame, player, step, chooseUpgrade, adminTeleport, adminHealth, clamp } from './engine.js';
+import {createRun,claimKit,selectRoute,buyItem,sacrifice} from './run-content.js';
+import { player, step, chooseUpgrade, adminTeleport, adminHealth, clamp } from './engine.js';
 import { WEAPONS, BALANCE } from './config.js';
 export function roomState(member, now) {return {host:member.id,members:[member],game:null,inputs:{},lastTick:now,createdAt:now};}
 export function member(name,weapon,now) {return {id:crypto.randomUUID(),token:crypto.randomUUID(),name:String(name||'Adventurer').trim().slice(0,18)||'Adventurer',weapon:WEAPONS[weapon]?weapon:'sword',ready:false,lastSeen:now,slot:0};}
@@ -7,7 +8,7 @@ export function advanceRoom(r,now) {
   const stale=r.members.filter(m=>now-m.lastSeen>BALANCE.disconnectSeconds*1000).map(m=>m.id);
   r.members=r.members.filter(m=>!stale.includes(m.id));for(const id of stale)delete r.inputs[id];
   if(!r.members.some(m=>m.id===r.host))r.host=r.members[0]?.id||'';
-  if(r.game){r.game.players=r.game.players.filter(p=>!stale.includes(p.id));
+  if(r.game){r.game.hostId=r.host;r.game.players=r.game.players.filter(p=>!stale.includes(p.id));
     if(!r.game.players.length)r.game.phase='death';
     // Cap catch-up after tab suspension. The run resumes rather than instantly killing everyone.
     let remaining=Math.min(.25,Math.max(0,(now-r.lastTick)/1000));
@@ -22,9 +23,17 @@ export function applyAction(r,m,payload,now) {
   if(a==='start') {
     if(m.id!==r.host)throw Error('Only the host can start.');if(r.game)throw Error('Return to the lobby first.');
     if(!r.members.every(m=>m.ready))throw Error('Everyone must be ready.');
-    r.inputs={};r.game=createGame(r.members.map(m=>player(m.id,m.name,m.weapon,m.slot)));r.lastTick=now;
+    r.inputs={};r.game=createRun(r.members.map(m=>player(m.id,m.name,m.weapon,m.slot)));r.lastTick=now;
   }
   if(a==='upgrade'&&!chooseUpgrade(r.game||{},m.id,payload.upgrade))throw Error('That upgrade is unavailable.');
+  if(['kit','route','buy','sacrifice','vendorClose'].includes(a)){
+    if(!r.game)throw Error('Start a run first.');r.game.hostId=r.host;
+    if(a==='kit')claimKit(r.game,m.id,payload.kit);
+    if(a==='route')selectRoute(r.game,m.id,payload.choice);
+    if(a==='buy')buyItem(r.game,m.id,payload.item);
+    if(a==='sacrifice')sacrifice(r.game,m.id,payload.item);
+    if(a==='vendorClose'){const p=r.game.players.find(p=>p.id===m.id);if(p){p.vendorOpen=false;p.altarOpen=false;}}
+  }
   if(a==='return') {
     if(m.id!==r.host)throw Error('Only the host can return everyone to the lobby.');
     if(r.game&&!['victory','death'].includes(r.game.phase))throw Error('Finish the run first.');

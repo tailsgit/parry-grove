@@ -76,7 +76,7 @@ export function fireSpecial(g,e,p,api){
     e.swing=.2;
     if(api.distance(e,p)<=c.range+B.radius&&Math.abs(angleDelta(Math.atan2(p.y-e.y,p.x-e.x),a))<=c.arc/2){
       const result=api.hitPlayer(g,p,c.damage,true,Math.atan2(e.y-p.y,e.x-p.x));
-      if(result==='perfect'||result==='regular'){e.stun=B.enemyMeleeStun;api.event(g,'enemystun',e.x,e.y,'STUNNED');}
+      if(result==='perfect'||result==='regular'){e.stun=B.enemyMeleeStun+(p.stunBonus||0);api.event(g,'enemystun',e.x,e.y,'STUNNED');}
       else if(result!=='immune'){api.move(g,p,Math.cos(a)*125,Math.sin(a)*125);api.event(g,'push',p.x,p.y,'PUSHED',p.id);}
     }
     return true;

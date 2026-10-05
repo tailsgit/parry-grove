@@ -1,0 +1,21 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {Miniflare} from 'miniflare';
+import {readFile} from 'node:fs/promises';
+import {claimKit,beginRoute,selectRoute} from '../game/run-content.js';
+process.env.CLOUDFLARE_CF_FETCH_ENABLED='false';process.env.WRANGLER_SEND_METRICS='false';
+test('Cloudflare serializes competing shared-stock purchases and persists permanent individual sacrifices',async()=>{
+ const bundle=await build({stdin:{contents:"import {POST} from './app/api/room/route.ts';export {RoomRealtime} from './game/room-realtime.ts';export default {fetch:POST};",resolveDir:process.cwd()},bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers'],tsconfig:'tsconfig.json'});
+ const mf=new Miniflare({cf:false,modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-05-15',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],durableObjects:{ROOMS:'RoomRealtime'}});
+ try{
+  const db=await mf.getD1Database('DB');await db.exec((await readFile('drizzle/0000_happy_kang.sql','utf8')).replaceAll('\n',' '));
+  const post=async(body,session={})=>{const res=await mf.dispatchFetch('http://game.test/api/room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,...session})});return {status:res.status,data:await res.json()};};
+  const setup=async kind=>{const created=await post({action:'create',name:'Host'}),code=created.data.code,host={code,...created.data.session};const joined=await post({action:'join',code,name:'Guest'}),guest={code,...joined.data.session};await post({action:'ready'},host);await post({action:'ready'},guest);const started=await post({action:'start'},host);assert.equal(started.data.game.phase,'draft');assert.equal(started.data.game.kits.length,4);
+   const r=JSON.parse((await db.prepare('SELECT state FROM game_rooms WHERE code = ?').bind(code).first()).state),kits=[...r.game.kits];for(const [i,p] of r.game.players.entries()){p.x=kits[i].x;p.y=kits[i].y;claimKit(r.game,p.id,kits[i].id);}beginRoute(r.game);r.game.routeOptions=[kind];selectRoute(r.game,r.host,kind);r.game.scrap=90;for(const p of r.game.players){p.x=r.game.station.x;p.y=r.game.station.y;p.vendorOpen=kind==='shop';p.altarOpen=kind==='altar';}await db.prepare('UPDATE game_rooms SET state = ? WHERE code = ?').bind(JSON.stringify(r),code).run();return {host,guest,g:r.game};};
+  const {host,guest,g}=await setup('shop'),item=g.stock.find(s=>s.cost===90),results=await Promise.all([host,guest].map(s=>post({action:'buy',item:item.id},s)));
+  assert.deepEqual(results.map(r=>r.status).sort(),[200,400]);const state=(await post({action:'poll'},guest)).data.game;assert.equal(state.scrap,0);assert.equal(state.stock.find(s=>s.id===item.id).left,0);assert.equal(state.players.filter(p=>p.upgrades.includes(item.id)).length,1);
+  const altar=await setup('altar'),before=altar.g.players.find(p=>p.id===altar.g.hostId).maxHp,relic=altar.g.altarOffers[0];assert.equal((await post({action:'sacrifice',item:relic},altar.host)).status,200);assert.equal((await post({action:'sacrifice',item:altar.g.altarOffers[1]},altar.host)).status,400);
+  const after=(await post({action:'poll'},altar.guest)).data.game,p=after.players.find(p=>p.id===altar.host.id);assert.equal(p.healthFactor,.75);assert.equal(p.maxHp,before-Math.ceil(before*.25));assert.ok(p.upgrades.includes(relic));assert.equal(after.players.find(p=>p.id===altar.guest.id).healthFactor,1);
+ }finally{await mf.dispose();}
+});

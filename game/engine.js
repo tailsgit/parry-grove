@@ -1,3 +1,4 @@
+import {stepPeaceful,beginRoute,upgradeOffers,scrapFor} from './run-content.js';
 import {specialEnemy,escortRiot,fireSpecial,frontShield,shieldBlocks,prepareProjectile,ricochetMove,projectileDistance,dartHit,specialHazard,dashBlast} from './level2.js';
 import { ObjectPool, SpatialGrid, compact } from './performance.js';
 import { BALANCE as B, WEAPONS, ENEMIES, UPGRADES, LEVELS, isBoss } from './config.js';
@@ -43,7 +44,7 @@ export function createGame(players, seed = Date.now()>>>0) {
 }
 export function event(g, kind, x, y, text = '', who = '') {
   const pool=runtime(g).events;if(g.events.length>=70)pool.release(g.events.shift());
-  const e=pool.acquire();e.id=++g.eventSerial;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;g.events.push(e);
+  const e=pool.acquire();e.id=++g.eventSerial;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;e.radius=undefined;g.events.push(e);return e;
 }
 export function spawnEnemy(g, kind, x, y) {
   const c = ENEMIES[kind]; const scale = 1+g.room*.12 + (g.encounterParty-1)*(isBoss(kind)?.48:.12);
@@ -52,6 +53,7 @@ export function spawnEnemy(g, kind, x, y) {
   e.routeX=undefined;e.routeY=undefined;e.dead=undefined;e.fireReadyAt=undefined;e.tellTotal=undefined;e.recoil=undefined;e.repositionX=undefined;e.repositionY=undefined;e.minesLaid=kind==='miner'?0:undefined;e.mineTimer=undefined;e.mineState=kind==='miner'?'approach':undefined;e.wanderTimer=undefined;e.wanderAngle=undefined;e.primed=undefined;e.aiVX=undefined;e.aiVY=undefined;e.escortClock=undefined;e.protectedAlly=undefined;e.escortX=undefined;e.escortY=undefined;
   g.enemies.push(e); return e;
 }
+export function clearArena(g){const r=runtime(g);clear(g.enemies,r.enemies);clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);g.obstacles=[];r.collisionDirty=true;}
 export function generateRoom(g) {
   g.encounterParty = g.players.length; g.width = 900 + (g.encounterParty-1)*120; g.height = 570 + (g.encounterParty-1)*45;
   const r=runtime(g);clear(g.enemies,r.enemies);clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);r.collisionDirty=true;
@@ -85,7 +87,7 @@ export function generateRoom(g) {
 // Admin actions use the same simulation in solo and authoritative co-op rooms.
 export function adminTeleport(g,level,room){
   if(!g||!Number.isInteger(level)||level<1||level>LEVELS.length||!Number.isInteger(room)||room<1||room>B.encounters+1)throw Error('Choose a valid level and room.');
-  g.stage=level-1;g.room=room-1;g.phase='combat';
+  g.stage=level-1;g.room=room-1;g.phase='combat';g.kits=[];for(const p of g.players){p.vendorOpen=false;p.altarOpen=false;}
   for(const p of g.players){if(p.hp<=0)p.hp=p.maxHp;p.attackCd=0;p.parryCd=0;p.dashCd=0;}
   clear(g.events,runtime(g).events);generateRoom(g);
 }
@@ -146,6 +148,19 @@ function seekSight(g,e,p){
   return e.routeX==null?Math.atan2(p.y-e.y,p.x-e.x)+(e.id%2?1:-1)*Math.PI/2:Math.atan2(e.routeY-e.y,e.routeX-e.x);
 }
 export const xpRequired = level => 2 ** level;
+function combatPulse(g,p,damage,radius,stun){
+  radius*=p.areaScale||1;runtime(g).collisionDirty=true;
+  for(const e of g.enemies){if(e.hp<=0||distance(e,p)>radius||blocked(g,p,e)||ENEMIES[e.kind].invulnerable)continue;
+    if(damage&&!frontShield(e,p.x,p.y)){e.hp-=p.name==='hacker'?e.hp:damage*p.damage;if(e.hp<=0)kill(g,e,p);}
+    if(stun){e.stun=Math.max(e.stun,isBoss(e.kind)?Math.min(.4,stun):stun);e.tell=0;e.fireReadyAt=null;e.guardLeft=0;}
+  }
+  event(g,'nova',p.x,p.y,'',p.id).radius=radius;
+}
+function perfectTraits(g,p){
+  if(p.parryHeal)p.hp=Math.min(p.maxHp,p.hp+p.parryHeal);
+  if(p.stunNova)combatPulse(g,p,0,110,B.enemyMeleeStun+(p.stunBonus||0));
+  if(p.mirror){let target=null,gap=Infinity;for(const e of g.enemies)if(e.hp>0&&distance(e,p)<gap){target=e;gap=distance(e,p);}const a=target?Math.atan2(target.y-p.y,target.x-p.x):p.angle;const count=p.mirrorShots||3;for(let i=0;i<count;i++){const aim=a+(i-(count-1)/2)*.16,b=bullet(g,p.x+Math.cos(aim)*22,p.y+Math.sin(aim)*22,Math.cos(aim)*440,Math.sin(aim)*440,12*(p.returnPower||1),'bow',false,false,'',4);b.owner=p.id;}}
+}
 export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0) {
   if(p.hp<=0||p.invuln>0||(p.dashLeft>0&&p.dashAge<p.dashIframes))return 'immune';
   const facing=Math.abs(angleDiff(sourceAngle,p.angle))<B.parryCone;
@@ -160,7 +175,7 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0) {
       if(p.weapon==='sword')p.internal=Math.max(0,p.internal-8);
       if(p.weapon==='longsword')runtime(g).collisionDirty=true;
       if(p.weapon==='longsword')for(const e of g.enemies)if(distance(e,p)<130)move(g,e,Math.cos(Math.atan2(e.y-p.y,e.x-p.x))*35,Math.sin(Math.atan2(e.y-p.y,e.x-p.x))*35,15);
-      event(g,'perfect',p.x,p.y,`PERFECT ×${p.streak}`,p.id);return 'perfect';
+      if(p.stunNova||p.mirror||p.parryHeal)perfectTraits(g,p);event(g,'perfect',p.x,p.y,`PERFECT ×${p.streak}`,p.id);return 'perfect';
     }
     p.hp=Math.max(0,p.hp-damage*B.regularChip*(1-p.armor));
     p.internal=clamp(p.internal+damage*B.regularStored*(1-p.armor),0,B.internalMax);
@@ -181,10 +196,10 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0) {
   return 'hurt';
 }
 function kill(g,e,owner) {
-  if(e.dead)return;e.dead=true;event(g,'kill',e.x,e.y,'',owner?.id);
+  if(e.dead)return;e.dead=true;if(g.runSystems)g.scrap+=scrapFor(e);event(g,'kill',e.x,e.y,g.runSystems?`+${scrapFor(e)} SCRAP`:'',owner?.id);
   if(owner) {owner.kills++;owner.xp++;
     if(owner.vampire)owner.hp=Math.min(owner.maxHp,owner.hp+owner.maxHp*owner.vampire);
-    if(owner.xp>=xpRequired(owner.level)){owner.xp-=xpRequired(owner.level);owner.level++;owner.maxHp+=10;owner.hp=Math.min(owner.maxHp,owner.hp+owner.maxHp*.15);owner.damage+=.05;event(g,'level',owner.x,owner.y,`LEVEL ${owner.level}`,owner.id);}
+    if(owner.xp>=xpRequired(owner.level)){owner.xp-=xpRequired(owner.level);owner.level++;owner.maxHp+=Math.floor(10*(owner.healthFactor??1));owner.hp=Math.min(owner.maxHp,owner.hp+owner.maxHp*.15);owner.damage+=.05;event(g,'level',owner.x,owner.y,`LEVEL ${owner.level}`,owner.id);}
   }
 }
 function melee(g,p) {
@@ -197,17 +212,18 @@ function melee(g,p) {
     const gap=distance(e,p),radius=isBoss(e.kind)?29:18;
     // Intersect the body with the swing sector; touching enemies cannot fall through its center.
     const bodyAngle=Math.asin(Math.min(1,radius/(gap||1)));
-    if(e.hp<=0||gap>w.range+radius||(gap>B.radius+radius&&Math.abs(angleDiff(Math.atan2(e.y-p.y,e.x-p.x),p.angle))>w.arc/2+bodyAngle)||blocked(g,p,e)||shieldBlocks(g,p,e,e))continue;
+    if(e.hp<=0||gap>w.range+radius||(gap>B.radius+radius&&Math.abs(angleDiff(Math.atan2(e.y-p.y,e.x-p.x),p.angle))>w.arc*(p.areaScale||1)/2+bodyAngle)||blocked(g,p,e)||shieldBlocks(g,p,e,e))continue;
     if(frontShield(e,p.x,p.y)){event(g,'shieldhit',e.x,e.y,'FLANK THE SHIELD',p.id);continue;}
     if(e.guardLeft>0&&Math.abs(angleDiff(Math.atan2(p.y-e.y,p.x-e.x),e.angle))<B.parryCone){
       p.stun=B.playerParryStun;p.blocking=false;p.guardHeld=false;p.parryLeft=0;p.dashLeft=0;p.swing=0;
       e.guardLeft=0;event(g,'enemyparry',p.x,p.y,'PARRIED · STUNNED',p.id);break;
     }
-    const d=ENEMIES[e.kind].invulnerable?0:p.name==='hacker'?e.hp:w.damage*p.damage*(1+p.streak*B.streakBonus);e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
+    const d=ENEMIES[e.kind].invulnerable?0:p.name==='hacker'?e.hp:w.damage*p.damage*(1+p.streak*B.streakBonus)*(e.stun>0?1+(p.stunDamage||0):1);e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
     event(g,'hit',e.x,e.y,d===0&&ENEMIES[e.kind].invulnerable?'IMMUNE':`${Math.round(d)}`,p.id);
     if(e.hp<=0)kill(g,e,p);
     if(++n>=w.targets)break;
   }
+  if(n&&p.echoBlade){p.echoHits=(p.echoHits||0)+1;if(p.echoHits%3===0)combatPulse(g,p,30,75,0);}
 }
 function deflectionTarget(g,b,angle,cone=Math.PI) {
   let best,nearestDistance=Infinity;
@@ -264,7 +280,7 @@ function fire(g,e,p) {
     e.swing=.2;event(g,'meleeswing',e.x,e.y);
     if(distance(e,p)<=c.range+B.radius&&!blocked(g,e,p)&&Math.abs(angleDiff(Math.atan2(p.y-e.y,p.x-e.x),e.angle))<=c.arc/2){
       const result=hitPlayer(g,p,c.damage*(1+g.room*.08),true,Math.atan2(e.y-p.y,e.x-p.x));
-      if(result==='perfect'||result==='regular'){e.stun=B.enemyMeleeStun;e.guardLeft=0;event(g,'enemystun',e.x,e.y,'STUNNED');}
+      if(result==='perfect'||result==='regular'){e.stun=B.enemyMeleeStun+(p.stunBonus||0);e.guardLeft=0;event(g,'enemystun',e.x,e.y,'STUNNED');}
     }
     return;
   }
@@ -288,7 +304,7 @@ export function chooseUpgrade(g,id,upgradeId) {
   u.apply(p);p.upgrades.push(upgradeId);p.chosen=true;event(g,'upgrade',p.x,p.y,u.name,p.id);return true;
 }
 export function step(g,inputs,dt) {
-  dt=clamp(dt,0,1/30);g.time+=dt;
+  dt=clamp(dt,0,1/30);g.time+=dt;if(g.runSystems&&stepPeaceful(g,inputs,dt))return;
   if(g.phase==='levelclear'){
     const ready=g.players.some(p=>p.hp>0&&(inputs[p.id]?.interact||0)>p.seenInteract);
     if(ready){for(const p of g.players){p.seenInteract=inputs[p.id]?.interact||0;p.shieldDamage=0;p.shieldBroken=false;}g.stage=(g.stage??0)+1;g.room=0;g.phase='combat';generateRoom(g);}
@@ -296,6 +312,7 @@ export function step(g,inputs,dt) {
   }
   if(g.phase!=='combat') {
     if(g.phase==='upgrade'&&g.players.every(p=>p.hp<=0||p.chosen)) {
+      if(g.runSystems){beginRoute(g);return;}
       const ready=g.players.some(p=>(inputs[p.id]?.interact||0)>p.seenInteract);
       if(ready) {g.players.forEach(p=>{p.seenInteract=inputs[p.id]?.interact||0;/* Decision: fallen co-op allies revive between rooms, never mid-fight. */if(p.hp<=0)p.hp=p.maxHp*.5;else p.hp=Math.min(p.maxHp,p.hp+8);p.internal=0;});g.room++;g.phase='combat';generateRoom(g);}
     }
@@ -312,7 +329,7 @@ export function step(g,inputs,dt) {
     if(p.stun>0){p.blocking=false;p.guardHeld=false;p.vx=0;p.vy=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;continue;}
     const previousX=p.x,previousY=p.y;
     let mx=clamp(i.mx||0,-1,1),my=clamp(i.my||0,-1,1),norm=Math.hypot(mx,my)||1;mx/=norm;my/=norm;
-    if((i.dash||0)>p.seenDash) {p.seenDash=i.dash;if(!p.dashCd){p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id);}}
+    if((i.dash||0)>p.seenDash) {p.seenDash=i.dash;if(!p.dashCd){p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id);if(p.dashPulse)combatPulse(g,p,p.dashPulse*(p.thunderStep?2:1),65,p.thunderStep?.5:0);}}
     if((i.parry||0)>p.seenParry) {p.seenParry=i.parry;if(!p.parryCd){p.parryCd=B.parryCooldown;p.parryLeft=WEAPONS[p.weapon].parry;p.parryAge=0;p.parrySuccess=false;event(g,'guard',p.x,p.y,'',p.id);}}
     if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);p.dashLeft-=dt;p.dashAge+=dt;}
     else move(g,p,mx*B.speed*p.speed*(i.guard&&!p.shieldBroken&&p.parryLeft<=0?B.blockSpeed:1)*dt,my*B.speed*p.speed*(i.guard&&!p.shieldBroken&&p.parryLeft<=0?B.blockSpeed:1)*dt);
@@ -322,7 +339,7 @@ export function step(g,inputs,dt) {
     if(i.attack&&!p.attackCd)melee(g,p);
   }
   const r=runtime(g),alive=r.alive;alive.length=0;for(const p of g.players)if(p.hp>0)alive.push(p);
-  if(!alive.length){g.phase='death';return;}
+  if(!alive.length){g.phase='death';if(g.runSystems)g.scrap=0;return;}
   // Evaluate separation against a shared snapshot so peers push apart symmetrically.
   const peers=r.peers;let peerCount=0;
   for(const e of g.enemies)if(e.hp>0){let a=peers[peerCount];if(!a)peers[peerCount]=a={};a.id=e.id;a.x=e.x;a.y=e.y;peerCount++;}
@@ -426,7 +443,7 @@ export function step(g,inputs,dt) {
         const assisted=deflectionTarget(g,b,p.angle,B.deflectAssistCone);
         const a=p.angle+(assisted?clamp(angleDiff(Math.atan2(assisted.y-p.y,assisted.x-p.x),p.angle),-B.deflectAssistTurn,B.deflectAssistTurn):0);
         b.wave=false;b.thrower=undefined;
-        b.vx=Math.cos(a)*s;b.vy=Math.sin(a)*s;b.owner=p.id;b.damage*=outcome==='perfect'?2:1;b.life=4;
+        b.vx=Math.cos(a)*s;b.vy=Math.sin(a)*s;b.owner=p.id;b.damage*=(outcome==='perfect'?2:1)*(p.returnPower||1);b.life=4;
         b.target=(assisted|| (b.kind==='homing'?deflectionTarget(g,b,a):null))?.id??null;
         b.x=p.x+Math.cos(a)*24;b.y=p.y+Math.sin(a)*24;
       }else if(b.thrower){b.contactPlayer=p.id;b.contactAt=g.time+.35;}else b.life=0;
@@ -446,11 +463,11 @@ export function step(g,inputs,dt) {
     }
   }
   compact(g.hazards,liveHazard,r.hazards);compact(g.bullets,liveBullet,r.bullets);compact(g.enemies,liveEnemy,r.enemies);
-  if(!g.players.some(p=>p.hp>0)){g.phase='death';return;}
+  if(!g.players.some(p=>p.hp>0)){g.phase='death';if(g.runSystems)g.scrap=0;return;}
   if(!g.enemies.length) {
     clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);
     if(g.room===B.encounters) {for(const p of g.players)p.hp=p.maxHp;g.phase=(g.stage??0)+1<LEVELS.length?'levelclear':'victory';event(g,g.phase==='victory'?'victory':'levelclear',g.width/2,g.height/2,g.phase==='levelclear'?'LEVEL COMPLETE':'');}
-    else {g.phase='upgrade';for(const p of g.players){p.chosen=p.hp<=0;const pool=[...UPGRADES];p.offers=[];for(let n=0;n<3;n++){const j=Math.floor(random(g)*pool.length);p.offers.push(pool.splice(j,1)[0].id);}}event(g,'clear',g.width/2,g.height/2,'ROOM CLEARED');}
+    else {g.phase='upgrade';for(const p of g.players){p.chosen=p.hp<=0;const pool=UPGRADES.filter(u=>!u.kind);p.offers=[];for(let n=0;n<3;n++){const j=Math.floor(random(g)*pool.length);p.offers.push(pool.splice(j,1)[0].id);}if(g.runSystems)p.offers=upgradeOffers(g,p);}event(g,'clear',g.width/2,g.height/2,'ROOM CLEARED');}
   }
 }
 
