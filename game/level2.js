@@ -2,6 +2,7 @@ import {BALANCE as B,ENEMIES} from './config.js';
 const TAU=Math.PI*2;
 const angleDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const activeMineCount=g=>g.hazards.reduce((count,h)=>count+Number(h.kind==='mine'||h.kind==='mineBlast'),0);
 
 export function specialEnemy(g,e,p,dt,api){
   const c=ENEMIES[e.kind];
@@ -14,7 +15,7 @@ export function specialEnemy(g,e,p,dt,api){
       e.mineState='approach';
     }
     if(e.mineState==='approach'){
-      if(gap<=c.dropRange&&(api.hasLineOfSight(g,e,p)||gap<=c.aoeRadius+B.radius)&&e.mineTimer<=1e-9){
+      if(gap<=c.dropRange&&(api.hasLineOfSight(g,e,p)||gap<=c.aoeRadius+B.radius)&&e.mineTimer<=1e-9&&activeMineCount(g)<B.mineLimit){
         const h=api.hazard(g,e.x,e.y,110,B.mineArmTime,c.damage,'mine');h.triggerRadius=52;h.armed=false;h.source=e.id;e.minesLaid++;e.mineTimer=c.rate;e.mineState='flee';e.wanderTimer=0;api.event(g,'mine',e.x,e.y,'MINE');
       }else{
         const angle=api.hasLineOfSight(g,e,p)?Math.atan2(p.y-e.y,p.x-e.x):api.seekSight(g,e,p);
@@ -83,7 +84,7 @@ export function fireSpecial(g,e,p,api){
   }
   if(e.kind==='cluster'||e.kind==='twinBomber'){
     const h=api.hazard(g,p.x,p.y,24,.65,c.damage,'cluster',e.x,e.y);h.flight=.65;h.settle=.22;h.target=p.id;
-    if(e.kind==='twinBomber'){const mine=api.hazard(g,e.x,e.y,120,B.mineArmTime,20,'mine');mine.triggerRadius=58;mine.armed=false;mine.source=e.id;}
+    if(e.kind==='twinBomber'&&activeMineCount(g)<B.mineLimit){const mine=api.hazard(g,e.x,e.y,120,B.mineArmTime,20,'mine');mine.triggerRadius=58;mine.armed=false;mine.source=e.id;}
     api.event(g,'mortar',e.x,e.y);return true;
   }
   if(e.kind==='boomerang'&&g.bullets.some(b=>b.thrower===e.id&&b.life>0))return true;
@@ -107,7 +108,13 @@ export function shieldBlocks(g,a,b,ignore){
 }
 export function prepareProjectile(g,b,dt,alive,api){
   if(b.life<=0)return;
-  const marked=!b.owner?alive.find(p=>(p.magnetLeft||0)>0):null;
+  let marked=null,markedEnemy=null,markedDistance=Infinity;
+  b.magnetEnemyTarget=undefined;
+  if(!b.owner){
+    for(const p of alive)if((p.magnetLeft||0)>0){const gap=api.distance(p,b);if(gap<markedDistance){marked=p;markedEnemy=null;markedDistance=gap;}}
+    for(const e of g.enemies)if(e.hp>0&&(e.magnetLeft||0)>0){const gap=api.distance(e,b);if(gap<markedDistance){marked=e;markedEnemy=e;markedDistance=gap;}}
+  }
+  if(markedEnemy)b.magnetEnemyTarget=markedEnemy.id;
   if(b.kind==='magnet'&&!b.owner){const target=alive.find(p=>p.id===b.target)||alive[0];if(target)api.steer(b,target,dt*3.8);}
   if(marked)b.wave=false;
   if(b.wave){b.waveAge+=dt;b.centerX+=Math.cos(b.waveAngle)*b.waveSpeed*dt;b.centerY+=Math.sin(b.waveAngle)*b.waveSpeed*dt;const offset=Math.sin(b.waveAge*8)*38;b.vx=dt?(b.centerX-Math.sin(b.waveAngle)*offset-b.x)/dt:0;b.vy=dt?(b.centerY+Math.cos(b.waveAngle)*offset-b.y)/dt:0;}
@@ -159,9 +166,35 @@ export function dartHit(g,b,p,api){
 }
 export function specialHazard(g,h,dt,alive,api){
   if(h.kind==='mine'){
+    h.lifetime-=dt;if(h.lifetime<=0)return true;
     if(!h.armed){h.remaining-=dt;if(h.remaining<=0)h.armed=true;}
     if(h.armed&&alive.some(p=>api.distance(p,h)<h.triggerRadius+B.radius)){h.kind='mineBlast';h.remaining=B.mineFuseTime;h.total=B.mineFuseTime;api.event(g,'fuse',h.x,h.y,'MINE!');}
     return true;
+  }
+  if(h.kind==='mineBlast'){
+    h.remaining-=dt;
+    if(h.remaining<=0&&!h.done){
+      h.done=true;h.kind='mineExplosion';h.remaining=-.01;api.event(g,'explosion',h.x,h.y);
+      for(const p of alive)if(api.distance(p,h)<h.r+B.radius)api.hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x));
+    }
+    return true;
+  }
+  if(h.kind==='mineProjectile'){
+    const x=h.x,y=h.y;h.x+=h.vx*dt;h.y+=h.vy*dt;h.remaining-=dt;
+    const wall=h.x<25||h.x>g.width-25||h.y<25||h.y>g.height-25||g.obstacles.some(o=>h.x>o.x-8&&h.x<o.x+o.w+8&&h.y>o.y-8&&h.y<o.y+o.h+8);
+    let impact=wall;
+    for(const e of g.enemies)if(e.hp>0&&e.x>Math.min(x,h.x)-20&&e.x<Math.max(x,h.x)+20&&e.y>Math.min(y,h.y)-20&&e.y<Math.max(y,h.y)+20&&pointSegmentDistance(e.x,e.y,x,y,h.x,h.y)<(e.kind==='boss'||e.kind==='twinBomber'||e.kind==='twinRicochet'?29:18)+8){impact=true;break;}
+    if(impact||h.remaining<=0){
+      h.kind='mineProjectileBlast';h.remaining=.2;h.total=.2;h.done=true;api.event(g,'explosion',h.x,h.y);
+      for(const e of g.enemies){
+        if(e.hp<=0||ENEMIES[e.kind].invulnerable||api.distance(e,h)>h.r||frontShield(e,h.x,h.y))continue;
+        const owner=g.players.find(p=>p.id===h.owner),damage=owner?.name==='hacker'?e.hp:h.damage;e.hp-=damage;api.event(g,'hit',e.x,e.y,`${Math.round(damage)}`,owner?.id);if(e.hp<=0)api.kill(g,e,owner);
+      }
+    }
+    return true;
+  }
+  if(h.kind==='mineProjectileBlast'){
+    h.remaining-=dt;return true;
   }
   if(h.kind==='cluster'||h.kind==='grenade'){
     h.remaining-=dt;
@@ -174,6 +207,7 @@ export function specialHazard(g,h,dt,alive,api){
   }
   return false;
 }
+function pointSegmentDistance(px,py,ax,ay,bx,by){const dx=bx-ax,dy=by-ay,t=clamp(((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(px-ax-dx*t,py-ay-dy*t);}
 export function dashBlast(g,p,damage,api){
   if(p.hp<=0||p.dashLeft>0&&p.dashAge<p.dashIframes)return 'immune';
   const total=damage*(1-p.armor)+p.internal;p.hp=Math.max(0,p.hp-total);p.internal=0;p.streak=0;p.invuln=B.hurtIframes;api.event(g,'hurt',p.x,p.y,`−${Math.ceil(total)}`,p.id);if(!p.hp)api.event(g,'death',p.x,p.y,'DOWN',p.id);return 'hurt';

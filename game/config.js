@@ -8,7 +8,7 @@ export const BALANCE = {
   regularChip: .08, regularStored: .65,
   meleeCleanse: 2, streakTimeout: 3, streakBonus: .16, hurtIframes: .32,
   bossSlamRadius: 145, bossSlamTell: .85, bossSlamCooldown: 3, bossRepositionSpeed: 230,
-  encounters: 4, levels: 2, magnetDuration: 5, mineArmTime: 1, mineFuseTime: .4, baseEnemies: 3, partyEnemies: 2, disconnectSeconds: 12,
+  encounters: 4, levels: 2, magnetDuration: 3, mineArmTime: 1, mineFuseTime: .4, mineLifetime: 20, mineLimit: 4, baseEnemies: 3, partyEnemies: 2, disconnectSeconds: 12,
 };
 export const WEAPONS = {
   dagger: { name: 'Dagger', damage: 31, range: 48, arc: .42, cooldown: .23, parry: .18, targets: 1, perk: 'Perfect parry: +1 streak', desc: 'Close range · highest damage · precise timing' },
