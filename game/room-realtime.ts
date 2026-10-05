@@ -5,7 +5,7 @@ const SNAPSHOT_INTERVAL = 33;
 const PERSIST_INTERVAL = 250;
 const SNAPSHOT_EVENTS = 18;
 
-type Game = Omit<ReturnType<typeof import('./engine.js').createGame>,'events'> & {scenerySeed?:number;events:Array<{time:number} & Record<string,unknown>>};
+type Game = Omit<ReturnType<typeof import('./engine.js').createGame>,'events'> & {scenerySeed?:number;runSystems?:boolean;hostId?:string;scrap?:number;kits?:unknown[];routeOptions?:string[];pendingRoom?:number;station?:{x:number;y:number};exit?:{x:number;y:number};stock?:unknown[];altarOffers?:string[];stopSerial?:number;events:Array<{time:number} & Record<string,unknown>>};
 
 type RealtimeMember = { id:string; token:string; name:string; weapon:string; ready:boolean; slot:number; lastSeen:number };
 type RealtimeRoom = {
@@ -20,12 +20,12 @@ type RealtimeRoom = {
 function compactGame(game: Game | null) {
   if (!game) return null;
   const pick = (values: Record<string,unknown>[], fields: string[]) => values.map(value => Object.fromEntries(fields.filter(key => value[key] !== undefined).map(key => [key,value[key]])));
-  const playerFields = ['id','name','weapon','slot','x','y','angle','hp','maxHp','internal','level','xp','shieldDamage','shieldBroken','magnetLeft','damage','speed','armor','perfect','dashLeft','dashCd','dx','dy','invuln','swing','blocking','stun','vx','vy','streak','parryCd','parryLeft','parryAge','upgrades','offers','chosen','kills','perfects','regulars'];
+  const playerFields = ['id','name','weapon','slot','x','y','angle','hp','maxHp','internal','level','xp','shieldDamage','shieldBroken','magnetLeft','damage','speed','armor','perfect','dashLeft','dashCd','dx','dy','invuln','swing','blocking','stun','vx','vy','streak','parryCd','parryLeft','parryAge','upgrades','offers','chosen','kills','perfects','regulars','kitId','healthFactor','vendorOpen','altarOpen','altarUsed','stunBonus','areaScale','returnPower','dashPulse','stunDamage','parryHeal','stunNova','thunderStep','mirror','echoBlade'];
   const enemyFields = ['id','kind','x','y','hp','maxHp','angle','tell','tellTotal','danger','action','swing','guardLeft','stun','recoil','mineState','mineTimer','primed','repositionLeft','repositionX','repositionY'];
   const bulletFields = ['id','x','y','vx','vy','kind','owner','radius','unparryable','ricochet','thrower','wave','waveAge'];
   const hazardFields = ['id','kind','x','y','r','remaining','total','dashOnly','sx','sy','ex','ey','flight','armed','triggerRadius'];
   const events = game.events.filter((event) => game.time-event.time <= 3).slice(-SNAPSHOT_EVENTS);
-  return {seed:game.seed,time:game.time,stage:game.stage,room:game.room,phase:game.phase,players:pick(game.players,playerFields),enemies:pick(game.enemies,enemyFields),bullets:pick(game.bullets,bulletFields),hazards:pick(game.hazards,hazardFields),obstacles:game.obstacles,width:game.width,height:game.height,intro:game.intro,scenerySeed:game.scenerySeed,events:pick(events,['id','kind','x','y','text','who','time'])};
+  return {seed:game.seed,time:game.time,stage:game.stage,room:game.room,phase:game.phase,players:pick(game.players,playerFields),enemies:pick(game.enemies,enemyFields),bullets:pick(game.bullets,bulletFields),hazards:pick(game.hazards,hazardFields),obstacles:game.obstacles,width:game.width,height:game.height,intro:game.intro,scenerySeed:game.scenerySeed,runSystems:game.runSystems,hostId:game.hostId,scrap:game.scrap,kits:game.kits,routeOptions:game.routeOptions,pendingRoom:game.pendingRoom,station:game.station,exit:game.exit,stock:game.stock,altarOffers:game.altarOffers,stopSerial:game.stopSerial,events:pick(events,['id','kind','x','y','text','who','time','radius'])};
 }
 
 function snapshot(code: string, room: RealtimeRoom, revision: number, sequence: number) {
@@ -75,11 +75,11 @@ export class RoomRealtime extends DurableObject<Cloudflare.Env> {
     if (request.method === 'POST') {
       try {
         await this.load(code);
-        const body = await request.json() as {id?:string;token?:string;action?:string;input?:Record<string,number|boolean>;operation?:string;level?:number;room?:number;hp?:number};
+        const body = await request.json() as {id?:string;token?:string;action?:string;input?:Record<string,number|boolean>;operation?:string;level?:number;room?:number;hp?:number;kit?:string;choice?:string;item?:string};
         const member = this.room?.members.find(value => value.id === body.id && value.token === body.token);
         if (!member || !this.room?.game) return Response.json({error:'You have disconnected. Join a new lobby.'},{status:401});
         const now=Date.now();member.lastSeen=now;
-        if(body.action==='admin')applyAction(this.room,member,body,now);
+        if(['admin','kit','route','buy','sacrifice','vendorClose'].includes(body.action||''))applyAction(this.room,member,body,now);
         else if(body.action==='leave')applyAction(this.room,member,{action:'leave'},now);
         else this.room.inputs[member.id]=cleanInput(body.input||{});
         advanceRoom(this.room,now);this.revision++;

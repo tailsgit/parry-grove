@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { Miniflare } from 'miniflare';
 import { readFile } from 'node:fs/promises';
+import {claimKit} from '../game/run-content.js';
 import { step } from '../game/engine.js';
 
 process.env.CLOUDFLARE_CF_FETCH_ENABLED='false';
@@ -25,7 +26,9 @@ test('HTTP + D1: four clients, CAS races, combat, rewards, disconnect, death and
   await Promise.all(sessions.map(s=>post({action:'ready'},s)));
   assert.equal((await post({action:'start'},sessions[1])).status,400);
   let start=await post({action:'start'},host);assert.equal(start.status,200);assert.equal(start.data.game.players.length,4);assert.equal(start.data.game.encounterParty,4);
-  assert.equal(start.data.game.enemies.length,9);assert.equal((await post({action:'join',code,name:'Late'})).status,409);
+  assert.equal(start.data.game.phase,'draft');assert.equal(start.data.game.kits.length,6);
+  const initial=JSON.parse((await db.prepare('SELECT state FROM game_rooms WHERE code = ?').bind(code).first()).state);const initialKits=[...initial.game.kits];for(const [i,p] of initial.game.players.entries()){p.x=initialKits[i].x;p.y=initialKits[i].y;claimKit(initial.game,p.id,initialKits[i].id);}
+  assert.equal(initial.game.enemies.length,9);await db.prepare('UPDATE game_rooms SET state = ? WHERE code = ?').bind(JSON.stringify(initial),code).run();assert.equal((await post({action:'join',code,name:'Late'})).status,409);
   for(let n=0;n<15;n++){
    const results=await Promise.all(sessions.map((s,i)=>post({action:'input',input:{mx:i%2?1:0,my:i%2?0:1,angle:0,attack:true,parry:n+1,dash:n+1}},s)));
    for(const res of results){assert.equal(res.status,200);assert.equal(res.data.game.players.length,4);assert.ok(res.data.game.players.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.hp)));assert.ok(!JSON.stringify(res.data.members).includes('token'));}
@@ -37,7 +40,7 @@ test('HTTP + D1: four clients, CAS races, combat, rewards, disconnect, death and
   await db.prepare('UPDATE game_rooms SET state = ? WHERE code = ?').bind(JSON.stringify(r),code).run();
   const picks=await Promise.all(sessions.map(s=>post({action:'upgrade',upgrade:r.game.players.find(p=>p.id===s.id).offers[0]},s)));for(const res of picks)assert.equal(res.status,200);
   assert.equal((await post({action:'upgrade',upgrade:r.game.players[0].offers[0]},host)).status,400);
-  await post({action:'input',input:{interact:1}},host);await new Promise(resolve=>setTimeout(resolve,30));
+  await post({action:'route',choice:'continue'},host);await post({action:'input',input:{interact:1}},host);await new Promise(resolve=>setTimeout(resolve,30));
   const next=await post({action:'poll'},host);assert.equal(next.data.game.room,1);assert.equal(next.data.game.phase,'combat');
   await post({action:'leave'},host);const transfer=await post({action:'poll'},sessions[1]);assert.equal(transfer.data.game.players.length,3);assert.notEqual(transfer.data.host,host.id);
   // Host timeout transfers ownership and keeps the same authoritative run.
