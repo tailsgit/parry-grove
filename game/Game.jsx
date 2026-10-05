@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable react-hooks/purity -- The realtime controller reads its clock only in effects and event handlers, never during rendering. */
 import { useEffect, useRef, useState } from 'react';
-import { xpRequired, createGame, player, step, chooseUpgrade, move } from './engine.js';
+import { xpRequired, createGame, player, step, chooseUpgrade, adminTeleport, adminHealth, move } from './engine.js';
 import { WEAPONS, UPGRADES, COLORS, BALANCE, ENEMIES, isBoss, levelTheme } from './config.js';
 import Settings from './Settings.jsx';
 import { Renderer } from './renderer.js';
@@ -32,6 +32,14 @@ export default function Game() {
   async function command(action,extra={}){if(modeRef.current==='online'&&['return','upgrade'].includes(action)){if(realtime.current?.readyState===WebSocket.OPEN){realtime.current.send(JSON.stringify({type:'action',action,...extra}));setError('');}else setError('Reconnecting to the room…');return;}if(busy)return;setBusy(true);setError('');try{const data=await request({action,...extra});accept(data);}catch(e){setError(e.message);}finally{setBusy(false);}}
   async function leave(){const session=net.current,socket=realtime.current;if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'action',action:'leave'}));net.current=null;changeMode('menu');setRoom(null);setView(null);setError('');world.current=createGame([player('preview','',weapon)],314159);if(session&&socket?.readyState!==WebSocket.OPEN)try{await request({action:'leave'},session);}catch{} }
   function pick(id){renderer.current?.unlockAudio();if(modeRef.current==='solo'){chooseUpgrade(world.current,'solo',id);snapshot(world.current);}else if(realtime.current?.readyState===WebSocket.OPEN)realtime.current.send(JSON.stringify({type:'action',action:'upgrade',upgrade:id}));else setError('Reconnecting to the room…');}
+  async function admin(operation,values){
+    if(modeRef.current==='solo'){
+      if(operation==='teleport'){adminTeleport(world.current,values.level,values.room);const i=input.current;world.current.players.forEach(p=>{p.seenParry=i.parry;p.seenDash=i.dash;p.seenInteract=i.interact;});}
+      else adminHealth(world.current,'solo',values.hp);
+      keys.current.clear();input.current.mx=0;input.current.my=0;input.current.attack=false;resetGuard(input.current);snapshot(world.current);
+    }else if(modeRef.current==='online'){const data=await request({action:'admin',operation,...values});if(net.current)net.current.snapshots=[];accept(data,typeof data.sequence==='number');}
+    else throw Error('Start a run before using admin controls.');
+  }
   function next(){input.current.interact++;}
   function toggleInventory(){
     if(settingsRef.current||modeRef.current==='menu'||!world.current)return;
@@ -144,7 +152,7 @@ export default function Game() {
       {inventory&&p&&<section className="screen-modal centered inventory-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-title" tabIndex={-1} ref={inventoryDialog}><span className="eyebrow">YOUR RUN · LEVEL {p.level}</span><h2 id="inventory-title">Collected upgrades</h2><p>{mode==='online'?'Your co-op run keeps going while this panel is open.':'Your solo run is paused while you browse.'}</p><div className="inventory-grid">{UPGRADES.filter(u=>p.upgrades.includes(u.id)).map(u=><div className="collected-upgrade" key={u.id}><span>{u.icon}</span><div><b>{u.name} <small>×{p.upgrades.filter(id=>id===u.id).length}</small></b><p>{u.desc}</p></div></div>)}</div>{!p.upgrades.length&&<p>No upgrades yet. Clear a room to choose your first reward.</p>}<button className="primary" onClick={toggleInventory}>Back to game · I / Esc</button></section>}
       {ended&&!inventory&&<div className="screen-modal centered"><span className="eyebrow">{view.phase==='victory'?'BOTH LEVELS CLEARED':'EVERY RUN TEACHES SOMETHING'}</span><h2>{view.phase==='victory'?'Beautifully parried.':'Back to the roots.'}</h2><div className="result-stats"><span><b>{p?.kills||0}</b>KILLS</span><span><b>{p?.perfects||0}</b>PERFECT PARRIES</span><span><b>{p?.level||1}</b>LEVEL</span></div>{mode==='solo'?<button className="primary" onClick={solo}>Run it again ↗</button>:isHost?<button className="primary" disabled={busy} onClick={()=>command('return')}>Return party to lobby ↗</button>:<p>Waiting for the host.</p>}<button className="secondary" onClick={toggleInventory}>Review collected upgrades</button><button className="text-button" onClick={leave}>Leave to main menu</button></div>}
       {playing&&p?.hp<=0&&!ended&&<div className="spectator-banner">You’re down · revive at the next room</div>}
-      {settings&&<Settings onClose={closeSettings} muted={muted} onToggleSound={toggleSound} online={mode==='online'}/>}
+      {settings&&<Settings onClose={closeSettings} muted={muted} onToggleSound={toggleSound} online={mode==='online'} active={playing} isHost={isHost} player={p} stage={view?.stage??0} room={view?.room??0} onAdmin={admin}/>}
       {error&&<p role="alert" className="screen-error">{error}</p>}
       <div className="screen-controls">WASD move · LMB attack · Q / RMB parry & block · SPACE dash · I upgrades{mode==='online'?' · CO-OP':' · ESC pause'}</div>
     </div>

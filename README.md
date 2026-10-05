@@ -298,3 +298,12 @@ enemies and bosses have a static portrait drawn from their actual game artwork,
 a mechanics explanation and counterplay advice. Search by name or mechanic,
 or filter by campaign level. Settings pauses solo play; co-op continues.
 Use **Close / Esc** to return to the game.
+
+## Admin controls
+
+During a run, open **Settings → Admin controls** to teleport to any campaign
+level and room (room 5 is the boss room), or set your HP from 1 to 1,000,000.
+Teleport preserves stats and upgrades and revives downed players. Setting HP
+above your current maximum raises that maximum and clears internal damage.
+In co-op, only the room host can use these controls: teleport moves the whole
+party, while custom HP changes apply to the host.
