@@ -15,7 +15,7 @@ export function specialEnemy(g,e,p,dt,api){
     }
     if(e.mineState==='approach'){
       if(gap<=c.dropRange&&(api.hasLineOfSight(g,e,p)||gap<=c.aoeRadius+B.radius)&&e.mineTimer<=1e-9){
-        const h=api.hazard(g,e.x,e.y,110,.35,c.damage,'mine');h.triggerRadius=52;h.armed=false;h.source=e.id;e.minesLaid++;e.mineTimer=c.rate;e.mineState='flee';e.wanderTimer=0;api.event(g,'mine',e.x,e.y,'MINE');
+        const h=api.hazard(g,e.x,e.y,110,B.mineArmTime,c.damage,'mine');h.triggerRadius=52;h.armed=false;h.source=e.id;e.minesLaid++;e.mineTimer=c.rate;e.mineState='flee';e.wanderTimer=0;api.event(g,'mine',e.x,e.y,'MINE');
       }else{
         const angle=api.hasLineOfSight(g,e,p)?Math.atan2(p.y-e.y,p.x-e.x):api.seekSight(g,e,p);
         e.angle=angle;e.aiVX=Math.cos(angle)*c.speed;e.aiVY=Math.sin(angle)*c.speed;return true;
@@ -83,7 +83,7 @@ export function fireSpecial(g,e,p,api){
   }
   if(e.kind==='cluster'||e.kind==='twinBomber'){
     const h=api.hazard(g,p.x,p.y,24,.65,c.damage,'cluster',e.x,e.y);h.flight=.65;h.settle=.22;h.target=p.id;
-    if(e.kind==='twinBomber'){const mine=api.hazard(g,e.x,e.y,120,.35,20,'mine');mine.triggerRadius=58;mine.armed=false;mine.source=e.id;}
+    if(e.kind==='twinBomber'){const mine=api.hazard(g,e.x,e.y,120,B.mineArmTime,20,'mine');mine.triggerRadius=58;mine.armed=false;mine.source=e.id;}
     api.event(g,'mortar',e.x,e.y);return true;
   }
   if(e.kind==='boomerang'&&g.bullets.some(b=>b.thrower===e.id&&b.life>0))return true;
@@ -160,7 +160,7 @@ export function dartHit(g,b,p,api){
 export function specialHazard(g,h,dt,alive,api){
   if(h.kind==='mine'){
     if(!h.armed){h.remaining-=dt;if(h.remaining<=0)h.armed=true;}
-    if(h.armed&&alive.some(p=>api.distance(p,h)<h.triggerRadius+B.radius)){h.kind='mineBlast';h.remaining=.14;h.total=.14;api.event(g,'fuse',h.x,h.y,'MINE!');}
+    if(h.armed&&alive.some(p=>api.distance(p,h)<h.triggerRadius+B.radius)){h.kind='mineBlast';h.remaining=B.mineFuseTime;h.total=B.mineFuseTime;api.event(g,'fuse',h.x,h.y,'MINE!');}
     return true;
   }
   if(h.kind==='cluster'||h.kind==='grenade'){

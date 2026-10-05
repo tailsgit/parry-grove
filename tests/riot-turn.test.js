@@ -12,9 +12,9 @@ test('a dash flank opens a real melee damage window while the front still blocks
   assert.ok(Math.abs(e.angle)<ENEMIES.riot.turnSpeed*.16);
   p.attackCd=0;tick(g,1,{attack:true,angle:0});assert.ok(e.hp<hp);
 });
-test('a lone Riot Shield turns at most 135 degrees/sec and eventually faces the flank',()=>{
+test('a lone Riot Shield turns at most 67.5 degrees/sec and eventually faces the flank',()=>{
   const {g,p,e}=setup();p.x=400;let turn=0;
-  for(let i=0;i<100;i++){const before=e.angle;tick(g);turn+=Math.abs(delta(e.angle,before));assert.ok(Math.abs(delta(e.angle,before))<=ENEMIES.riot.turnSpeed/60+1e-9);}
+  for(let i=0;i<180;i++){const before=e.angle;tick(g);turn+=Math.abs(delta(e.angle,before));assert.ok(Math.abs(delta(e.angle,before))<=ENEMIES.riot.turnSpeed/60+1e-9);}
   assert.ok(turn>Math.PI-.01);assert.equal(frontShield(e,p.x,p.y),true);
 });
 test('escort repositioning cannot snap or double the shield turning rate',()=>{

@@ -270,20 +270,20 @@ patterns use a fixed scenery seed and remain unchanged throughout combat.
 
 ## Level 2: Brass Foundry
 
-Clear Level 1’s fifth room and press **E / Enter Level 2**. Your current health,
+Clear Level 1’s fifth room and press **E / Enter Level 2**. Health restores to maximum immediately after clearing each level, including the final level; rooms do not grant a full heal. Your
 maximum health, EXP level, weapon, stats and collected upgrades carry
 forward; shield capacity fully restores. Each level keeps one fixed background across all five rooms. Rooms 1–4
 offer the same upgrades and combat rules; room 5 requires defeating both bosses.
 
 | Enemy | Attack and counterplay |
 | --- | --- |
-| Mine-Layer | Approaches to 150 pixels, instantly drops a mine, flees to 450 pixels, then holds until its five-second cooldown ends before approaching again. The five-second timer ticks throughout retreat and hold. No lifetime mine limit. Mines arm and detonate on proximity. |
+| Mine-Layer | Approaches to 150 pixels, instantly drops a mine, flees to 450 pixels, then holds until its five-second cooldown ends before approaching again. The five-second timer ticks throughout retreat and hold. No lifetime mine limit. Mines take one second to arm, then give a 0.4-second warning after proximity triggers them. |
 | Ricochet Gunner | Wall and stone-cover reflections; two bounces, removed at the third impact. |
 | Suicide Bomber | Immune to all player damage (including hacker hits) until it detonates itself. Charges, then a random short red fuse; players hidden inside its blast radius also trigger the fuse through cover. Its large DASH ONLY blast requires precisely timed dash invulnerability; block and parry do not stop it. |
 | Cluster Grenadier | Arcing grenade rests for 220ms after landing, then splits into exactly five projectiles. |
 | Conductor | Fast tracking dart deals no damage. Parry or dodge it: blocking still attaches the dart. For five seconds, all hostile room projectiles bend toward the marked player; returned projectiles remain friendly. |
 | Sin-Shooter | Shots follow a sine wave; step into the curves or parry. |
-| Riot Shield | Moves at 110 pixels/sec and actively repositions between the player and nearby allies, prioritizing ranged allies. Its front-facing shield provides mobile cover and turns at 135 degrees/sec, giving a dash flank time to connect. Flank it or parry its low-damage, strong-knockback melee strike to stun it. |
+| Riot Shield | Moves at 110 pixels/sec and actively repositions between the player and nearby allies, prioritizing ranged allies. Its front-facing shield provides mobile cover and turns at 67.5 degrees/sec, giving a dash flank time to connect. Flank it or parry its low-damage, strong-knockback melee strike to stun it. |
 | Boomerang Thrower | One wide-arcing projectile at a time; dodge the outgoing and returning passes. Red boomerangs may be blocked, but not parried. |
 | Twin bosses | The mobile Bomber plants mines and lobs cluster grenades that pause on landing and scatter five shots while the Ricochet fires bouncing spreads. Both must fall. |
 

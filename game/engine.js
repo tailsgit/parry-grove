@@ -436,7 +436,7 @@ export function step(g,inputs,dt) {
   if(!g.players.some(p=>p.hp>0)){g.phase='death';return;}
   if(!g.enemies.length) {
     clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);
-    if(g.room===B.encounters) {g.phase=(g.stage??0)+1<LEVELS.length?'levelclear':'victory';event(g,g.phase==='victory'?'victory':'levelclear',g.width/2,g.height/2,g.phase==='levelclear'?'LEVEL COMPLETE':'');}
+    if(g.room===B.encounters) {for(const p of g.players)p.hp=p.maxHp;g.phase=(g.stage??0)+1<LEVELS.length?'levelclear':'victory';event(g,g.phase==='victory'?'victory':'levelclear',g.width/2,g.height/2,g.phase==='levelclear'?'LEVEL COMPLETE':'');}
     else {g.phase='upgrade';for(const p of g.players){p.chosen=p.hp<=0;const pool=[...UPGRADES];p.offers=[];for(let n=0;n<3;n++){const j=Math.floor(random(g)*pool.length);p.offers.push(pool.splice(j,1)[0].id);}}event(g,'clear',g.width/2,g.height/2,'ROOM CLEARED');}
   }
 }
