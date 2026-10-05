@@ -8,7 +8,7 @@ export const BALANCE = {
   regularChip: .08, regularStored: .65,
   meleeCleanse: 2, streakTimeout: 3, streakBonus: .16, hurtIframes: .32,
   bossSlamRadius: 145, bossSlamTell: .85, bossSlamCooldown: 3, bossRepositionSpeed: 230,
-  encounters: 4, levels: 2, magnetDuration: 5, baseEnemies: 3, partyEnemies: 2, disconnectSeconds: 12,
+  encounters: 4, levels: 2, magnetDuration: 5, mineArmTime: 1, mineFuseTime: .4, baseEnemies: 3, partyEnemies: 2, disconnectSeconds: 12,
 };
 export const WEAPONS = {
   dagger: { name: 'Dagger', damage: 31, range: 48, arc: .42, cooldown: .23, parry: .18, targets: 1, perk: 'Perfect parry: +1 streak', desc: 'Close range · highest damage · precise timing' },
@@ -30,7 +30,7 @@ export const ENEMIES = {
   cluster: { name: 'Cluster Grenadier', hp: 72, speed: 60, damage: 11, aoeRadius: 24, rate: 2.7, tell: .6, color: '#acb779' },
   magnet: { name: 'The Conductor', hp: 62, speed: 75, projectile: 440, damage: 0, rate: 3.5, tell: .45, color: '#77d9ed' },
   sine: { name: 'Sin-Shooter', hp: 60, speed: 75, projectile: 245, damage: 12, rate: 1.7, tell: .45, color: '#c1a6f2' },
-  riot: { name: 'Riot Shield', hp: 115, speed: 110, turnSpeed: Math.PI*.75, escortRadius: 360, escortGap: 70, melee: true, range: 80, arc: 1.65, damage: 4, rate: 1.7, tell: .4, color: '#9cb5c0' },
+  riot: { name: 'Riot Shield', hp: 115, speed: 110, turnSpeed: Math.PI*.375, escortRadius: 360, escortGap: 70, melee: true, range: 80, arc: 1.65, damage: 4, rate: 1.7, tell: .4, color: '#9cb5c0' },
   boomerang: { name: 'Boomerang Thrower', hp: 65, speed: 80, projectile: 280, projectileRadius: 9, damage: 14, rate: 1.9, tell: .5, color: '#e9a7c4' },
   twinBomber: { name: 'The Bomber', boss: true, hp: 440, speed: 135, damage: 24, aoeRadius: 120, rate: 1.65, tell: .5, color: '#f39e67' },
   twinRicochet: { name: 'The Ricochet', boss: true, hp: 470, speed: 80, projectile: 335, damage: 13, rate: 1.25, tell: .45, color: '#bcc47b' },

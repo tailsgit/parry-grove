@@ -82,6 +82,19 @@ export function generateRoom(g) {
   }
   if(g.sceneryStage!==(g.stage??0)){g.scenerySeed=g.seed;g.sceneryStage=g.stage??0;}
 }
+// Admin actions use the same simulation in solo and authoritative co-op rooms.
+export function adminTeleport(g,level,room){
+  if(!g||!Number.isInteger(level)||level<1||level>LEVELS.length||!Number.isInteger(room)||room<1||room>B.encounters+1)throw Error('Choose a valid level and room.');
+  g.stage=level-1;g.room=room-1;g.phase='combat';
+  for(const p of g.players){if(p.hp<=0)p.hp=p.maxHp;p.attackCd=0;p.parryCd=0;p.dashCd=0;}
+  clear(g.events,runtime(g).events);generateRoom(g);
+}
+export function adminHealth(g,id,hp){
+  const p=g?.players.find(p=>p.id===id);
+  if(!p||!Number.isInteger(hp)||hp<1||hp>1000000)throw Error('Enter a whole HP amount from 1 to 1,000,000.');
+  p.maxHp=Math.max(p.maxHp,hp);p.hp=hp;p.internal=0;p.stun=0;p.invuln=1.5;
+  if(g.phase==='death')g.phase='combat';
+}
 function insideXY(x,y,o,r=0){return x>o.x-r&&x<o.x+o.w+r&&y>o.y-r&&y<o.y+o.h+r;}
 function inside(p,o,r=0){return insideXY(p.x,p.y,o,r);}
 export function move(g,p,dx,dy,r=B.radius) {
@@ -436,7 +449,7 @@ export function step(g,inputs,dt) {
   if(!g.players.some(p=>p.hp>0)){g.phase='death';return;}
   if(!g.enemies.length) {
     clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);
-    if(g.room===B.encounters) {g.phase=(g.stage??0)+1<LEVELS.length?'levelclear':'victory';event(g,g.phase==='victory'?'victory':'levelclear',g.width/2,g.height/2,g.phase==='levelclear'?'LEVEL COMPLETE':'');}
+    if(g.room===B.encounters) {for(const p of g.players)p.hp=p.maxHp;g.phase=(g.stage??0)+1<LEVELS.length?'levelclear':'victory';event(g,g.phase==='victory'?'victory':'levelclear',g.width/2,g.height/2,g.phase==='levelclear'?'LEVEL COMPLETE':'');}
     else {g.phase='upgrade';for(const p of g.players){p.chosen=p.hp<=0;const pool=[...UPGRADES];p.offers=[];for(let n=0;n<3;n++){const j=Math.floor(random(g)*pool.length);p.offers.push(pool.splice(j,1)[0].id);}}event(g,'clear',g.width/2,g.height/2,'ROOM CLEARED');}
   }
 }

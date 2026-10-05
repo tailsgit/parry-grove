@@ -1,4 +1,4 @@
-import { createGame, player, step, chooseUpgrade, clamp } from './engine.js';
+import { createGame, player, step, chooseUpgrade, adminTeleport, adminHealth, clamp } from './engine.js';
 import { WEAPONS, BALANCE } from './config.js';
 export function roomState(member, now) {return {host:member.id,members:[member],game:null,inputs:{},lastTick:now,createdAt:now};}
 export function member(name,weapon,now) {return {id:crypto.randomUUID(),token:crypto.randomUUID(),name:String(name||'Adventurer').trim().slice(0,18)||'Adventurer',weapon:WEAPONS[weapon]?weapon:'sword',ready:false,lastSeen:now,slot:0};}
@@ -29,6 +29,15 @@ export function applyAction(r,m,payload,now) {
     if(m.id!==r.host)throw Error('Only the host can return everyone to the lobby.');
     if(r.game&&!['victory','death'].includes(r.game.phase))throw Error('Finish the run first.');
     r.game=null;r.inputs={};r.members.forEach(m=>m.ready=false);
+  }
+  if(a==='admin'){
+    if(m.id!==r.host)throw Error('Only the host can use admin controls.');
+    if(!r.game)throw Error('Start a run before using admin controls.');
+    if(payload.operation==='teleport'){
+      adminTeleport(r.game,payload.level,payload.room);
+      for(const p of r.game.players){const i=cleanInput(r.inputs[p.id]);r.inputs[p.id]={...i,mx:0,my:0,attack:false,guard:false};p.seenParry=i.parry;p.seenDash=i.dash;p.seenInteract=i.interact;}
+    }else if(payload.operation==='health')adminHealth(r.game,m.id,payload.hp);
+    else throw Error('Unknown admin action.');
   }
   if(a==='input')r.inputs[m.id]=cleanInput(payload.input);
   if(a==='leave') {
