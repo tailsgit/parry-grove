@@ -5,7 +5,7 @@ const SOUNDS={explosion:[70,.25,'sawtooth'],mortar:[180,.12,'triangle'],shieldbr
 const GLOBAL_SOUNDS=['kill','victory','clear','explosion','mortar'],RING_EVENTS=['perfect','regular','block','hit','nova'];
 const TAU=Math.PI*2;
 export class Renderer {
-  constructor(canvas) {this.canvas=canvas;this.ctx=canvas.getContext('2d');this.lastEvent=0;this.particles=[];this.labels=[];this.shake=0;this.audio=null;this.muted=false;this.camera={scale:1,ox:0,oy:0};this.lastRoom=-1;this.previousTime=-1;this.hitstop=0;this.perfectFlash=0;this.rings=[];this.entities=[];this.particlePool=new ObjectPool(()=>({}),2048);this.labelPool=new ObjectPool(()=>({}),128);this.ringPool=new ObjectPool(()=>({}),128);this.point={x:0,y:0};this.floorBatch=new RectangleBatch();this.floorStamp={};}
+  constructor(canvas) {this.canvas=canvas;this.ctx=canvas.getContext('2d');this.lastEvent=0;this.particles=[];this.labels=[];this.shake=0;this.audio=null;this.muted=false;this.camera={scale:1,ox:0,oy:0};this.lastRoom=-1;this.previousTime=-1;this.hitstop=0;this.perfectFlash=0;this.rings=[];this.entities=[];this.particlePool=new ObjectPool(()=>({}),2048);this.labelPool=new ObjectPool(()=>({}),128);this.ringPool=new ObjectPool(()=>({}),128);this.point={x:0,y:0};this.floorBatch=new RectangleBatch();this.floorStamp={};this.doorLightCache=new Map();}
   unlockAudio() {if(!this.audio){const AC=window.AudioContext||window.webkitAudioContext;if(AC)this.audio=new AC();}this.audio?.resume();}
   sound(kind) {
     if(this.muted||!this.audio)return;
@@ -112,17 +112,25 @@ export class Renderer {
     }c.restore();
   }
   routeDoor(c,d,g){
-    const color=d.choice==='altar'?'#efa0ab':d.choice==='shop'?'#efd18b':'#cee4ee',bottom=d.side==='bottom';
+    const color=d.choice==='altar'?'#efa0ab':d.choice==='shop'?'#efd18b':'#f18d83',bottom=d.side==='bottom',light=this.doorLight(color);
+    // Cached soft light spills inward onto the existing floor, never outside the room.
+    c.save();c.beginPath();c.rect(33,33,g.width-66,g.height-66);c.clip();c.translate(d.x+(d.side==='left'?35:d.side==='right'?-35:0),d.y-(bottom?35:0));if(bottom)c.rotate(Math.PI/2);c.drawImage(light,-96,-64);c.restore();
     c.save();c.translate(d.x,d.y);if(bottom)c.rotate(Math.PI/2);
     // Stone jambs replace the wall trim around a dark, lit passage.
     c.fillStyle='#18352d';c.fillRect(-20,-48,40,96);c.fillStyle='#d5c89b';c.fillRect(-21,-48,42,9);c.fillRect(-21,39,42,9);c.fillStyle='#0a201c';c.fillRect(-19,-38,38,76);c.fillStyle=color;c.globalAlpha=.3;c.fillRect(-9,-32,18,64);c.globalAlpha=1;
     c.strokeStyle=color;c.lineWidth=2;c.strokeRect(-17,-37,34,74);c.restore();
-    const x=bottom?d.x:d.side==='left'?68:g.width-68,y=bottom?d.y-85:d.y-75;
-    c.save();c.translate(x,y);c.fillStyle='#102b25';c.beginPath();c.arc(0,0,24,0,TAU);c.fill();c.strokeStyle=color;c.lineWidth=1;c.stroke();c.fillStyle=color;
+    const x=d.x,y=d.y-(bottom?100:94)+Math.sin(g.time*2.2+(d.choice==='shop'?1.4:d.choice==='altar'?2.8:0))*4;
+    c.save();c.translate(x,y);c.globalAlpha=.7;c.drawImage(light,-37,-25,74,50);c.strokeStyle=color;c.lineWidth=1;c.beginPath();c.arc(0,0,24,0,TAU);c.stroke();c.globalAlpha=1;c.fillStyle=color;
     if(d.choice==='continue'){c.rotate(-.6);c.fillRect(-4,-18,8,27);c.beginPath();c.moveTo(-4,-18);c.lineTo(0,-26);c.lineTo(4,-18);c.closePath();c.fill();c.fillRect(-12,9,24,4);c.fillRect(-3,13,6,11);}
     else if(d.choice==='altar'){c.beginPath();c.moveTo(0,-18);c.bezierCurveTo(-8,-5,-15,1,-15,9);c.bezierCurveTo(-15,24,15,24,15,9);c.bezierCurveTo(15,1,8,-5,0,-18);c.fill();c.fillStyle='#fff2ce';c.fillRect(-7,8,3,6);}
     else{c.beginPath();c.arc(0,0,16,0,TAU);c.fill();c.strokeStyle='#826938';c.lineWidth=2;c.beginPath();c.arc(0,0,11,0,TAU);c.stroke();c.fillStyle='#826938';c.font='bold 18px monospace';c.textAlign='center';c.fillText('$',0,6);}
-    c.restore();c.save();c.textAlign='center';c.font='bold 10px monospace';c.fillStyle='#102b25';c.fillRect(x-45,y-60,90,29);c.fillStyle=color;c.fillText(d.choice==='continue'?'COMBAT':d.choice==='altar'?'SACRIFICE':'SHOP',x,y-48);c.font='8px monospace';c.fillText(g.players.length>1?'HOST ENTERS':'WALK THROUGH',x,y-37);c.restore();
+    c.restore();c.save();c.textAlign='center';c.font='bold 10px monospace';c.fillStyle='#102b25';c.fillRect(x-45,y-48,90,18);c.fillStyle=color;c.fillText(d.choice==='continue'?'COMBAT':d.choice==='altar'?'SACRIFICE':'SHOP',x,y-36);c.restore();
+  }
+  doorLight(color){
+    let light=this.doorLightCache.get(color);if(light)return light;
+    // Build one light sprite per route color; reuse it for every frame and room.
+    light=document.createElement('canvas');light.width=192;light.height=128;const c=light.getContext('2d');c.translate(96,64);c.scale(1,.65);
+    const glow=c.createRadialGradient(0,0,0,0,0,94);glow.addColorStop(0,color+'40');glow.addColorStop(.55,color+'19');glow.addColorStop(1,color+'00');c.fillStyle=glow;c.fillRect(-96,-100,192,200);this.doorLightCache.set(color,light);return light;
   }
   specialHazard(c,h){
     if(!['mine','mineBlast','mineProjectile','cluster','grenade'].includes(h.kind))return false;
