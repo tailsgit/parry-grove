@@ -40,7 +40,7 @@ test('HTTP + D1: four clients, CAS races, combat, rewards, disconnect, death and
   await db.prepare('UPDATE game_rooms SET state = ? WHERE code = ?').bind(JSON.stringify(r),code).run();
   const picks=await Promise.all(sessions.map(s=>post({action:'upgrade',upgrade:r.game.players.find(p=>p.id===s.id).offers[0]},s)));for(const res of picks)assert.equal(res.status,200);
   assert.equal((await post({action:'upgrade',upgrade:r.game.players[0].offers[0]},host)).status,400);
-  await post({action:'route',choice:'continue'},host);await post({action:'input',input:{interact:1}},host);await new Promise(resolve=>setTimeout(resolve,30));
+  await post({action:'poll'},host);assert.equal((await post({action:'route',choice:'continue'},host)).status,400);r=JSON.parse((await db.prepare('SELECT state FROM game_rooms WHERE code = ?').bind(code).first()).state);assert.equal(r.game.phase,'route');const door=r.game.routeDoors.find(d=>d.choice==='continue'),leader=r.game.players.find(p=>p.id===host.id);leader.x=60;leader.y=door.y;r.inputs[host.id]={mx:0,my:0};await db.prepare('UPDATE game_rooms SET state = ? WHERE code = ?').bind(JSON.stringify(r),code).run();await post({action:'input',input:{mx:-1}},host);await new Promise(resolve=>setTimeout(resolve,30));
   const next=await post({action:'poll'},host);assert.equal(next.data.game.room,1);assert.equal(next.data.game.phase,'combat');
   await post({action:'leave'},host);const transfer=await post({action:'poll'},sessions[1]);assert.equal(transfer.data.game.players.length,3);assert.notEqual(transfer.data.host,host.id);
   // Host timeout transfers ownership and keeps the same authoritative run.

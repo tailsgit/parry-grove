@@ -350,3 +350,12 @@ Room-clear reward cards show large centered icons, functional color accents,
 tan borders and bright hover/focus outlines. Click a card or press 1, 2 or 3 to
 choose its corresponding upgrade. Held keys, downed players and already-locked
 choices cannot trigger another selection.
+
+### Physical route doors
+
+After everyone chooses their room-clear reward, exits open in the current room.
+Walk through the left **sword** door to continue fighting, or the right **blood-drop**
+door to visit an optional sacrifice altar. An occasional **coin** door in the bottom
+wall leads to a shop; before each boss, this is the only exit so the vending stop
+is guaranteed. In co-op, only the host crossing a door moves the party. There is
+no route-selection popup and no extra interaction key required at these doors.

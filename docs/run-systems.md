@@ -48,9 +48,14 @@ also award Scrap. Rewards are credited once, regardless of who gets the kill.
 Individual co-op deaths do not remove Scrap; a party wipe ends the run and clears
 it. A new run begins with zero. No currency persists between runs.
 
-After normal rewards, the host chooses the next route. The stop before each boss
-is always a vending room. Other routes have a 35% chance of offering a vending
-room and a 60% chance of offering an altar; continuing directly is also available.
+After normal rewards, physical exits open in the cleared room. The left sword
+door continues to combat; the right blood-drop door offers a sacrifice altar.
+A coin door in the bottom wall has a 35% chance to offer a vending room. Before
+each boss, the coin door is the only exit, guaranteeing a vending stop. Walk
+outward through an opening to enter; co-op route selection belongs to the host.
+The floor and unrelated cover remain in place, while each exit corridor is cleared.
+Downed allies revive at half health for this peaceful routing step; they receive
+no additional transition heal.
 
 Walk to the machine and press E. Stock and currency are shared; a purchase affects
 the buyer. Shield repairs cost 45 (two in stock); 35%-HP tonics cost 25 (two);

@@ -58,7 +58,7 @@ export class Renderer {
     for(const p of this.particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;c.globalAlpha=Math.max(0,p.life/p.max);if(p.x+3>=minX&&p.x-3<=maxX&&p.y+3>=minY&&p.y-3<=maxY){c.fillStyle=p.color;c.fillRect(p.x-2,p.y-2,4,4);}}c.globalAlpha=1;compact(this.particles,aliveEffect,this.particlePool);
     for(const l of this.labels){l.life-=dt;l.y-=dt*28;c.globalAlpha=Math.min(1,Math.max(0,l.life*3));c.font=`bold ${l.large?19:14}px monospace`;c.textAlign='center';c.fillStyle='#173f38';c.fillText(l.text,l.x+1,l.y+2);c.fillStyle=l.color;c.fillText(l.text,l.x,l.y);}c.globalAlpha=1;compact(this.labels,aliveEffect,this.labelPool);
     if(g.intro>0&&!attract){c.textAlign='center';c.font='bold 24px monospace';c.fillStyle='#14362de0';c.fillRect(g.width/2-185,55,370,58);c.fillStyle='#fff2bd';c.fillText(this.theme.name.toUpperCase(),g.width/2,91);}
-    if(g.phase==='upgrade'){const x=g.width-95,y=g.height/2;c.fillStyle='#a7ffe0';c.fillRect(x-20,y-30,40,60);c.fillStyle='#2b6b56';c.fillRect(x-12,y-20,24,40);c.font='bold 12px monospace';c.textAlign='center';c.fillStyle='#fbf4cb';c.fillText('E · NEXT ROOM',x,y+49);}
+    if(g.phase==='upgrade'&&!g.runSystems){const x=g.width-95,y=g.height/2;c.fillStyle='#a7ffe0';c.fillRect(x-20,y-30,40,60);c.fillStyle='#2b6b56';c.fillRect(x-12,y-20,24,40);c.font='bold 12px monospace';c.textAlign='center';c.fillStyle='#fbf4cb';c.fillText('E · NEXT ROOM',x,y+49);}
     c.restore();
     // Screen-space feedback stays pinned to the edges, independent of camera shake.
     if(this.perfectFlash>0&&!attract){
@@ -104,11 +104,25 @@ export class Renderer {
         }c.restore();
       }
     }
+    if(g.phase==='route')for(const door of g.routeDoors||[])this.routeDoor(c,door,g);
     if(['shop','altar'].includes(g.phase)&&g.station){const {x,y}=g.station;
       if(g.phase==='shop'){c.fillStyle='#183d38';c.fillRect(x-30,y-45,60,90);c.fillStyle='#e0ba73';c.fillRect(x-26,y-40,52,7);c.fillStyle='#94e8cf';c.fillRect(x-20,y-23,27,32);c.fillStyle='#3b654c';for(let i=0;i<3;i++)c.fillRect(x-17,y-18+i*9,21,5);c.fillStyle='#edd28b';c.fillRect(x+12,y-14,7,15);c.fillStyle='#080f11';c.fillRect(x-19,y+20,38,13);}
       else{c.fillStyle='#463b53';c.fillRect(x-35,y+8,70,25);c.fillStyle='#bb91d1';c.fillRect(x-27,y,54,10);c.fillStyle='#f0b8de';c.beginPath();c.moveTo(x,y-35);c.lineTo(x+15,y-10);c.lineTo(x,y+7);c.lineTo(x-15,y-10);c.closePath();c.fill();}
       c.fillStyle='#fff2cc';c.fillText(g.phase==='shop'?'E · VENDING MACHINE':'E · SACRIFICE ALTAR',x,y+65);c.fillStyle='#94e8cf';c.fillRect(g.exit.x-18,g.exit.y-28,36,56);c.fillStyle='#183d38';c.fillRect(g.exit.x-10,g.exit.y-20,20,40);c.fillStyle='#fff2cc';c.fillText('HOST · E · EXIT',g.exit.x,g.exit.y+50);
     }c.restore();
+  }
+  routeDoor(c,d,g){
+    const color=d.choice==='altar'?'#efa0ab':d.choice==='shop'?'#efd18b':'#cee4ee',bottom=d.side==='bottom';
+    c.save();c.translate(d.x,d.y);if(bottom)c.rotate(Math.PI/2);
+    // Stone jambs replace the wall trim around a dark, lit passage.
+    c.fillStyle='#18352d';c.fillRect(-20,-48,40,96);c.fillStyle='#d5c89b';c.fillRect(-21,-48,42,9);c.fillRect(-21,39,42,9);c.fillStyle='#0a201c';c.fillRect(-19,-38,38,76);c.fillStyle=color;c.globalAlpha=.3;c.fillRect(-9,-32,18,64);c.globalAlpha=1;
+    c.strokeStyle=color;c.lineWidth=2;c.strokeRect(-17,-37,34,74);c.restore();
+    const x=bottom?d.x:d.side==='left'?68:g.width-68,y=bottom?d.y-85:d.y-75;
+    c.save();c.translate(x,y);c.fillStyle='#102b25';c.beginPath();c.arc(0,0,24,0,TAU);c.fill();c.strokeStyle=color;c.lineWidth=1;c.stroke();c.fillStyle=color;
+    if(d.choice==='continue'){c.rotate(-.6);c.fillRect(-4,-18,8,27);c.beginPath();c.moveTo(-4,-18);c.lineTo(0,-26);c.lineTo(4,-18);c.closePath();c.fill();c.fillRect(-12,9,24,4);c.fillRect(-3,13,6,11);}
+    else if(d.choice==='altar'){c.beginPath();c.moveTo(0,-18);c.bezierCurveTo(-8,-5,-15,1,-15,9);c.bezierCurveTo(-15,24,15,24,15,9);c.bezierCurveTo(15,1,8,-5,0,-18);c.fill();c.fillStyle='#fff2ce';c.fillRect(-7,8,3,6);}
+    else{c.beginPath();c.arc(0,0,16,0,TAU);c.fill();c.strokeStyle='#826938';c.lineWidth=2;c.beginPath();c.arc(0,0,11,0,TAU);c.stroke();c.fillStyle='#826938';c.font='bold 18px monospace';c.textAlign='center';c.fillText('$',0,6);}
+    c.restore();c.save();c.textAlign='center';c.font='bold 10px monospace';c.fillStyle='#102b25';c.fillRect(x-45,y-60,90,29);c.fillStyle=color;c.fillText(d.choice==='continue'?'COMBAT':d.choice==='altar'?'SACRIFICE':'SHOP',x,y-48);c.font='8px monospace';c.fillText(g.players.length>1?'HOST ENTERS':'WALK THROUGH',x,y-37);c.restore();
   }
   specialHazard(c,h){
     if(!['mine','mineBlast','mineProjectile','cluster','grenade'].includes(h.kind))return false;
