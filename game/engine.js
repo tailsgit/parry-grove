@@ -44,7 +44,7 @@ export function createGame(players, seed = Date.now()>>>0) {
 }
 export function event(g, kind, x, y, text = '', who = '', sourceKind, weaponAction) {
   const pool=runtime(g).events;if(g.events.length>=70)pool.release(g.events.shift());
-  const e=pool.acquire();e.id=++g.eventSerial;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;e.radius=undefined;e.sourceKind=sourceKind;e.weaponAction=weaponAction;g.events.push(e);return e;
+  const e=pool.acquire();e.id=++g.eventSerial;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;e.radius=undefined;e.itemId=undefined;e.sourceKind=sourceKind;e.weaponAction=weaponAction;g.events.push(e);return e;
 }
 export function spawnEnemy(g, kind, x, y) {
   const c = ENEMIES[kind]; const scale = 1+g.room*.12 + (g.encounterParty-1)*(isBoss(kind)?.48:.12);

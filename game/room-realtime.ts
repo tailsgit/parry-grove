@@ -5,7 +5,7 @@ const SNAPSHOT_INTERVAL = 33;
 const PERSIST_INTERVAL = 250;
 const SNAPSHOT_EVENTS = 18;
 
-type Game = Omit<ReturnType<typeof import('./engine.js').createGame>,'events'> & {scenerySeed?:number;runSystems?:boolean;hostId?:string;scrap?:number;kits?:unknown[];routeOptions?:string[];routeDoors?:Array<{choice:string;x:number;y:number;side:string}>;pendingRoom?:number;station?:{x:number;y:number};exit?:{x:number;y:number};stock?:unknown[];altarOffers?:string[];stopSerial?:number;shopStartedAt?:number;events:Array<{time:number} & Record<string,unknown>>};
+type Game = Omit<ReturnType<typeof import('./engine.js').createGame>,'events'> & {scenerySeed?:number;runSystems?:boolean;hostId?:string;scrap?:number;kits?:unknown[];routeOptions?:string[];routeDoors?:Array<{choice:string;x:number;y:number;side:string}>;pendingRoom?:number;station?:{x:number;y:number};exit?:{x:number;y:number};stock?:unknown[];altarOffers?:string[];stopSerial?:number;shopStartedAt?:number;doorsOpenedAt?:number;events:Array<{time:number} & Record<string,unknown>>};
 
 type RealtimeMember = { id:string; token:string; name:string; weapon:string; ready:boolean; slot:number; lastSeen:number };
 type RealtimeRoom = {
@@ -25,7 +25,7 @@ function compactGame(game: Game | null) {
   const bulletFields = ['id','x','y','vx','vy','kind','owner','radius','unparryable','ricochet','thrower','wave','waveAge'];
   const hazardFields = ['id','kind','x','y','r','remaining','total','dashOnly','sx','sy','ex','ey','flight','armed','triggerRadius'];
   const events = game.events.filter((event) => game.time-event.time <= 3).slice(-SNAPSHOT_EVENTS);
-  return {seed:game.seed,time:game.time,stage:game.stage,room:game.room,phase:game.phase,players:pick(game.players,playerFields),enemies:pick(game.enemies,enemyFields),bullets:pick(game.bullets,bulletFields),hazards:pick(game.hazards,hazardFields),obstacles:game.obstacles,width:game.width,height:game.height,intro:game.intro,scenerySeed:game.scenerySeed,runSystems:game.runSystems,hostId:game.hostId,scrap:game.scrap,kits:game.kits,routeOptions:game.routeOptions,routeDoors:game.routeDoors,pendingRoom:game.pendingRoom,station:game.station,exit:game.exit,stock:game.stock,altarOffers:game.altarOffers,stopSerial:game.stopSerial,shopStartedAt:game.shopStartedAt,events:pick(events,['id','kind','x','y','text','who','time','radius','sourceKind','weaponAction'])};
+  return {seed:game.seed,time:game.time,stage:game.stage,room:game.room,phase:game.phase,players:pick(game.players,playerFields),enemies:pick(game.enemies,enemyFields),bullets:pick(game.bullets,bulletFields),hazards:pick(game.hazards,hazardFields),obstacles:game.obstacles,width:game.width,height:game.height,intro:game.intro,scenerySeed:game.scenerySeed,runSystems:game.runSystems,hostId:game.hostId,scrap:game.scrap,kits:game.kits,routeOptions:game.routeOptions,routeDoors:game.routeDoors,pendingRoom:game.pendingRoom,station:game.station,exit:game.exit,stock:game.stock,altarOffers:game.altarOffers,stopSerial:game.stopSerial,shopStartedAt:game.shopStartedAt,doorsOpenedAt:game.doorsOpenedAt,events:pick(events,['id','kind','x','y','text','who','time','radius','sourceKind','weaponAction','itemId'])};
 }
 
 function snapshot(code: string, room: RealtimeRoom, revision: number, sequence: number) {
