@@ -29,12 +29,21 @@ export function claimKit(g,id,kitId){const p=g.players.find(p=>p.id===id),pick=g
  event(g,'upgrade',p.x,p.y,kit.name,p.id);finishDraft(g);
 }
 function finishDraft(g){if(g.players.length&&g.players.every(p=>p.kitId)){g.kits=[];g.phase='combat';generateRoom(g);}}
-export function beginRoute(g){g.phase='route';g.pendingRoom=g.room+1;g.routeOptions=g.pendingRoom===B.encounters?['shop']:['continue'];
- if(g.pendingRoom!==B.encounters){if(random(g)<.35)g.routeOptions.push('shop');if(random(g)<.6)g.routeOptions.push('altar');}
+export function openRouteDoors(g){
+ g.routeDoors=g.routeOptions.map(choice=>({choice,x:choice==='continue'?32:choice==='altar'?g.width-32:g.width/2,y:choice==='shop'?g.height-32:g.height*.64,side:choice==='continue'?'left':choice==='altar'?'right':'bottom'}));
+ // Keep the cleared room intact, but guarantee a cover-free corridor to every exit.
+ g.obstacles=g.obstacles.filter(o=>!g.routeDoors.some(d=>d.side==='bottom'?o.x<d.x+55&&o.x+o.w>d.x-55&&o.y+o.h>g.height-135:o.y<d.y+55&&o.y+o.h>d.y-55&&(d.side==='left'?o.x<135:o.x+o.w>g.width-135)));
 }
-function enterCombat(g){g.room=g.pendingRoom;g.pendingRoom=undefined;g.phase='combat';g.stock=[];g.altarOffers=[];for(const p of g.players){p.vendorOpen=false;p.altarOpen=false;p.hp=p.hp<=0?p.maxHp*.5:Math.min(p.maxHp,p.hp+8);p.internal=0;}generateRoom(g);}
+export function beginRoute(g){g.phase='route';g.pendingRoom=g.room+1;g.routeOptions=g.pendingRoom===B.encounters?['shop']:['continue','altar'];
+ if(g.pendingRoom!==B.encounters&&random(g)<.35)g.routeOptions.push('shop');
+ clearArena(g,true);g.intro=0;openRouteDoors(g);
+ // Physical routing needs living party members, including a host downed in combat.
+ const survivor=g.players.find(p=>p.hp>0);for(const p of g.players)if(p.hp<=0){p.hp=p.maxHp*.5;p.routeRevived=true;if(survivor){p.x=survivor.x;p.y=survivor.y;}}
+}
+function enterCombat(g){g.room=g.pendingRoom;g.pendingRoom=undefined;g.phase='combat';g.stock=[];g.altarOffers=[];g.routeDoors=[];for(const p of g.players){p.vendorOpen=false;p.altarOpen=false;p.hp=p.hp<=0?p.maxHp*.5:Math.min(p.maxHp,p.hp+(p.routeRevived?0:8));p.routeRevived=false;p.internal=0;}generateRoom(g);}
 export function selectRoute(g,id,choice){if(g.phase!=='route'||id!==g.hostId||!g.routeOptions.includes(choice))throw Error('Only the host can choose an available route.');
- if(choice==='continue'){enterCombat(g);return;}g.phase=choice;clearArena(g);g.intro=0;g.stopSerial=(g.stopSerial||0)+1;g.station={x:g.width/2,y:g.height/2};g.exit={x:g.width-100,y:g.height/2};
+ const p=g.players.find(p=>p.id===id),door=g.routeDoors?.find(d=>d.choice===choice);if(!p||p.hp<=0||!door||distance(p,door)>32)throw Error('Walk through the chosen exit.');
+ if(choice==='continue'){enterCombat(g);return;}g.routeDoors=[];g.phase=choice;clearArena(g);g.intro=0;g.stopSerial=(g.stopSerial||0)+1;g.station={x:g.width/2,y:g.height/2};g.exit={x:g.width-100,y:g.height/2};
  for(const [i,p] of g.players.entries()){p.x=130;p.y=g.height/2+(i-(g.players.length-1)/2)*40;p.vendorOpen=false;p.altarOpen=false;}
  if(choice==='shop')g.stock=[{id:'repair',name:'Full shield repair',desc:'Restore your shield to 100.',cost:45,left:2},{id:'heal',name:'Health tonic',desc:'Heal 35% of your maximum HP.',cost:25,left:2},...sample(g,UPGRADES.filter(u=>!u.kind),2).map(u=>({id:u.id,name:u.name,desc:u.desc,cost:35,left:1})),...sample(g,relics(),2).map(u=>({id:u.id,name:u.name,desc:u.desc,cost:90,left:1}))];
  else g.altarOffers=sample(g,relics(),3).map(u=>u.id);
@@ -54,10 +63,15 @@ export function sacrifice(g,id,relic){const p=g.players.find(p=>p.id===id);
 }
 export function stepPeaceful(g,inputs,dt){
  if(!['draft','shop','altar','route'].includes(g.phase))return false;
- if(g.phase==='route')return true;
+ if(g.phase==='route'&&!g.routeDoors?.length)openRouteDoors(g);
  if(g.phase==='draft'){finishDraft(g);if(g.phase!=='draft')return true;}
  for(const p of g.players){const i=inputs[p.id]||{};if(p.hp<=0)continue;
   if(!p.vendorOpen&&!p.altarOpen){const mx=Math.max(-1,Math.min(1,i.mx||0)),my=Math.max(-1,Math.min(1,i.my||0)),n=Math.hypot(mx,my)||1;move(g,p,mx/n*B.speed*p.speed*dt,my/n*B.speed*p.speed*dt);if(Number.isFinite(i.angle))p.angle=i.angle;}
+  if(g.phase==='route'){
+   p.seenInteract=Math.max(p.seenInteract,i.interact||0);
+   if(p.id===g.hostId){const door=g.routeDoors.find(d=>distance(p,d)<=32&&(d.side==='left'?(i.mx||0)<0:d.side==='right'?(i.mx||0)>0:(i.my||0)>0));if(door){selectRoute(g,p.id,door.choice);return true;}}
+   continue;
+  }
   if((i.interact||0)>p.seenInteract){p.seenInteract=i.interact;
    if(g.phase==='draft'&&!p.kitId){const kit=g.kits.find(k=>!k.claimedBy&&distance(p,k)<=80);if(kit)claimKit(g,p.id,kit.id);}
    else if(g.phase!=='draft'&&g.station&&distance(p,g.station)<=90){if(g.phase==='shop')p.vendorOpen=true;else p.altarOpen=true;}
