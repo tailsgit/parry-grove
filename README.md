@@ -324,3 +324,16 @@ Six new passives unlock three exclusive combinations with an increased offer
 chance. Sacrifice altars offer powerful relics for a permanent 25% maximum-health
 penalty that also scales future health gains. Accepting is optional and individual.
 See [the complete kit, synergy, economy and altar rules](docs/run-systems.md).
+
+## In-room interface
+
+Weapons lie directly on the draft room floor. Only the nearby pickup reveals a
+high-contrast tooltip with its attached upgrade and tradeoff; press E to claim it.
+The starting room paints movement, combat, interaction and menu controls on its
+floor. These instructions disappear when the draft ends. Health, shield, internal
+damage and EXP stay inside the arena at the upper left.
+
+During a run, press Esc for Resume, Collected upgrades, Settings and the enemy
+guide, Sound, and Leave run. Closing Settings or Upgrades opened from this menu
+returns to the menu. Solo simulation pauses; co-op continues with your inputs
+stopped. I remains a shortcut to collected upgrades.
