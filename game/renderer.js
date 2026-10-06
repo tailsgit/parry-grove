@@ -81,10 +81,27 @@ export class Renderer {
       c.fillText('WASD  MOVE     LMB  ATTACK     Q / RMB  PARRY · HOLD TO BLOCK',g.width/2,465);
       c.fillText('SPACE  DASH     E  PICK UP / INTERACT     I  UPGRADES     ESC  MENU',g.width/2,490);c.restore();
       for(const pick of g.kits){if(pick.claimedBy)continue;const kit=KITS.find(k=>k.id===pick.id);c.save();c.translate(pick.x,pick.y);
-        c.fillStyle='#102b2566';c.beginPath();c.ellipse(3,8,34,9,0,0,TAU);c.fill();
-        c.rotate(-.5);const len=kit.weapon==='dagger'?22:kit.weapon==='sword'?40:58;
-        c.fillStyle='#799d8b';c.fillRect(-len/2+4,-2,len,7);c.fillStyle='#dcebd1';c.fillRect(-len/2,-6,len,5);c.fillStyle='#fff4ce';c.fillRect(-len/2+10,-6,len-10,2);
-        c.fillStyle='#e3c476';c.fillRect(-len/2+4,-13,5,21);c.fillStyle='#685441';c.fillRect(-len/2-10,-6,14,5);c.fillStyle='#e3c476';c.fillRect(-len/2-13,-7,4,7);c.restore();
+        const accent=kit.weapon==='dagger'?'#80e4ed':kit.weapon==='sword'?'#efd18b':'#c6acf0';
+        c.fillStyle='#102b2566';c.beginPath();c.ellipse(3,10,37,10,0,0,TAU);c.fill();
+        c.fillStyle='#315546';c.beginPath();c.ellipse(0,5,34,11,0,0,TAU);c.fill();
+        c.save();c.globalAlpha=.2;c.fillStyle=accent;c.beginPath();c.ellipse(0,3,39,15,0,0,TAU);c.fill();c.restore();
+        c.strokeStyle=accent;c.lineWidth=1.5;c.beginPath();c.ellipse(0,3,31,9,0,0,TAU);c.stroke();
+        c.rotate(-.5);
+        if(kit.weapon==='dagger'){
+          // Compact triangular blade and hooked guard: easy to distinguish from swords.
+          c.fillStyle='#80e4ed';c.beginPath();c.moveTo(-4,-6);c.lineTo(25,0);c.lineTo(-4,7);c.closePath();c.fill();
+          c.fillStyle='#ecffff';c.beginPath();c.moveTo(-2,-4);c.lineTo(25,0);c.lineTo(-2,0);c.closePath();c.fill();
+          c.strokeStyle='#c1eeec';c.lineWidth=3;c.beginPath();c.moveTo(-6,-11);c.lineTo(-6,8);c.lineTo(-11,10);c.stroke();c.fillStyle='#345f64';c.fillRect(-19,-3,12,6);c.fillStyle='#80e4ed';c.fillRect(-23,-4,5,8);
+        }else if(kit.weapon==='sword'){
+          // Narrow straight blade with a golden crossguard and round pommel.
+          c.fillStyle='#dcebd1';c.beginPath();c.moveTo(-15,-5);c.lineTo(21,-5);c.lineTo(30,0);c.lineTo(21,5);c.lineTo(-15,5);c.closePath();c.fill();
+          c.fillStyle='#fff4ce';c.fillRect(-12,-4,32,2);c.fillStyle='#e3c476';c.fillRect(-17,-13,5,26);c.fillStyle='#685441';c.fillRect(-31,-3,14,6);c.fillStyle='#e3c476';c.beginPath();c.arc(-33,0,4,0,TAU);c.fill();
+        }else{
+          // Broad, long diamond-point blade, winged guard and long two-handed grip.
+          c.fillStyle='#aebce2';c.beginPath();c.moveTo(-18,-8);c.lineTo(31,-8);c.lineTo(43,0);c.lineTo(31,8);c.lineTo(-18,8);c.closePath();c.fill();
+          c.fillStyle='#f0edff';c.beginPath();c.moveTo(-14,-5);c.lineTo(30,-5);c.lineTo(43,0);c.lineTo(-14,0);c.closePath();c.fill();
+          c.strokeStyle='#c6acf0';c.lineWidth=5;c.beginPath();c.moveTo(-25,-17);c.lineTo(-20,0);c.lineTo(-25,17);c.stroke();c.fillStyle='#65547b';c.fillRect(-43,-4,21,8);c.fillStyle='#c6acf0';c.fillRect(-47,-6,6,12);
+        }c.restore();
       }
     }
     if(['shop','altar'].includes(g.phase)&&g.station){const {x,y}=g.station;

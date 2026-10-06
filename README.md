@@ -337,3 +337,16 @@ During a run, press Esc for Resume, Collected upgrades, Settings and the enemy
 guide, Sound, and Leave run. Closing Settings or Upgrades opened from this menu
 returns to the menu. Solo simulation pauses; co-op continues with your inputs
 stopped. I remains a shortcut to collected upgrades.
+
+### Pickup and reward polish
+
+Dagger pickups have a cyan triangular silhouette, swords have a narrow blade
+and gold crossguard, and longswords have a broad violet blade and long grip.
+Matching low-profile glowing pedestals help them stand out from the floor. Nearby
+tooltips leave the item and player visible. Dash, parry and perfect-streak feedback
+now share the upper-left survival HUD; both corner boxes have thin tan borders.
+
+Room-clear reward cards show large centered icons, functional color accents,
+tan borders and bright hover/focus outlines. Click a card or press 1, 2 or 3 to
+choose its corresponding upgrade. Held keys, downed players and already-locked
+choices cannot trigger another selection.
