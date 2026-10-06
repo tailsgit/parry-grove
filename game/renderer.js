@@ -1,6 +1,6 @@
 import {KITS} from './run-content.js';
 import { ObjectPool, RectangleBatch, compact } from './performance.js';
-import { COLORS, ENEMIES, WEAPONS, UPGRADES, ROOM_THEMES, levelTheme, isBoss } from './config.js';
+import { COLORS, ENEMIES, WEAPONS, ROOM_THEMES, levelTheme, isBoss } from './config.js';
 const SOUNDS={explosion:[70,.25,'sawtooth'],mortar:[180,.12,'triangle'],shieldbreak:[130,.25,'sawtooth'],enemyparry:[600,.13,'square'],perfect:[880,.16,'sine'],regular:[340,.09,'triangle'],block:[260,.06,'triangle'],hit:[170,.07,'square'],hurt:[110,.14,'sawtooth'],swing:[230,.04,'triangle'],dash:[440,.06,'sine'],kill:[540,.09,'square'],upgrade:[740,.18,'sine'],victory:[1000,.3,'sine'],guard:[500,.035,'sine'],miss:[180,.045,'triangle']};
 const GLOBAL_SOUNDS=['kill','victory','clear','explosion','mortar'],RING_EVENTS=['perfect','regular','block','hit','nova'];
 const TAU=Math.PI*2;
@@ -18,7 +18,12 @@ export class Renderer {
     const c=this.ctx,canvas=this.canvas,r=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
     if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
     c.setTransform(dpr,0,0,dpr,0,0);c.imageSmoothingEnabled=false;c.fillStyle='#173f38';c.fillRect(0,0,r.width,r.height);
-    const scale=Math.min((r.width-24)/g.width,Math.max(220,r.height-190)/g.height),ox=(r.width-g.width*scale)/2,oy=105+(r.height-190-g.height*scale)/2;this.camera.scale=scale;this.camera.ox=ox;this.camera.oy=oy;
+    const scale=Math.min((r.width-24)/g.width,(r.height-24)/g.height),ox=(r.width-g.width*scale)/2,oy=(r.height-g.height*scale)/2;this.camera.scale=scale;this.camera.ox=ox;this.camera.oy=oy;
+    // Anchor the DOM HUD to the actual floor bounds, without reserving page margins.
+    if(this.layoutWidth!==r.width||this.layoutHeight!==r.height||this.layoutWorldWidth!==g.width||this.layoutWorldHeight!==g.height){
+      const style=canvas.parentElement?.style;if(style){style.setProperty('--arena-left',`${ox}px`);style.setProperty('--arena-top',`${oy}px`);style.setProperty('--arena-width',`${g.width*scale}px`);style.setProperty('--arena-height',`${g.height*scale}px`);}
+      this.layoutWidth=r.width;this.layoutHeight=r.height;this.layoutWorldWidth=g.width;this.layoutWorldHeight=g.height;
+    }
     this.shake=Math.max(0,this.shake-dt*28);
     c.save();c.translate(ox+(Math.random()-.5)*this.shake,oy+(Math.random()-.5)*this.shake);c.scale(scale,scale);
     this.theme=levelTheme(g);
@@ -70,7 +75,18 @@ export class Renderer {
   }
   runObjects(c,g){
     c.save();c.textAlign='center';c.font='bold 12px monospace';
-    if(g.phase==='draft')for(const pick of g.kits){if(pick.claimedBy)continue;const kit=KITS.find(k=>k.id===pick.id);c.save();c.translate(pick.x,pick.y);c.fillStyle='#173f38';c.fillRect(-65,-45,130,85);c.strokeStyle='#efd18b';c.lineWidth=2;c.strokeRect(-65,-45,130,85);c.fillStyle='#dcebd1';const len=kit.weapon==='dagger'?22:kit.weapon==='sword'?40:58;c.fillRect(-len/2,-16,len,5);c.fillStyle='#e3c476';c.fillRect(-len/2+4,-24,5,21);c.fillStyle='#fff2cc';c.fillText(kit.name,0,58);c.font='11px monospace';c.fillText(WEAPONS[kit.weapon].name,0,75);c.fillStyle='#efd18b';c.fillText(UPGRADES.find(u=>u.id===kit.upgrades[0]).name,0,91);if(kit.health||kit.shield)c.fillText(kit.health?`${kit.health} max HP`:`${100-kit.shield} shield`,0,106);c.restore();}
+    if(g.phase==='draft'){
+      // Stencilled instructions belong to this starting room and disappear with it.
+      c.save();c.globalAlpha=.85;c.fillStyle='#253e31';c.font='bold 13px monospace';
+      c.fillText('WASD  MOVE     LMB  ATTACK     Q / RMB  PARRY · HOLD TO BLOCK',g.width/2,465);
+      c.fillText('SPACE  DASH     E  PICK UP / INTERACT     I  UPGRADES     ESC  MENU',g.width/2,490);c.restore();
+      for(const pick of g.kits){if(pick.claimedBy)continue;const kit=KITS.find(k=>k.id===pick.id);c.save();c.translate(pick.x,pick.y);
+        c.fillStyle='#102b2566';c.beginPath();c.ellipse(3,8,34,9,0,0,TAU);c.fill();
+        c.rotate(-.5);const len=kit.weapon==='dagger'?22:kit.weapon==='sword'?40:58;
+        c.fillStyle='#799d8b';c.fillRect(-len/2+4,-2,len,7);c.fillStyle='#dcebd1';c.fillRect(-len/2,-6,len,5);c.fillStyle='#fff4ce';c.fillRect(-len/2+10,-6,len-10,2);
+        c.fillStyle='#e3c476';c.fillRect(-len/2+4,-13,5,21);c.fillStyle='#685441';c.fillRect(-len/2-10,-6,14,5);c.fillStyle='#e3c476';c.fillRect(-len/2-13,-7,4,7);c.restore();
+      }
+    }
     if(['shop','altar'].includes(g.phase)&&g.station){const {x,y}=g.station;
       if(g.phase==='shop'){c.fillStyle='#183d38';c.fillRect(x-30,y-45,60,90);c.fillStyle='#e0ba73';c.fillRect(x-26,y-40,52,7);c.fillStyle='#94e8cf';c.fillRect(x-20,y-23,27,32);c.fillStyle='#3b654c';for(let i=0;i<3;i++)c.fillRect(x-17,y-18+i*9,21,5);c.fillStyle='#edd28b';c.fillRect(x+12,y-14,7,15);c.fillStyle='#080f11';c.fillRect(x-19,y+20,38,13);}
       else{c.fillStyle='#463b53';c.fillRect(x-35,y+8,70,25);c.fillStyle='#bb91d1';c.fillRect(x-27,y,54,10);c.fillStyle='#f0b8de';c.beginPath();c.moveTo(x,y-35);c.lineTo(x+15,y-10);c.lineTo(x,y+7);c.lineTo(x-15,y-10);c.closePath();c.fill();}
