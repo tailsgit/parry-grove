@@ -33,3 +33,7 @@ body{background:#122b29}.game-screen{width:100%;height:100svh;padding:0;color:#f
 @media(max-width:580px){.arena-ui .party-hud{top:295px}.draft-tooltip{transform:translate(-50%,0);margin-top:120px;width:225px}.draft-tooltip:after{top:-7px;bottom:auto;transform:rotate(225deg)}.reward-modal{justify-content:flex-start!important}.reward-modal .upgrade-cards{grid-template-columns:1fr;width:100%;overflow:visible}.reward-modal .upgrade-card{min-height:230px;width:100%;flex-shrink:0;padding:18px}.reward-modal .upgrade-card>.upgrade-icon{height:72px;font-size:56px}.reward-modal>*{flex-shrink:0}}
 
 .route-accessibility{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+.shop-tooltip{pointer-events:none}.shop-tooltip small{display:block;margin-top:9px;font:10px monospace;color:#d1dfbd}.shop-tooltip .price-affordable{color:#c1f7c2}.shop-tooltip .price-unaffordable{color:#ff9991}
+
+@media(max-width:580px){.shop-tooltip{top:var(--shop-tooltip-bottom)!important;margin-top:0}}

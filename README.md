@@ -359,3 +359,28 @@ door to visit an optional sacrifice altar. An occasional **coin** door in the bo
 wall leads to a shop; before each boss, this is the only exit so the vending stop
 is guaranteed. In co-op, only the host crossing a door moves the party. There is
 no route-selection popup and no extra interaction key required at these doors.
+
+While route doors are open, your normal attack, parry, block and dash controls
+remain active. Animations and cooldowns keep ticking in the draft, route and
+shop/altar arenas. Opening an altar panel stops movement and new actions
+while you browse, without leaving an old animation frozen.
+
+## Enemy weapon audio
+
+All 19 enemies and bosses have distinct weapon sounds: bowstrings, gun reports,
+launcher thumps, melee strikes, electronic pulses, mines and boss weapons.
+Positional stereo and distance falloff help identify where attacks originate.
+The Sound toggle in the Esc menu mutes the mix immediately.
+See [the sound bank and preview order](docs/enemy-audio.md).
+
+## Physical vending
+
+The vending machine automatically spits six items into a semicircle. They arc,
+spin and bounce onto the floor, with permanent Scrap price tags. Red means the
+party cannot afford the item; green means it can. Walk near an item to read its
+description and directly into it to buy. No E key or vending menu is needed.
+Bought items fly toward the player; shared funds and stock update immediately.
+
+One copy is purchased per contact; step off and return to buy another remaining
+copy. Full-health tonics, full-shield repairs and owned relics never charge you.
+The host leaves by walking through the right-hand combat door.

@@ -16,7 +16,7 @@ export function specialEnemy(g,e,p,dt,api){
     }
     if(e.mineState==='approach'){
       if(gap<=c.dropRange&&(api.hasLineOfSight(g,e,p)||gap<=c.aoeRadius+B.radius)&&e.mineTimer<=1e-9&&activeMineCount(g)<B.mineLimit){
-        const h=api.hazard(g,e.x,e.y,110,B.mineArmTime,c.damage,'mine');h.triggerRadius=52;h.armed=false;h.source=e.id;e.minesLaid++;e.mineTimer=c.rate;e.mineState='flee';e.wanderTimer=0;api.event(g,'mine',e.x,e.y,'MINE');
+        const h=api.hazard(g,e.x,e.y,110,B.mineArmTime,c.damage,'mine');h.triggerRadius=52;h.armed=false;h.source=e.id;h.sourceKind=e.kind;e.minesLaid++;e.mineTimer=c.rate;e.mineState='flee';e.wanderTimer=0;api.event(g,'mine',e.x,e.y,'MINE','',e.kind,'place');
       }else{
         const angle=api.hasLineOfSight(g,e,p)?Math.atan2(p.y-e.y,p.x-e.x):api.seekSight(g,e,p);
         e.angle=angle;e.aiVX=Math.cos(angle)*c.speed;e.aiVY=Math.sin(angle)*c.speed;return true;
@@ -41,8 +41,8 @@ export function specialEnemy(g,e,p,dt,api){
   }
   if(e.kind==='suicide'){
     e.angle=Math.atan2(p.y-e.y,p.x-e.x);
-    if(!e.primed&&(api.distance(e,p)<72||(!api.hasLineOfSight(g,e,p)&&api.distance(e,p)<=c.aoeRadius+B.radius))){e.primed=true;e.tell=.22+api.random(g)*.18;e.tellTotal=e.tell;api.event(g,'fuse',e.x,e.y,'DASH AT DETONATION');}
-    if(e.primed){e.tell-=dt;e.aiVX=0;e.aiVY=0;if(e.tell<=0){const h=api.hazard(g,e.x,e.y,c.aoeRadius,0,c.damage,'suicideBlast');h.dashOnly=true;e.hp=0;api.kill(g,e,null);}}
+    if(!e.primed&&(api.distance(e,p)<72||(!api.hasLineOfSight(g,e,p)&&api.distance(e,p)<=c.aoeRadius+B.radius))){e.primed=true;e.tell=.22+api.random(g)*.18;e.tellTotal=e.tell;api.event(g,'fuse',e.x,e.y,'DASH AT DETONATION','',e.kind,'arm');}
+    if(e.primed){e.tell-=dt;e.aiVX=0;e.aiVY=0;if(e.tell<=0){const h=api.hazard(g,e.x,e.y,c.aoeRadius,0,c.damage,'suicideBlast');h.dashOnly=true;h.sourceKind=e.kind;e.hp=0;api.kill(g,e,null);}}
     else{const angle=api.hasLineOfSight(g,e,p)?e.angle:api.seekSight(g,e,p);e.aiVX=Math.cos(angle)*c.speed;e.aiVY=Math.sin(angle)*c.speed;}
     return true;
   }
@@ -74,7 +74,7 @@ export function escortRiot(g,e,p,dt,api){
 export function fireSpecial(g,e,p,api){
   const c=ENEMIES[e.kind],a=e.angle;
   if(e.kind==='riot'){
-    e.swing=.2;
+    e.swing=.2;api.event(g,'meleeswing',e.x,e.y,'','',e.kind,'strike');
     if(api.distance(e,p)<=c.range+B.radius&&Math.abs(angleDelta(Math.atan2(p.y-e.y,p.x-e.x),a))<=c.arc/2){
       const result=api.hitPlayer(g,p,c.damage,true,Math.atan2(e.y-p.y,e.x-p.x));
       if(result==='perfect'||result==='regular'){e.stun=B.enemyMeleeStun+(p.stunBonus||0);api.event(g,'enemystun',e.x,e.y,'STUNNED');}
@@ -83,9 +83,9 @@ export function fireSpecial(g,e,p,api){
     return true;
   }
   if(e.kind==='cluster'||e.kind==='twinBomber'){
-    const h=api.hazard(g,p.x,p.y,24,.65,c.damage,'cluster',e.x,e.y);h.flight=.65;h.settle=.22;h.target=p.id;
-    if(e.kind==='twinBomber'&&activeMineCount(g)<B.mineLimit){const mine=api.hazard(g,e.x,e.y,120,B.mineArmTime,20,'mine');mine.triggerRadius=58;mine.armed=false;mine.source=e.id;}
-    api.event(g,'mortar',e.x,e.y);return true;
+    const h=api.hazard(g,p.x,p.y,24,.65,c.damage,'cluster',e.x,e.y);h.sourceKind=e.kind;h.flight=.65;h.settle=.22;h.target=p.id;
+    if(e.kind==='twinBomber'&&activeMineCount(g)<B.mineLimit){const mine=api.hazard(g,e.x,e.y,120,B.mineArmTime,20,'mine');mine.triggerRadius=58;mine.armed=false;mine.source=e.id;mine.sourceKind=e.kind;api.event(g,'mine',e.x,e.y,'','',e.kind,'place');}
+    api.event(g,'mortar',e.x,e.y,'','',e.kind,'launch');return true;
   }
   if(e.kind==='boomerang'&&g.bullets.some(b=>b.thrower===e.id&&b.life>0))return true;
   if(!['ricochet','twinRicochet','magnet','sine','boomerang'].includes(e.kind))return false;
@@ -95,7 +95,7 @@ export function fireSpecial(g,e,p,api){
     if(e.kind==='sine'){b.wave=true;b.waveAngle=angle;b.waveSpeed=c.projectile;b.waveAge=0;b.centerX=b.x;b.centerY=b.y;}
     if(e.kind==='boomerang'){b.thrower=e.id;b.flightAge=0;b.returning=false;b.curveSide=e.id%2?1:-1;b.contactAt=0;}
   }
-  api.event(g,'fire',e.x,e.y);return true;
+  api.event(g,'fire',e.x,e.y,'','',e.kind,'shoot');return true;
 }
 
 // Shield is mobile cover only for attacks coming from its front. Allies' shots
@@ -150,7 +150,7 @@ export function ricochetMove(g,b,x,y,dt,api){
     x+=dx*Math.min(1,t);y+=dy*Math.min(1,t);path.segments[k+2]=x;path.segments[k+3]=y;
     if(t>1)break;
     if(b.bounces>=2){b.life=0;break;}
-    b.bounces++;if(nx)b.vx=-b.vx;if(ny)b.vy=-b.vy;x+=nx*.01;y+=ny*.01;remaining*=1-t;api.event(g,'bounce',x,y);
+    b.bounces++;if(nx)b.vx=-b.vx;if(ny)b.vy=-b.vy;x+=nx*.01;y+=ny*.01;remaining*=1-t;api.event(g,'bounce',x,y,'','',b.kind,'bounce');
   }
   b.x=x;b.y=y;return true;
 }
@@ -168,13 +168,13 @@ export function specialHazard(g,h,dt,alive,api){
   if(h.kind==='mine'){
     h.lifetime-=dt;if(h.lifetime<=0)return true;
     if(!h.armed){h.remaining-=dt;if(h.remaining<=0)h.armed=true;}
-    if(h.armed&&alive.some(p=>api.distance(p,h)<h.triggerRadius+B.radius)){h.kind='mineBlast';h.remaining=B.mineFuseTime;h.total=B.mineFuseTime;api.event(g,'fuse',h.x,h.y,'MINE!');}
+    if(h.armed&&alive.some(p=>api.distance(p,h)<h.triggerRadius+B.radius)){h.kind='mineBlast';h.remaining=B.mineFuseTime;h.total=B.mineFuseTime;api.event(g,'fuse',h.x,h.y,'MINE!','',h.sourceKind,'arm');}
     return true;
   }
   if(h.kind==='mineBlast'){
     h.remaining-=dt;
     if(h.remaining<=0&&!h.done){
-      h.done=true;h.kind='mineExplosion';h.remaining=-.01;api.event(g,'explosion',h.x,h.y);
+      h.done=true;h.kind='mineExplosion';h.remaining=-.01;api.event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact');
       for(const p of alive)if(api.distance(p,h)<h.r+B.radius)api.hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x));
     }
     return true;
@@ -185,7 +185,7 @@ export function specialHazard(g,h,dt,alive,api){
     let impact=wall;
     for(const e of g.enemies)if(e.hp>0&&e.x>Math.min(x,h.x)-20&&e.x<Math.max(x,h.x)+20&&e.y>Math.min(y,h.y)-20&&e.y<Math.max(y,h.y)+20&&pointSegmentDistance(e.x,e.y,x,y,h.x,h.y)<(e.kind==='boss'||e.kind==='twinBomber'||e.kind==='twinRicochet'?29:18)+8){impact=true;break;}
     if(impact||h.remaining<=0){
-      h.kind='mineProjectileBlast';h.remaining=.2;h.total=.2;h.done=true;api.event(g,'explosion',h.x,h.y);
+      h.kind='mineProjectileBlast';h.remaining=.2;h.total=.2;h.done=true;api.event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact');
       for(const e of g.enemies){
         if(e.hp<=0||ENEMIES[e.kind].invulnerable||api.distance(e,h)>h.r||frontShield(e,h.x,h.y))continue;
         const owner=g.players.find(p=>p.id===h.owner),damage=owner?.name==='hacker'?e.hp:h.damage;e.hp-=damage;api.event(g,'hit',e.x,e.y,`${Math.round(damage)}`,owner?.id);if(e.hp<=0)api.kill(g,e,owner);
@@ -198,9 +198,9 @@ export function specialHazard(g,h,dt,alive,api){
   }
   if(h.kind==='cluster'||h.kind==='grenade'){
     h.remaining-=dt;
-    if(h.remaining<=0&&h.flight>0){h.flight=0;h.sx=undefined;h.sy=undefined;h.remaining=h.settle;h.total=h.settle;api.event(g,'land',h.x,h.y,'GRENADE');}
+    if(h.remaining<=0&&h.flight>0){h.flight=0;h.sx=undefined;h.sy=undefined;h.remaining=h.settle;h.total=h.settle;api.event(g,'land',h.x,h.y,'GRENADE','',h.sourceKind,'land');}
     else if(h.remaining<=0){
-      if(h.kind==='cluster'){for(let i=0;i<5;i++){const a=TAU*i/5;api.bullet(g,h.x,h.y,Math.cos(a)*260,Math.sin(a)*260,h.damage,'cluster',false,false,h.target,4);}api.event(g,'cluster',h.x,h.y);h.done=true;h.remaining=-1;}
+      if(h.kind==='cluster'){for(let i=0;i<5;i++){const a=TAU*i/5;api.bullet(g,h.x,h.y,Math.cos(a)*260,Math.sin(a)*260,h.damage,'cluster',false,false,h.target,4);}api.event(g,'cluster',h.x,h.y,'','',h.sourceKind,'split');h.done=true;h.remaining=-1;}
       else{h.kind='grenadeBlast';h.remaining=0;h.total=.25;}
     }
     return true;
