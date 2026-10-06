@@ -303,6 +303,26 @@ export function chooseUpgrade(g,id,upgradeId) {
   if(g.phase!=='upgrade'||!p||p.hp<=0||p.chosen||!p.offers.includes(upgradeId)||!u)return false;
   u.apply(p);p.upgrades.push(upgradeId);p.chosen=true;event(g,'upgrade',p.x,p.y,u.name,p.id);return true;
 }
+export function stepPlayer(g,p,i,dt,locked=false){
+    for(const k of PLAYER_TIMERS)p[k]=Math.max(0,(p[k]||0)-dt);
+    if(p.magnetLeft>0)p.magnetLeft=Math.max(0,p.magnetLeft-dt);
+    if(!p.streakLeft)p.streak=0;
+    if(p.parryLeft>0){p.parryLeft-=dt;p.parryAge+=dt;if(p.parryLeft<=0&&!p.parrySuccess){p.streak=0;event(g,'miss',p.x,p.y,'MISS',p.id);}}
+    if(p.hp<=0)return;
+    if(locked){p.blocking=false;p.guardHeld=false;p.dashLeft=0;p.vx=0;p.vy=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;return;}
+    if(Number.isFinite(i.angle))p.angle=i.angle;
+    if(p.stun>0){p.blocking=false;p.guardHeld=false;p.vx=0;p.vy=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;return;}
+    const previousX=p.x,previousY=p.y;
+    let mx=clamp(i.mx||0,-1,1),my=clamp(i.my||0,-1,1),norm=Math.hypot(mx,my)||1;mx/=norm;my/=norm;
+    if((i.dash||0)>p.seenDash) {p.seenDash=i.dash;if(!p.dashCd){p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id);if(p.dashPulse)combatPulse(g,p,p.dashPulse*(p.thunderStep?2:1),65,p.thunderStep?.5:0);}}
+    if((i.parry||0)>p.seenParry) {p.seenParry=i.parry;if(!p.parryCd){p.parryCd=B.parryCooldown;p.parryLeft=WEAPONS[p.weapon].parry;p.parryAge=0;p.parrySuccess=false;event(g,'guard',p.x,p.y,'',p.id);}}
+    if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);p.dashLeft-=dt;p.dashAge+=dt;}
+    else move(g,p,mx*B.speed*p.speed*(i.guard&&!p.shieldBroken&&p.parryLeft<=0?B.blockSpeed:1)*dt,my*B.speed*p.speed*(i.guard&&!p.shieldBroken&&p.parryLeft<=0?B.blockSpeed:1)*dt);
+    p.guardHeld=i.guard===true&&p.dashLeft<=0;
+    p.blocking=i.guard===true&&!p.shieldBroken&&p.parryLeft<=0&&p.dashLeft<=0;
+    p.vx=dt?(p.x-previousX)/dt:0;p.vy=dt?(p.y-previousY)/dt:0;
+    if(i.attack&&!p.attackCd)melee(g,p);
+}
 export function step(g,inputs,dt) {
   dt=clamp(dt,0,1/30);g.time+=dt;if(g.runSystems&&stepPeaceful(g,inputs,dt))return;
   if(g.phase==='levelclear'){
@@ -319,25 +339,7 @@ export function step(g,inputs,dt) {
     return;
   }
   g.intro=Math.max(0,g.intro-dt);
-  for(const p of g.players) {
-    for(const k of PLAYER_TIMERS)p[k]=Math.max(0,(p[k]||0)-dt);
-    if(p.magnetLeft>0)p.magnetLeft=Math.max(0,p.magnetLeft-dt);
-    if(!p.streakLeft)p.streak=0;
-    if(p.parryLeft>0){p.parryLeft-=dt;p.parryAge+=dt;if(p.parryLeft<=0&&!p.parrySuccess){p.streak=0;event(g,'miss',p.x,p.y,'MISS',p.id);}}
-    const i=inputs[p.id]||EMPTY_INPUT; if(p.hp<=0)continue;
-    if(Number.isFinite(i.angle))p.angle=i.angle;
-    if(p.stun>0){p.blocking=false;p.guardHeld=false;p.vx=0;p.vy=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;continue;}
-    const previousX=p.x,previousY=p.y;
-    let mx=clamp(i.mx||0,-1,1),my=clamp(i.my||0,-1,1),norm=Math.hypot(mx,my)||1;mx/=norm;my/=norm;
-    if((i.dash||0)>p.seenDash) {p.seenDash=i.dash;if(!p.dashCd){p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id);if(p.dashPulse)combatPulse(g,p,p.dashPulse*(p.thunderStep?2:1),65,p.thunderStep?.5:0);}}
-    if((i.parry||0)>p.seenParry) {p.seenParry=i.parry;if(!p.parryCd){p.parryCd=B.parryCooldown;p.parryLeft=WEAPONS[p.weapon].parry;p.parryAge=0;p.parrySuccess=false;event(g,'guard',p.x,p.y,'',p.id);}}
-    if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);p.dashLeft-=dt;p.dashAge+=dt;}
-    else move(g,p,mx*B.speed*p.speed*(i.guard&&!p.shieldBroken&&p.parryLeft<=0?B.blockSpeed:1)*dt,my*B.speed*p.speed*(i.guard&&!p.shieldBroken&&p.parryLeft<=0?B.blockSpeed:1)*dt);
-    p.guardHeld=i.guard===true&&p.dashLeft<=0;
-    p.blocking=i.guard===true&&!p.shieldBroken&&p.parryLeft<=0&&p.dashLeft<=0;
-    p.vx=dt?(p.x-previousX)/dt:0;p.vy=dt?(p.y-previousY)/dt:0;
-    if(i.attack&&!p.attackCd)melee(g,p);
-  }
+  for(const p of g.players)stepPlayer(g,p,inputs[p.id]||EMPTY_INPUT,dt);
   const r=runtime(g),alive=r.alive;alive.length=0;for(const p of g.players)if(p.hp>0)alive.push(p);
   if(!alive.length){g.phase='death';if(g.runSystems)g.scrap=0;return;}
   // Evaluate separation against a shared snapshot so peers push apart symmetrically.

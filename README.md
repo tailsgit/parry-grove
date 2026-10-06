@@ -359,3 +359,8 @@ door to visit an optional sacrifice altar. An occasional **coin** door in the bo
 wall leads to a shop; before each boss, this is the only exit so the vending stop
 is guaranteed. In co-op, only the host crossing a door moves the party. There is
 no route-selection popup and no extra interaction key required at these doors.
+
+While route doors are open, your normal attack, parry, block and dash controls
+remain active. Animations and cooldowns keep ticking in the draft, route and
+shop/altar arenas. Opening a vending or altar panel stops movement and new actions
+while you browse, without leaving an old animation frozen.

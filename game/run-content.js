@@ -1,5 +1,5 @@
 import {UPGRADES,ENEMIES,WEAPONS,BALANCE as B} from './config.js';
-import {createGame,clearArena,generateRoom,random,move,distance,event} from './engine.js';
+import {createGame,clearArena,generateRoom,random,stepPlayer,distance,event} from './engine.js';
 export const KITS=[
  {id:'fractured',name:'Fractured Vanguard',weapon:'longsword',upgrades:['edge'],shield:45,desc:'Keen Edge · starts with 55 shield'},
  {id:'precise',name:'Perfect Initiate',weapon:'dagger',upgrades:['perfection'],desc:'Perfection · recover shield with perfect parries'},
@@ -66,10 +66,10 @@ export function stepPeaceful(g,inputs,dt){
  if(g.phase==='route'&&!g.routeDoors?.length)openRouteDoors(g);
  if(g.phase==='draft'){finishDraft(g);if(g.phase!=='draft')return true;}
  for(const p of g.players){const i=inputs[p.id]||{};if(p.hp<=0)continue;
-  if(!p.vendorOpen&&!p.altarOpen){const mx=Math.max(-1,Math.min(1,i.mx||0)),my=Math.max(-1,Math.min(1,i.my||0)),n=Math.hypot(mx,my)||1;move(g,p,mx/n*B.speed*p.speed*dt,my/n*B.speed*p.speed*dt);if(Number.isFinite(i.angle))p.angle=i.angle;}
+  stepPlayer(g,p,i,dt,p.vendorOpen||p.altarOpen);
   if(g.phase==='route'){
    p.seenInteract=Math.max(p.seenInteract,i.interact||0);
-   if(p.id===g.hostId){const door=g.routeDoors.find(d=>distance(p,d)<=32&&(d.side==='left'?(i.mx||0)<0:d.side==='right'?(i.mx||0)>0:(i.my||0)>0));if(door){selectRoute(g,p.id,door.choice);return true;}}
+   if(p.id===g.hostId){const mx=(i.mx||0)||p.vx||(p.dashLeft>0?p.dx:0),my=(i.my||0)||p.vy||(p.dashLeft>0?p.dy:0);const door=g.routeDoors.find(d=>distance(p,d)<=32&&(d.side==='left'?mx<0:d.side==='right'?mx>0:my>0));if(door){selectRoute(g,p.id,door.choice);return true;}}
    continue;
   }
   if((i.interact||0)>p.seenInteract){p.seenInteract=i.interact;
