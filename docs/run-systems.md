@@ -57,14 +57,23 @@ The floor and unrelated cover remain in place, while each exit corridor is clear
 Downed allies revive at half health for this peaceful routing step; they receive
 no additional transition heal.
 
-Walk to the machine and press E. Stock and currency are shared; a purchase affects
-the buyer. Shield repairs cost 45 (two in stock); 35%-HP tonics cost 25 (two);
-two random ordinary upgrades cost 35 each (one copy each); two random powerful
-relics cost 90 each (one copy each). Inapplicable purchases fail without charging.
-Competing co-op requests are resolved on the authoritative room server, so the
-same stock cannot be sold twice. The host walks to the right exit and presses E
-to continue to the next numbered combat room. Normal small room healing occurs
-once at that transition; shields do not otherwise refill at stops.
+The vending machine ejects six physical items in a staggered arc. They land in a
+semicircle with permanent price tags: red if shared Scrap is insufficient, green
+when affordable. Walk near one for its description, then into it to purchase.
+Items cannot be collected during their flight. Remaining stock is shown on
+multi-copy items; step off and return for another copy. Purchases affect the buyer.
+
+Shield repairs cost 45 (two in stock); 35%-HP tonics cost 25 (two); two random
+ordinary upgrades cost 35 each (one copy each); two random relics cost 90 each
+(one copy each). Inapplicable or unaffordable purchases leave stock and funds
+untouched. Competing co-op contacts are resolved on the authoritative room server
+so the same last item cannot be sold twice. The machine shakes and flashes as it
+dispenses, items bounce on landing, and bought items fly toward the player.
+
+The host walks through the right-hand combat exit to continue, without pressing
+E. Normal small room healing occurs once at that transition; shields do not
+otherwise refill at stops. Shops have no vending modal and keep combat controls
+active. Sacrifice altars retain their interaction and confirmation panel.
 
 ## Sacrifice altars
 

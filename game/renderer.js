@@ -1,7 +1,7 @@
 import {EnemyAudio} from './enemy-audio.js';
 import {KITS} from './run-content.js';
 import { ObjectPool, RectangleBatch, compact } from './performance.js';
-import { COLORS, ENEMIES, WEAPONS, ROOM_THEMES, levelTheme, isBoss } from './config.js';
+import { COLORS, ENEMIES, WEAPONS, UPGRADES, ROOM_THEMES, levelTheme, isBoss } from './config.js';
 const SOUNDS={explosion:[70,.25,'sawtooth'],mortar:[180,.12,'triangle'],shieldbreak:[130,.25,'sawtooth'],enemyparry:[600,.13,'square'],perfect:[880,.16,'sine'],regular:[340,.09,'triangle'],block:[260,.06,'triangle'],hit:[170,.07,'square'],hurt:[110,.14,'sawtooth'],swing:[230,.04,'triangle'],dash:[440,.06,'sine'],kill:[540,.09,'square'],upgrade:[740,.18,'sine'],victory:[1000,.3,'sine'],guard:[500,.035,'sine'],miss:[180,.045,'triangle']};
 const GLOBAL_SOUNDS=['kill','victory','clear','explosion','mortar'],RING_EVENTS=['perfect','regular','block','hit','nova'];
 const TAU=Math.PI*2;
@@ -50,7 +50,7 @@ export class Renderer {
       this.lastEvent=e.id;if(g.time-e.time>.7)continue;
       if(e.sourceKind&&e.weaponAction){if(!this.muted)this.enemyAudio?.play(e,g.players.find(p=>p.id===me),g.width);}else if(e.who===me||GLOBAL_SOUNDS.includes(e.kind))this.sound(e.kind);
       if(RING_EVENTS.includes(e.kind))this.addRing(e);
-      const col=e.kind==='explosion'?'#ffbf67':e.kind==='enemyparry'?'#d7a2ff':e.kind==='shieldbreak'?'#a6daff':e.kind==='perfect'?'#b8ffaf':e.kind==='regular'?'#ffbc65':e.kind==='block'?'#a6daff':e.kind==='hurt'?'#ff9b91':e.kind==='miss'?'#e4b18d':'#fff1bc';
+      const col=e.kind==='shopdeny'?'#ff9b91':e.kind==='explosion'?'#ffbf67':e.kind==='enemyparry'?'#d7a2ff':e.kind==='shieldbreak'?'#a6daff':e.kind==='perfect'?'#b8ffaf':e.kind==='regular'?'#ffbc65':e.kind==='block'?'#a6daff':e.kind==='hurt'?'#ff9b91':e.kind==='miss'?'#e4b18d':'#fff1bc';
       const n=e.kind==='cluster'?24:e.kind==='bounce'?4:e.kind==='magnet'?16:e.kind==='land'?8:e.kind==='explosion'?48:e.kind==='shieldbreak'?30:e.kind==='enemyparry'?20:e.kind==='perfect'?36:e.kind==='regular'?20:e.kind==='block'?10:e.kind==='guard'?8:e.kind==='swing'?6:e.kind==='kill'?18:e.kind==='hit'?12:e.kind==='dash'?8:0;
       for(let i=0;i<n;i++){const a=Math.random()*TAU,s=40+Math.random()*150;this.addParticle(e.x,e.y,Math.cos(a)*s,Math.sin(a)*s,col);}
       if(e.text)this.addLabel(e,col);
@@ -109,10 +109,34 @@ export class Renderer {
     }
     if(g.phase==='route')for(const door of g.routeDoors||[])this.routeDoor(c,door,g);
     if(['shop','altar'].includes(g.phase)&&g.station){const {x,y}=g.station;
-      if(g.phase==='shop'){c.fillStyle='#183d38';c.fillRect(x-30,y-45,60,90);c.fillStyle='#e0ba73';c.fillRect(x-26,y-40,52,7);c.fillStyle='#94e8cf';c.fillRect(x-20,y-23,27,32);c.fillStyle='#3b654c';for(let i=0;i<3;i++)c.fillRect(x-17,y-18+i*9,21,5);c.fillStyle='#edd28b';c.fillRect(x+12,y-14,7,15);c.fillStyle='#080f11';c.fillRect(x-19,y+20,38,13);}
+      if(g.phase==='shop'){
+        const age=Math.max(0,g.time-(g.shopStartedAt??g.time));c.save();if(age<1.3)c.translate(Math.sin(age*45)*2*Math.exp(-age*2),0);
+        c.fillStyle='#183d38';c.fillRect(x-30,y-45,60,90);c.fillStyle='#e0ba73';c.fillRect(x-26,y-40,52,7);c.fillStyle='#94e8cf';c.fillRect(x-20,y-23,27,32);c.fillStyle='#3b654c';for(let i=0;i<3;i++)c.fillRect(x-17,y-18+i*9,21,5);c.fillStyle='#edd28b';c.fillRect(x+12,y-14,7,15);c.fillStyle='#080f11';c.fillRect(x-19,y+20,38,13);
+        if(age<1.1){c.fillStyle='#efd18b';c.globalAlpha=.4+.3*Math.sin(age*40);c.fillRect(x-15,y+24,30,5);c.globalAlpha=1;}c.restore();c.fillStyle='#fff2cc';c.fillText('SCRAP VENDING',x,y-60);
+        this.shopItems(c,g);this.routeDoor(c,{choice:'continue',x:g.exit.x,y:g.exit.y,side:'right'},g);
+      }
       else{c.fillStyle='#463b53';c.fillRect(x-35,y+8,70,25);c.fillStyle='#bb91d1';c.fillRect(x-27,y,54,10);c.fillStyle='#f0b8de';c.beginPath();c.moveTo(x,y-35);c.lineTo(x+15,y-10);c.lineTo(x,y+7);c.lineTo(x-15,y-10);c.closePath();c.fill();}
-      c.fillStyle='#fff2cc';c.fillText(g.phase==='shop'?'E · VENDING MACHINE':'E · SACRIFICE ALTAR',x,y+65);c.fillStyle='#94e8cf';c.fillRect(g.exit.x-18,g.exit.y-28,36,56);c.fillStyle='#183d38';c.fillRect(g.exit.x-10,g.exit.y-20,20,40);c.fillStyle='#fff2cc';c.fillText('HOST · E · EXIT',g.exit.x,g.exit.y+50);
+      if(g.phase==='altar'){c.fillStyle='#fff2cc';c.fillText('E · SACRIFICE ALTAR',x,y+65);c.fillStyle='#94e8cf';c.fillRect(g.exit.x-18,g.exit.y-28,36,56);c.fillStyle='#183d38';c.fillRect(g.exit.x-10,g.exit.y-20,20,40);c.fillStyle='#fff2cc';c.fillText('HOST · E · EXIT',g.exit.x,g.exit.y+50);}
     }c.restore();
+  }
+  shopItems(c,g){
+    for(const item of g.stock||[]){
+      if(item.left>0){const age=g.time-item.spawnAt;if(age<0)continue;const t=Math.min(1,age/.55),x=g.station.x+(item.x-g.station.x)*t,y=g.station.y+27+(item.y-g.station.y-27)*t-Math.sin(t*Math.PI)*70,bounce=t===1?-Math.abs(Math.sin((age-.55)*14))*8*Math.exp(-(age-.55)*6):0;
+        if(t===1){c.save();c.globalAlpha=.18;c.fillStyle='#efd18b';c.beginPath();c.ellipse(item.x,item.y+8,24,8,0,0,TAU);c.fill();c.restore();}
+        this.shopIcon(c,item,x,y+bounce,t===1?0:(1-t)*TAU,1,1);
+        if(t===1){c.save();c.textAlign='center';c.font='bold 12px monospace';c.fillStyle='#102b25ee';c.fillRect(item.x-39,item.y+23,78,22);c.fillStyle=g.scrap<item.cost?'#ff9991':'#c1f7c2';c.fillText(`${item.cost} Scrap`,item.x,item.y+38);if(item.left>1){c.font='10px monospace';c.fillStyle='#fff2cc';c.fillText(`×${item.left}`,item.x+25,item.y-12);}c.restore();}
+      }
+      if(item.lastSale){const t=(g.time-item.lastSale.time)/.45;if(t>=0&&t<1){const buyer=g.players.find(p=>p.id===item.lastSale.buyer),x=item.x+((buyer?.x??item.lastSale.x)-item.x)*t,y=item.y+((buyer?.y??item.lastSale.y)-30-item.y)*t-Math.sin(t*Math.PI)*35;this.shopIcon(c,item,x,y,t*Math.PI*.5,1-t*.6,1-t);c.save();c.globalAlpha=1-t;c.strokeStyle='#efd18b';c.lineWidth=2;c.beginPath();c.arc(item.x,item.y,12+t*36,0,TAU);c.stroke();c.restore();}}
+    }
+  }
+  shopIcon(c,item,x,y,rotation,scale,alpha){
+    c.save();c.translate(x,y);c.rotate(rotation);c.scale(scale,scale);c.globalAlpha=alpha;
+    const upgrade=UPGRADES.find(u=>u.id===item.id),color=item.id==='repair'?'#a6daff':item.id==='heal'?'#88ed9c':upgrade?.kind==='relic'?'#c8b4ff':'#efd18b';
+    c.fillStyle='#102b2577';c.beginPath();c.arc(0,0,21,0,TAU);c.fill();c.strokeStyle=color;c.lineWidth=1;c.stroke();c.fillStyle=color;
+    if(item.id==='repair'){c.beginPath();c.moveTo(-11,-13);c.lineTo(11,-13);c.lineTo(10,4);c.lineTo(0,16);c.lineTo(-10,4);c.closePath();c.fill();c.fillStyle='#365b72';c.fillRect(-2,-9,4,17);}
+    else if(item.id==='heal'){c.fillRect(-5,-16,10,5);c.fillStyle='#dbedd6';c.fillRect(-4,-11,8,7);c.fillStyle='#6aa47c';c.fillRect(-11,-4,22,21);c.fillStyle='#d1ffc4';c.fillRect(-7,4,14,4);c.fillRect(-2,-1,4,14);}
+    else{c.font='bold 28px monospace';c.textAlign='center';c.textBaseline='middle';c.fillText(upgrade?.icon||'✦',0,1);}
+    c.restore();
   }
   routeDoor(c,d,g){
     const color=d.choice==='altar'?'#efa0ab':d.choice==='shop'?'#efd18b':'#f18d83',bottom=d.side==='bottom',light=this.doorLight(color);
