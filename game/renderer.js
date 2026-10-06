@@ -1,3 +1,4 @@
+import {EnemyAudio} from './enemy-audio.js';
 import {KITS} from './run-content.js';
 import { ObjectPool, RectangleBatch, compact } from './performance.js';
 import { COLORS, ENEMIES, WEAPONS, ROOM_THEMES, levelTheme, isBoss } from './config.js';
@@ -5,11 +6,13 @@ const SOUNDS={explosion:[70,.25,'sawtooth'],mortar:[180,.12,'triangle'],shieldbr
 const GLOBAL_SOUNDS=['kill','victory','clear','explosion','mortar'],RING_EVENTS=['perfect','regular','block','hit','nova'];
 const TAU=Math.PI*2;
 export class Renderer {
-  constructor(canvas) {this.canvas=canvas;this.ctx=canvas.getContext('2d');this.lastEvent=0;this.particles=[];this.labels=[];this.shake=0;this.audio=null;this.muted=false;this.camera={scale:1,ox:0,oy:0};this.lastRoom=-1;this.previousTime=-1;this.hitstop=0;this.perfectFlash=0;this.rings=[];this.entities=[];this.particlePool=new ObjectPool(()=>({}),2048);this.labelPool=new ObjectPool(()=>({}),128);this.ringPool=new ObjectPool(()=>({}),128);this.point={x:0,y:0};this.floorBatch=new RectangleBatch();this.floorStamp={};this.doorLightCache=new Map();}
-  unlockAudio() {if(!this.audio){const AC=window.AudioContext||window.webkitAudioContext;if(AC)this.audio=new AC();}this.audio?.resume();}
+  constructor(canvas) {this.canvas=canvas;this.ctx=canvas.getContext('2d');this.lastEvent=0;this.particles=[];this.labels=[];this.shake=0;this.audio=null;this.enemyAudio=null;this.muted=false;this.camera={scale:1,ox:0,oy:0};this.lastRoom=-1;this.previousTime=-1;this.hitstop=0;this.perfectFlash=0;this.rings=[];this.entities=[];this.particlePool=new ObjectPool(()=>({}),2048);this.labelPool=new ObjectPool(()=>({}),128);this.ringPool=new ObjectPool(()=>({}),128);this.point={x:0,y:0};this.floorBatch=new RectangleBatch();this.floorStamp={};this.doorLightCache=new Map();}
+  unlockAudio() {if(!this.audio){const AC=window.AudioContext||window.webkitAudioContext;if(AC){this.audio=new AC();this.enemyAudio=new EnemyAudio(this.audio);this.enemyAudio.setMuted(this.muted);}}this.audio?.resume();}
+  get muted(){return this._muted;}
+  set muted(value){this._muted=value;this.enemyAudio?.setMuted(value);}
   sound(kind) {
     if(this.muted||!this.audio)return;
-    const v=SOUNDS[kind];if(!v)return;const c=this.audio,o=c.createOscillator(),gain=c.createGain();o.type=v[2];o.frequency.setValueAtTime(v[0],c.currentTime);o.frequency.exponentialRampToValueAtTime(v[0]*(kind==='hurt'?.4:1.4),c.currentTime+v[1]);gain.gain.setValueAtTime(.045,c.currentTime);gain.gain.exponentialRampToValueAtTime(.001,c.currentTime+v[1]);o.connect(gain);gain.connect(c.destination);o.start();o.stop(c.currentTime+v[1]);
+    const v=SOUNDS[kind];if(!v)return;const c=this.audio,o=c.createOscillator(),gain=c.createGain();o.type=v[2];o.frequency.setValueAtTime(v[0],c.currentTime);o.frequency.exponentialRampToValueAtTime(v[0]*(kind==='hurt'?.4:1.4),c.currentTime+v[1]);gain.gain.setValueAtTime(.045,c.currentTime);gain.gain.exponentialRampToValueAtTime(.001,c.currentTime+v[1]);o.connect(gain);gain.connect(this.enemyAudio?.input||c.destination);o.start();o.stop(c.currentTime+v[1]);
   }
   world(x,y) {const r=this.canvas.getBoundingClientRect(),c=this.camera;this.point.x=(x-r.left-c.ox)/c.scale;this.point.y=(y-r.top-c.oy)/c.scale;return this.point;}
   draw(g,me,dt,attract=false) {
@@ -45,7 +48,7 @@ export class Renderer {
     for(const b of g.bullets){const extent=16+(b.radius||3);if(b.x+extent<minX||b.x-extent>maxX||b.y+extent<minY||b.y-extent>maxY)continue;const friendly=!!b.owner;c.save();c.translate(b.x,b.y);c.rotate(Math.atan2(b.vy,b.vx));c.fillStyle=friendly?'#c2ffe5':b.unparryable?'#ff294d':ENEMIES[b.kind]?.color||'#ffe69a';const thickness=b.radius||3;if(b.kind==='magnet'){c.beginPath();c.moveTo(12,0);c.lineTo(-6,-5);c.lineTo(-2,0);c.lineTo(-6,5);c.closePath();c.fill();}else if(b.thrower){c.strokeStyle='#ffd2eb';c.lineWidth=5;c.beginPath();c.arc(-4,0,12,-1.2,1.2);c.stroke();}else c.fillRect(-7,-thickness,14,thickness*2);if(b.ricochet){c.strokeStyle='#f3a36b';c.lineWidth=2;c.strokeRect(-9,-thickness-2,18,thickness*2+4);}if(b.wave){c.fillStyle='#c1a6f288';for(let i=1;i<4;i++)c.fillRect(-7-i*6,Math.sin((b.waveAge||0)*8-i*.3)*4-2,4,4);}c.fillStyle=friendly?'#63d8ad':b.unparryable?'#fff0f2':'#fff3c8';if(b.unparryable){c.strokeStyle='#ff294d';c.lineWidth=2;c.strokeRect(-10,-thickness-3,20,thickness*2+6);}c.fillRect(0,-Math.max(2,thickness-1),7,Math.max(4,thickness*2-2));c.restore();}
     if(!attract)for(const e of g.events)if(e.id>this.lastEvent) {
       this.lastEvent=e.id;if(g.time-e.time>.7)continue;
-      if(e.who===me||GLOBAL_SOUNDS.includes(e.kind))this.sound(e.kind);
+      if(e.sourceKind&&e.weaponAction){if(!this.muted)this.enemyAudio?.play(e,g.players.find(p=>p.id===me),g.width);}else if(e.who===me||GLOBAL_SOUNDS.includes(e.kind))this.sound(e.kind);
       if(RING_EVENTS.includes(e.kind))this.addRing(e);
       const col=e.kind==='explosion'?'#ffbf67':e.kind==='enemyparry'?'#d7a2ff':e.kind==='shieldbreak'?'#a6daff':e.kind==='perfect'?'#b8ffaf':e.kind==='regular'?'#ffbc65':e.kind==='block'?'#a6daff':e.kind==='hurt'?'#ff9b91':e.kind==='miss'?'#e4b18d':'#fff1bc';
       const n=e.kind==='cluster'?24:e.kind==='bounce'?4:e.kind==='magnet'?16:e.kind==='land'?8:e.kind==='explosion'?48:e.kind==='shieldbreak'?30:e.kind==='enemyparry'?20:e.kind==='perfect'?36:e.kind==='regular'?20:e.kind==='block'?10:e.kind==='guard'?8:e.kind==='swing'?6:e.kind==='kill'?18:e.kind==='hit'?12:e.kind==='dash'?8:0;

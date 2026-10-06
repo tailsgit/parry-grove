@@ -364,3 +364,11 @@ While route doors are open, your normal attack, parry, block and dash controls
 remain active. Animations and cooldowns keep ticking in the draft, route and
 shop/altar arenas. Opening a vending or altar panel stops movement and new actions
 while you browse, without leaving an old animation frozen.
+
+## Enemy weapon audio
+
+All 19 enemies and bosses have distinct weapon sounds: bowstrings, gun reports,
+launcher thumps, melee strikes, electronic pulses, mines and boss weapons.
+Positional stereo and distance falloff help identify where attacks originate.
+The Sound toggle in the Esc menu mutes the mix immediately.
+See [the sound bank and preview order](docs/enemy-audio.md).
