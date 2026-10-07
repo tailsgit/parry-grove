@@ -1,4 +1,4 @@
-import {createRun,claimKit,selectRoute,buyItem,sacrifice} from './run-content.js';
+import {createRun,claimKit,selectRoute,sacrifice} from './run-content.js';
 import { player, step, chooseUpgrade, adminTeleport, adminHealth, clamp } from './engine.js';
 import { WEAPONS, BALANCE } from './config.js';
 export function roomState(member, now) {return {host:member.id,members:[member],game:null,inputs:{},lastTick:now,createdAt:now};}
@@ -26,11 +26,11 @@ export function applyAction(r,m,payload,now) {
     r.inputs={};r.game=createRun(r.members.map(m=>player(m.id,m.name,m.weapon,m.slot)));r.lastTick=now;
   }
   if(a==='upgrade'&&!chooseUpgrade(r.game||{},m.id,payload.upgrade))throw Error('That upgrade is unavailable.');
-  if(['kit','route','buy','sacrifice','vendorClose'].includes(a)){
+  if(a==='buy')throw Error('Move close to a shop item and press E to buy it.');
+  if(['kit','route','sacrifice','vendorClose'].includes(a)){
     if(!r.game)throw Error('Start a run first.');r.game.hostId=r.host;
     if(a==='kit')claimKit(r.game,m.id,payload.kit);
     if(a==='route')selectRoute(r.game,m.id,payload.choice);
-    if(a==='buy')buyItem(r.game,m.id,payload.item);
     if(a==='sacrifice')sacrifice(r.game,m.id,payload.item);
     if(a==='vendorClose'){const p=r.game.players.find(p=>p.id===m.id);if(p){p.vendorOpen=false;p.altarOpen=false;}}
   }

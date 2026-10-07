@@ -35,8 +35,9 @@ export function openRouteDoors(g){
  // Keep the cleared room intact, but guarantee a cover-free corridor to every exit.
  g.obstacles=g.obstacles.filter(o=>!g.routeDoors.some(d=>d.side==='bottom'?o.x<d.x+55&&o.x+o.w>d.x-55&&o.y+o.h>g.height-135:o.y<d.y+55&&o.y+o.h>d.y-55&&(d.side==='left'?o.x<135:o.x+o.w>g.width-135)));
 }
-export function beginRoute(g){g.phase='route';g.pendingRoom=g.room+1;g.routeOptions=g.pendingRoom===B.encounters?['shop']:['continue','altar'];
- if(g.pendingRoom!==B.encounters&&random(g)<.35)g.routeOptions.push('shop');
+export function beginRoute(g){g.phase='route';g.pendingRoom=g.room+1;g.routeOptions=g.pendingRoom===B.encounters?['shop']:['continue'];
+ if(g.pendingRoom!==B.encounters&&random(g)<.2)g.routeOptions.push('shop');
+ if(g.pendingRoom!==B.encounters&&random(g)<.35)g.routeOptions.push('altar');
  clearArena(g,true);g.intro=0;openRouteDoors(g);for(const door of g.routeDoors)event(g,'doorsopen',door.x,door.y);
  // Physical routing needs living party members, including a host downed in combat.
  const survivor=g.players.find(p=>p.hp>0);for(const p of g.players)if(p.hp<=0){p.hp=p.maxHp*.5;p.routeRevived=true;if(survivor){p.x=survivor.x;p.y=survivor.y;}}
@@ -56,8 +57,7 @@ export function layoutShopStock(g){
 }
 export function shopPurchaseProblem(g,p,item,contact=true){
  if(g.phase!=='shop'||!p||p.hp<=0||!item||item.left<1)return 'Item unavailable';
- if(contact&&(g.time<item.readyAt||!Number.isFinite(item.x)||distance(p,item)>24))return 'Walk into the item to buy';
- if(contact&&((p.shopContacts||0)&(1<<g.stock.indexOf(item))))return 'Step away before buying another';
+ if(contact&&(g.time<item.readyAt||!Number.isFinite(item.x)||distance(p,item)>70))return 'Move close and press E to buy';
  if(g.scrap<item.cost)return `Need ${item.cost-g.scrap} more Scrap`;
  if(item.id==='repair'&&!p.shieldDamage)return 'Shield is already full';
  if(item.id==='heal'&&p.hp>=p.maxHp)return 'Health is already full';
@@ -69,19 +69,23 @@ export function buyItem(g,id,itemId){const p=g.players.find(p=>p.id===id),item=g
  if(itemId==='repair'){p.shieldDamage=0;p.shieldBroken=false;}
  else if(itemId==='heal')p.hp=Math.min(p.maxHp,p.hp+p.maxHp*.35);
  else grantUpgrade(p,itemId);
- g.scrap-=item.cost;item.left--;p.shopContacts=(p.shopContacts||0)|(1<<g.stock.indexOf(item));item.lastSale={time:g.time,x:p.x,y:p.y,buyer:p.id};event(g,'purchase',item.x,item.y,item.name,p.id).itemId=item.id;
+ g.scrap-=item.cost;item.left--;item.lastSale={time:g.time,x:p.x,y:p.y,buyer:p.id};event(g,'purchase',item.x,item.y,item.name,p.id).itemId=item.id;
 }
-function shopContacts(g,p){
- const old=p.shopContacts||0;let contacts=0;
- for(let index=0;index<g.stock.length;index++){const item=g.stock[index],bit=1<<index;if(item.left<1||g.time<item.readyAt||distance(p,item)>24)continue;contacts|=bit;if(old&bit)continue;
-  const problem=shopPurchaseProblem(g,p,item);if(problem)event(g,'shopdeny',p.x,p.y,problem,p.id);else buyItem(g,p.id,item.id);
- }
- p.shopContacts=contacts;
+function shopContacts(g,p,input){
+ if((input.interact||0)<=p.seenInteract)return;
+ const item=g.stock.filter(item=>item.left>0&&Number.isFinite(item.x)).reduce((closest,candidate)=>!closest||distance(p,candidate)<distance(p,closest)?candidate:closest,null);
+ if(!item||distance(p,item)>70){event(g,'shopdeny',p.x,p.y,'Move close to an item and press E',p.id);return;}
+ const problem=shopPurchaseProblem(g,p,item);if(problem)event(g,'shopdeny',p.x,p.y,problem,p.id);else buyItem(g,p.id,item.id);
 }
 export function sacrifice(g,id,relic){const p=g.players.find(p=>p.id===id);
  if(g.phase!=='altar'||!p||p.hp<=0||!p.altarOpen||distance(p,g.station)>90||p.altarUsed===g.stopSerial||!g.altarOffers.includes(relic)||p.maxHp<20)throw Error('This sacrifice is unavailable.');
  if(p.upgrades.includes(relic))throw Error('You already own this relic.');
- const loss=Math.ceil(p.maxHp*.25);p.healthFactor=(p.healthFactor??1)*.75;p.maxHp-=loss;p.hp=Math.min(p.hp,p.maxHp);p.altarUsed=g.stopSerial;grantUpgrade(p,relic);event(g,'sacrifice',p.x,p.y,`RELIC CLAIMED · −${loss} MAX HP`,p.id);
+ const curses=[
+  ()=>{const loss=Math.ceil(p.maxHp*.25);p.healthFactor=(p.healthFactor??1)*.75;p.maxHp-=loss;p.hp=Math.min(p.hp,p.maxHp);return '−25% MAX HP';},
+  ()=>{p.damage=(p.damage??1)*.8;return '−20% DAMAGE';},
+  ()=>{p.speed=(p.speed??1)*.85;return '−15% SPEED';},
+ ];
+ const curse=curses[Math.floor(random(g)*curses.length)]();p.altarUsed=g.stopSerial;grantUpgrade(p,relic);event(g,'sacrifice',p.x,p.y,`CURSE: ${curse}`,p.id);
 }
 export function stepPeaceful(g,inputs,dt){
  if(!['draft','shop','altar','route'].includes(g.phase))return false;
@@ -97,7 +101,7 @@ export function stepPeaceful(g,inputs,dt){
    continue;
   }
   if(g.phase==='shop'){
-   shopContacts(g,p);p.seenInteract=Math.max(p.seenInteract,i.interact||0);
+   shopContacts(g,p,i);p.seenInteract=Math.max(p.seenInteract,i.interact||0);
    if(p.id===g.hostId&&distance(p,g.exit)<=32&&((i.mx||0)>0||p.vx>0||p.dashLeft>0&&p.dx>0)){enterCombat(g);return true;}
    continue;
   }
