@@ -2,7 +2,7 @@
 import RunPanels from './RunPanels.jsx';
 import RewardCards from './RewardCards.jsx';
 import {rewardShortcut} from './reward-input.js';
-import {createRun,claimKit,selectRoute,buyItem,sacrifice} from './run-content.js';
+import {createRun,claimKit,selectRoute,sacrifice} from './run-content.js';
 import { useEffect, useRef, useState } from 'react';
 import { SoloHitPause } from './hit-pause.js';
 import { xpRequired, createGame, player, chooseUpgrade, adminTeleport, adminHealth, move } from './engine.js';
@@ -39,7 +39,7 @@ export default function Game() {
   function pick(id){renderer.current?.unlockAudio();if(modeRef.current==='solo'){chooseUpgrade(world.current,'solo',id);snapshot(world.current);}else if(realtime.current?.readyState===WebSocket.OPEN)realtime.current.send(JSON.stringify({type:'action',action:'upgrade',upgrade:id}));else setError('Reconnecting to the room…');}
   async function runAction(action,extra={}){
     try{setError('');if(modeRef.current==='solo'){
-      const g=world.current;if(action==='kit')claimKit(g,'solo',extra.kit);if(action==='route')selectRoute(g,'solo',extra.choice);if(action==='buy')buyItem(g,'solo',extra.item);if(action==='sacrifice')sacrifice(g,'solo',extra.item);if(action==='vendorClose'){const p=g.players[0];p.vendorOpen=false;p.altarOpen=false;}snapshot(g);
+      const g=world.current;if(action==='kit')claimKit(g,'solo',extra.kit);if(action==='route')selectRoute(g,'solo',extra.choice);if(action==='sacrifice')sacrifice(g,'solo',extra.item);if(action==='vendorClose'){const p=g.players[0];p.vendorOpen=false;p.altarOpen=false;}snapshot(g);
     }else{const data=await request({action,...extra});if(net.current)net.current.snapshots=[];accept(data,typeof data.sequence==='number');}
     }catch(e){setError(e.message);}
   }
