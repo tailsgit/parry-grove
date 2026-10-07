@@ -156,6 +156,7 @@ function combatPulse(g,p,damage,radius,stun){
   }
   event(g,'nova',p.x,p.y,'',p.id).radius=radius;
 }
+function dashPulse(g,p){if(p.dashPulse)combatPulse(g,p,p.dashPulse*(p.thunderStep?2:1),65,p.thunderStep?.5:0);}
 function perfectTraits(g,p){
   if(p.parryHeal)p.hp=Math.min(p.maxHp,p.hp+p.parryHeal);
   if(p.stunNova)combatPulse(g,p,0,110,B.enemyMeleeStun+(p.stunBonus||0));
@@ -314,9 +315,9 @@ export function stepPlayer(g,p,i,dt,locked=false){
     if(p.stun>0){p.blocking=false;p.guardHeld=false;p.vx=0;p.vy=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;return;}
     const previousX=p.x,previousY=p.y;
     let mx=clamp(i.mx||0,-1,1),my=clamp(i.my||0,-1,1),norm=Math.hypot(mx,my)||1;mx/=norm;my/=norm;
-    if((i.dash||0)>p.seenDash) {p.seenDash=i.dash;if(!p.dashCd){p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id);if(p.dashPulse)combatPulse(g,p,p.dashPulse*(p.thunderStep?2:1),65,p.thunderStep?.5:0);}}
+    if((i.dash||0)>p.seenDash) {p.seenDash=i.dash;if(!p.dashCd){p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id);dashPulse(g,p);}}
     if((i.parry||0)>p.seenParry) {p.seenParry=i.parry;if(!p.parryCd){p.parryCd=B.parryCooldown;p.parryLeft=WEAPONS[p.weapon].parry;p.parryAge=0;p.parrySuccess=false;event(g,'guard',p.x,p.y,'',p.id);}}
-    if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);p.dashLeft-=dt;p.dashAge+=dt;}
+    if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);p.dashLeft-=dt;p.dashAge+=dt;if(p.dashLeft<=0)dashPulse(g,p);}
     else move(g,p,mx*B.speed*p.speed*(i.guard&&!p.shieldBroken&&p.parryLeft<=0?B.blockSpeed:1)*dt,my*B.speed*p.speed*(i.guard&&!p.shieldBroken&&p.parryLeft<=0?B.blockSpeed:1)*dt);
     p.guardHeld=i.guard===true&&p.dashLeft<=0;
     p.blocking=i.guard===true&&!p.shieldBroken&&p.parryLeft<=0&&p.dashLeft<=0;

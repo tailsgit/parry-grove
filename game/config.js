@@ -51,7 +51,7 @@ export const UPGRADES = [
   {id:'stun',name:'Lingering Steel',icon:'⌛',desc:'Melee parries stun enemies for 0.5s longer, up to +2s.',apply:p=>{p.stunBonus=Math.min(2,(p.stunBonus||0)+.5);}},
   {id:'area',name:'Wide Wake',icon:'◯',desc:'+20% melee swing coverage and effect radius, up to +80%.',apply:p=>{p.areaScale=Math.min(1.8,(p.areaScale||1)+.2);}},
   {id:'returnForce',name:'Returning Force',icon:'↶',desc:'+25% reflected projectile damage.',apply:p=>{p.returnPower=(p.returnPower||1)+.25;}},
-  {id:'dashSpark',name:'Spark Step',icon:'ϟ',desc:'Dashing emits a small shock pulse dealing 8 damage; additional stacks add 8.',apply:p=>{p.dashPulse=(p.dashPulse||0)+8;}},
+  {id:'dashSpark',name:'Spark Step',icon:'ϟ',desc:'Dashing emits a 16-damage shock pulse at the start and end of the dash; additional stacks add 16.',apply:p=>{p.dashPulse=(p.dashPulse||0)+16;}},
   {id:'punish',name:'Opportunist',icon:'⚑',desc:'+30% melee damage against stunned enemies.',apply:p=>{p.stunDamage=(p.stunDamage||0)+.3;}},
   {id:'recovery',name:'Green Spark',icon:'✚',desc:'Perfect parries heal 2 HP.',apply:p=>{p.parryHeal=(p.parryHeal||0)+2;}},
   {id:'stunNova',name:'Stun Nova',icon:'✺',kind:'synergy',requires:['stun','area'],desc:'Perfect parries stun surrounding enemies. Requires Lingering Steel + Wide Wake.',apply:p=>{p.stunNova=true;}},
