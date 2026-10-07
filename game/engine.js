@@ -219,7 +219,7 @@ function melee(g,p) {
       e.guardLeft=0;event(g,'enemyparry',p.x,p.y,'PARRIED · STUNNED',p.id);break;
     }
     const d=ENEMIES[e.kind].invulnerable?0:p.name==='hacker'?e.hp:w.damage*p.damage*(1+p.streak*B.streakBonus)*(e.stun>0?1+(p.stunDamage||0):1);e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
-    event(g,'hit',e.x,e.y,d===0&&ENEMIES[e.kind].invulnerable?'IMMUNE':`${Math.round(d)}`,p.id);
+    event(g,'hit',e.x,e.y,d===0&&ENEMIES[e.kind].invulnerable?'IMMUNE':`${Math.round(d)}`,p.id,undefined,d>0?'melee':undefined);
     if(e.hp<=0)kill(g,e,p);
     if(++n>=w.targets)break;
   }

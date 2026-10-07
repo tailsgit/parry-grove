@@ -5,6 +5,7 @@ export const BALANCE = {
   perfectWindow: .09, parryIframes: .06, parryCooldown: .5, enemyShotGap: .18, deflectSpeed: 1.65, deflectAssistCone: .35, deflectAssistTurn: .18, parryCone: Math.PI * .72,
   blockReduction: .8, blockSpeed: .65, shieldCapacity: 100, enemyMeleeStun: 1, playerParryStun: .5,
   separationRadius: 64, separationSpeed: 110, enemyParryChance: .1, enemyParryRange: 115,
+  soloMeleeHitPause: .05, soloPerfectHitPause: .09,
   regularChip: .08, regularStored: .65,
   meleeCleanse: 2, streakTimeout: 3, streakBonus: .16, hurtIframes: .32,
   bossSlamRadius: 145, bossSlamTell: .85, bossSlamCooldown: 3, bossRepositionSpeed: 230,

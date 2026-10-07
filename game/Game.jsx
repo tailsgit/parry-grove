@@ -4,7 +4,8 @@ import RewardCards from './RewardCards.jsx';
 import {rewardShortcut} from './reward-input.js';
 import {createRun,claimKit,selectRoute,buyItem,sacrifice} from './run-content.js';
 import { useEffect, useRef, useState } from 'react';
-import { xpRequired, createGame, player, step, chooseUpgrade, adminTeleport, adminHealth, move } from './engine.js';
+import { SoloHitPause } from './hit-pause.js';
+import { xpRequired, createGame, player, chooseUpgrade, adminTeleport, adminHealth, move } from './engine.js';
 import { WEAPONS, UPGRADES, COLORS, BALANCE, ENEMIES, isBoss, levelTheme } from './config.js';
 import Settings from './Settings.jsx';
 import { Renderer } from './renderer.js';
@@ -15,12 +16,13 @@ export default function Game() {
   const canvas=useRef(null),renderer=useRef(null),world=useRef(null),input=useRef(emptyInput()),keys=useRef(new Set()),modeRef=useRef('menu'),net=useRef(null),realtime=useRef(null),pausedRef=useRef(false),cursor=useRef(null);
   const [mode,setMode]=useState('menu'),[view,setView]=useState(null),[room,setRoom]=useState(null),[weapon]=useState('sword'),[name,setName]=useState('Adventurer'),[code,setCode]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[muted,setMuted]=useState(false),[paused,setPaused]=useState(false),[copied,setCopied]=useState(false),[latency,setLatency]=useState(0);
   const [myId,setMyId]=useState('solo'),[inventory,setInventory]=useState(false),[settings,setSettings]=useState(false);
+  const soloHitPause=useRef(new SoloHitPause());
   const soloInputs=useRef({solo:null}),displayRef=useRef({players:[]});
   const inventoryRef=useRef(false),inventoryWasPaused=useRef(false),inventoryDialog=useRef(null),pauseDialog=useRef(null);
   const settingsRef=useRef(false),settingsWasPaused=useRef(false),settingsReturnFocus=useRef(null);
   const me=myId;const p=view?.players.find(p=>p.id===me),bosses=view?.enemies.filter(e=>isBoss(e.kind))||[];
   const isHost=room?.host===myId;
-  function changeMode(m){settingsRef.current=false;setSettings(false);pausedRef.current=false;setPaused(false);inventoryRef.current=false;setInventory(false);modeRef.current=m;setMode(m);keys.current.clear();input.current.attack=false;resetGuard(input.current);input.current.mx=0;input.current.my=0;}
+  function changeMode(m){soloHitPause.current.reset();settingsRef.current=false;setSettings(false);pausedRef.current=false;setPaused(false);inventoryRef.current=false;setInventory(false);modeRef.current=m;setMode(m);keys.current.clear();input.current.attack=false;resetGuard(input.current);input.current.mx=0;input.current.my=0;}
   function snapshot(g){if(g)setView({...g,players:g.players.map(p=>({...p})),enemies:g.enemies.map(e=>({...e}))});else setView(null);}
   function solo(){setMyId('solo');net.current=null;setRoom(null);input.current=emptyInput();pausedRef.current=false;setPaused(false);renderer.current?.unlockAudio();world.current=createRun([player('solo',name,weapon,0)]);snapshot(world.current);changeMode('solo');canvas.current?.focus();setError('');}
   async function request(payload,session=net.current) {
@@ -43,7 +45,7 @@ export default function Game() {
   }
   async function admin(operation,values){
     if(modeRef.current==='solo'){
-      if(operation==='teleport'){adminTeleport(world.current,values.level,values.room);const i=input.current;world.current.players.forEach(p=>{p.seenParry=i.parry;p.seenDash=i.dash;p.seenInteract=i.interact;});}
+      if(operation==='teleport'){adminTeleport(world.current,values.level,values.room);soloHitPause.current.reset();const i=input.current;world.current.players.forEach(p=>{p.seenParry=i.parry;p.seenDash=i.dash;p.seenInteract=i.interact;});}
       else adminHealth(world.current,'solo',values.hp);
       keys.current.clear();input.current.mx=0;input.current.my=0;input.current.attack=false;resetGuard(input.current);snapshot(world.current);
     }else if(modeRef.current==='online'){const data=await request({action:'admin',operation,...values});if(net.current)net.current.snapshots=[];accept(data,typeof data.sequence==='number');}
@@ -78,7 +80,8 @@ export default function Game() {
     const loop=(now)=>{
       const dt=Math.min((now-last)/1000,.05);last=now;const g=world.current;
       const i=input.current,k=keys.current;i.mx=(k.has('d')||k.has('arrowright')?1:0)-(k.has('a')||k.has('arrowleft')?1:0);i.my=(k.has('s')||k.has('arrowdown')?1:0)-(k.has('w')||k.has('arrowup')?1:0);if(pausedRef.current||inventoryRef.current||settingsRef.current){i.mx=0;i.my=0;i.attack=false;resetGuard(i);}
-      if(g){const hero=g.players.find(p=>p.id===(net.current?.id||'solo'));if(hero&&cursor.current){const target=draw.world(cursor.current.x,cursor.current.y);i.angle=Math.atan2(target.y-hero.y,target.x-hero.x);}if(modeRef.current==='menu')g.time+=dt;else if(modeRef.current==='solo'&&!pausedRef.current){let left=dt;while(left>.0001){const d=Math.min(left,1/60);soloInputs.current.solo=i;step(g,soloInputs.current,d);left-=d;}}
+      let renderDt=dt;
+      if(g){const hero=g.players.find(p=>p.id===(net.current?.id||'solo'));if(hero&&cursor.current){const target=draw.world(cursor.current.x,cursor.current.y);i.angle=Math.atan2(target.y-hero.y,target.x-hero.x);}if(modeRef.current==='menu')g.time+=dt;else if(modeRef.current==='solo'){renderDt=0;if(!pausedRef.current){soloInputs.current.solo=i;renderDt=soloHitPause.current.advance(g,soloInputs.current,dt,'solo');}}
         let display=g;
         // Short local extrapolation gives movement immediate visual response between snapshots.
         // Damage and collision outcomes still come exclusively from the shared server simulation.
@@ -105,7 +108,7 @@ export default function Game() {
           display.players=interpolateEntities('players',g.players);display.enemies=interpolateEntities('enemies',g.enemies);display.bullets=interpolateEntities('bullets',g.bullets);display.hazards=interpolateEntities('hazards',g.hazards);
           for(const copy of display.players){if(copy.id===id&&copy.hp>0){const source=g.players.find(p=>p.id===id);if(source){Object.assign(copy,source);copy.angle=i.angle;const n=Math.hypot(i.mx,i.my)||1;move(g,copy,i.mx/n*BALANCE.speed*source.speed*age,i.my/n*BALANCE.speed*source.speed*age);}}}
         }
-        draw.draw(display,net.current?.id||'solo',dt,modeRef.current==='menu');
+        draw.draw(display,net.current?.id||'solo',renderDt,modeRef.current==='menu');
         if(now-hud>90&&modeRef.current==='solo'){snapshot(g);hud=now;}
       }
       frame=requestAnimationFrame(loop);
