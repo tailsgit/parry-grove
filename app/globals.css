@@ -62,3 +62,8 @@ body{background:#122b29}.game-screen{width:100%;height:100svh;padding:0;color:#f
 @keyframes parry-ring-impact{0%{opacity:.9;transform:scale(.35)}100%{opacity:0;transform:scale(2.1)}}
 @media(max-width:580px){.arena-ui .compact-hud{width:140px;padding:8px}.arena-ui .party-hud{top:165px}.parry-combo{width:116px}.parry-count{font-size:calc(var(--combo-size,76px)*.8)}.parry-impact{height:92px}}
 @media(prefers-reduced-motion:reduce){.parry-count,.parry-burst{animation:none}.parry-burst{display:none}.hud-shield-bar i,.hud-health-bar>i,.parry-combo-timer i{transition:none}}
+
+/* Keep currency at the bottom of player status and reveal the arena behind room status. */
+.compact-hud .scrap-count{margin-top:9px;padding-top:8px;border-top:1px solid #d7c99833;font-size:10px}
+.arena-ui .room-hud{background:#102f2873;border-color:#d7c99855}
+.arena-ui .room-hud .hud-meter{background:#16352966}
