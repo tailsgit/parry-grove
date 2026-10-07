@@ -207,7 +207,23 @@ export class Renderer {
     if(isMe){c.strokeStyle='#d4ffcc99';c.lineWidth=1.5;c.beginPath();c.ellipse(0,12,18,8,0,0,TAU);c.stroke();}
     if(p.dashLeft>0){c.fillStyle=color+'55';for(let i=1;i<4;i++)c.fillRect(-p.dx*i*12-7,-p.dy*i*12-5,14,19);}
     const bob=attract?Math.sin(g.time*3)*1:Math.sin(g.time*13)*1;c.fillStyle='#264b3f';c.fillRect(-8,8+bob,6,7);c.fillRect(3,8-bob,6,7);c.fillStyle=color;c.fillRect(-10,-5,20,16);c.fillStyle='#eef1ce';c.fillRect(-5,-16,13,12);c.fillStyle='#263e35';c.fillRect(-7,-19,17,6);c.fillRect(-7,-16,4,9);c.fillRect(p.angle>Math.PI/2||p.angle<-Math.PI/2?-3:5,-11,2,2);c.fillStyle='#f7d685';c.fillRect(-10,3,20,3);
-    c.save();c.rotate(p.angle+(p.swing>0?(-WEAPONS[p.weapon].arc/2+WEAPONS[p.weapon].arc*(1-p.swing/.15)):0));c.fillStyle='#fff1ca';c.fillRect(9,-3,7,6);c.fillStyle='#e4eee1';const len=p.weapon==='dagger'?17:p.weapon==='sword'?28:39;c.fillRect(17,-2,len,4);c.fillStyle='#d9b96d';c.fillRect(16,-6,4,12);c.restore();
+    c.save();c.rotate(p.angle+(p.swing>0?(-WEAPONS[p.weapon].arc/2+WEAPONS[p.weapon].arc*(1-p.swing/.15)):0));
+    if(p.weapon==='dagger'){
+      c.fillStyle='#345f64';c.fillRect(7,-2,10,4);c.fillStyle='#80e4ed';c.fillRect(6,-3,3,6);
+      c.strokeStyle='#c1eeec';c.lineWidth=3;c.beginPath();c.moveTo(16,-7);c.lineTo(16,7);c.stroke();
+      c.fillStyle='#80e4ed';c.beginPath();c.moveTo(17,-4);c.lineTo(34,0);c.lineTo(17,4);c.closePath();c.fill();
+      c.fillStyle='#ecffff';c.beginPath();c.moveTo(18,-2);c.lineTo(34,0);c.lineTo(18,0);c.closePath();c.fill();
+    }else if(p.weapon==='sword'){
+      c.fillStyle='#685441';c.fillRect(4,-3,12,6);c.fillStyle='#e3c476';c.beginPath();c.arc(5,0,3,0,TAU);c.fill();
+      c.fillStyle='#e3c476';c.fillRect(15,-7,4,14);c.fillStyle='#dcebd1';
+      c.beginPath();c.moveTo(18,-4);c.lineTo(45,-4);c.lineTo(52,0);c.lineTo(45,4);c.lineTo(18,4);c.closePath();c.fill();
+      c.fillStyle='#fff4ce';c.fillRect(20,-3,25,2);
+    }else{
+      c.fillStyle='#65547b';c.fillRect(0,-4,17,8);c.fillStyle='#c6acf0';c.fillRect(-2,-5,4,10);
+      c.strokeStyle='#c6acf0';c.lineWidth=4;c.beginPath();c.moveTo(15,-11);c.lineTo(20,0);c.lineTo(15,11);c.stroke();
+      c.fillStyle='#aebce2';c.beginPath();c.moveTo(19,-7);c.lineTo(56,-7);c.lineTo(65,0);c.lineTo(56,7);c.lineTo(19,7);c.closePath();c.fill();
+      c.fillStyle='#f0edff';c.beginPath();c.moveTo(22,-4);c.lineTo(56,-4);c.lineTo(65,0);c.lineTo(22,0);c.closePath();c.fill();
+    }c.restore();
     if(p.swing>0){const w=WEAPONS[p.weapon],progress=1-p.swing/.15;c.save();c.globalAlpha=p.swing/.15;c.strokeStyle='#fff8d9';c.lineWidth=9;c.beginPath();c.arc(0,0,w.range,p.angle-w.arc/2,p.angle-w.arc/2+w.arc*Math.min(1,progress+.3));c.stroke();c.strokeStyle='#e9c26c';c.lineWidth=3;c.beginPath();c.arc(0,0,w.range-9,p.angle-w.arc/2,p.angle+w.arc/2);c.stroke();c.restore();}
     if(p.magnetLeft>0){c.strokeStyle='#77d9ed';c.lineWidth=3;c.beginPath();c.arc(0,0,21,-.6,Math.PI+.6);c.stroke();c.fillStyle='#77d9ed';c.fillRect(-23,-3,7,9);c.fillRect(16,-3,7,9);}
     if(p.stun>0){c.fillStyle='#d7a2ff';c.font='bold 15px monospace';c.textAlign='center';c.fillText('✦ ✦ ✦',0,-43);}
