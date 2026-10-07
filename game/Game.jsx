@@ -1,11 +1,12 @@
 'use client';
+import { PlayerHud, PerfectParryHud } from './CombatHud.jsx';
 import RunPanels from './RunPanels.jsx';
 import RewardCards from './RewardCards.jsx';
 import {rewardShortcut} from './reward-input.js';
 import {createRun,claimKit,selectRoute,sacrifice} from './run-content.js';
 import { useEffect, useRef, useState } from 'react';
 import { SoloHitPause } from './hit-pause.js';
-import { xpRequired, createGame, player, chooseUpgrade, adminTeleport, adminHealth, move } from './engine.js';
+import { createGame, player, chooseUpgrade, adminTeleport, adminHealth, move } from './engine.js';
 import { WEAPONS, UPGRADES, COLORS, BALANCE, ENEMIES, isBoss, levelTheme } from './config.js';
 import Settings from './Settings.jsx';
 import { Renderer } from './renderer.js';
@@ -76,7 +77,7 @@ export default function Game() {
   function togglePause(){if(settingsRef.current||inventoryRef.current||modeRef.current==='menu'||!world.current)return;pausedRef.current=!pausedRef.current;setPaused(pausedRef.current);keys.current.clear();input.current.mx=0;input.current.my=0;input.current.attack=false;resetGuard(input.current);if(!pausedRef.current)canvas.current?.focus();}
   useEffect(()=>{
     const draw=new Renderer(canvas.current);renderer.current=draw;world.current=createGame([player('preview','','sword')],314159);
-    let frame,last=performance.now(),hud=0;
+    let frame,last=performance.now(),hud=0,lastPerfects=-1;
     const loop=(now)=>{
       const dt=Math.min((now-last)/1000,.05);last=now;const g=world.current;
       const i=input.current,k=keys.current;i.mx=(k.has('d')||k.has('arrowright')?1:0)-(k.has('a')||k.has('arrowleft')?1:0);i.my=(k.has('s')||k.has('arrowdown')?1:0)-(k.has('w')||k.has('arrowup')?1:0);if(pausedRef.current||inventoryRef.current||settingsRef.current){i.mx=0;i.my=0;i.attack=false;resetGuard(i);}
@@ -109,7 +110,7 @@ export default function Game() {
           for(const copy of display.players){if(copy.id===id&&copy.hp>0){const source=g.players.find(p=>p.id===id);if(source){Object.assign(copy,source);copy.angle=i.angle;const n=Math.hypot(i.mx,i.my)||1;move(g,copy,i.mx/n*BALANCE.speed*source.speed*age,i.my/n*BALANCE.speed*source.speed*age);}}}
         }
         draw.draw(display,net.current?.id||'solo',renderDt,modeRef.current==='menu');
-        if(now-hud>90&&modeRef.current==='solo'){snapshot(g);hud=now;}
+        if(modeRef.current==='solo'&&(now-hud>90||hero?.perfects!==lastPerfects)){snapshot(g);hud=now;lastPerfects=hero?.perfects;}
       }
       frame=requestAnimationFrame(loop);
     };frame=requestAnimationFrame(loop);
@@ -158,7 +159,9 @@ export default function Game() {
       {mode==='menu'&&<div className="screen-menu"><div className="menu-story"><span className="eyebrow">MELEE · DEFLECT · SURVIVE</span><h1>Good timing.<br/><em>Great trouble.</em></h1><p>Two levels. Ten rooms.<br/>Bring your blade. Bring your friends.</p><div className="parry-key"><span>● PERFECT</span><span>● REGULAR</span></div></div><div className="menu-card"><h2>Enter the grove.</h2><label className="field-label" htmlFor="name">ADVENTURER NAME</label><input id="name" value={name} maxLength={18} onChange={e=>setName(e.target.value)} placeholder="Your name"/><p className="small-note">Choose your weapon kit from physical pickups when the run begins.</p><button className="primary" onClick={solo}>Play solo ↗</button><div className="divider">OR BRING YOUR PARTY</div><button className="secondary" onClick={()=>connect('create')} disabled={busy}>{busy?'Connecting…':'Create co-op room ＋'}</button><form className="join-form" onSubmit={e=>{e.preventDefault();connect('join');}}><input aria-label="Six-character room code" placeholder="ROOM CODE" maxLength={6} value={code} onChange={e=>setCode(e.target.value.toUpperCase())}/><button disabled={busy||code.length!==6} type="submit">JOIN ↗</button></form><p className="small-note">1–4 players · mouse and keyboard</p></div></div>}
       {mode==='online'&&!view&&<div className="screen-modal lobby-modal"><div className="lobby-content"><span className="eyebrow">YOUR PARTY</span><h1>Gather at the grove.</h1><div className="room-code" aria-label="Room code">{room?.code}<button onClick={async()=>{try{await navigator.clipboard.writeText(room.code);setCopied(true);setTimeout(()=>setCopied(false),2000);}catch{setError('Select and copy the room code.');}}}>{copied?'COPIED':'COPY'}</button></div><div className="party-list">{[0,1,2,3].map(slot=>{const member=room?.members.find(m=>m.slot===slot);return <div className="party-row" key={slot}><span className="player-square" style={{background:COLORS[slot]}}/><span>{member?member.name:'Waiting for player…'}<small>{member?`${WEAPONS[member.weapon].name}${member.id===room.host?' · Host':''}`:'Open slot'}</small></span><b className={member?.ready?'ready':'waiting'}>{member?(member.ready?'READY':'NOT READY'):'—'}</b></div>;})}</div></div><div className="menu-card"><h2>Prepare to draft.</h2><p>First to grab a kit gets it. Each player chooses one exclusive pickup in the starting room.</p><button disabled={busy} className="primary" onClick={()=>command('ready')}>{room?.members.find(m=>m.id===me)?.ready?'Unready':'Ready up ✓'}</button>{isHost&&<button className="secondary" disabled={busy||!room?.members.every(m=>m.ready)} onClick={()=>command('start')}>Start the run ↗</button>}<button className="text-button" onClick={leave}>Leave lobby</button></div></div>}
       <div className="arena-ui">
-      {playing&&p&&<div className="game-hud" aria-label="Player status"><div className="hud-name"><strong>{p.name}</strong><span>EXP LV {p.level} · {WEAPONS[p.weapon].name}</span></div><HudMeter label="HP" value={p.hp} max={p.maxHp}/><HudMeter label="SHIELD" value={100-(p.shieldDamage||0)} max={100} kind="shield"/><HudMeter label="INTERNAL" value={p.internal} max={100} kind="internal"/><div className="hud-exp">EXP {p.xp} / {xpRequired(p.level)}<i style={{width:`${p.xp/xpRequired(p.level)*100}%`}}/></div>{p.magnetLeft>0&&<div className="hud-warning" role="status">MAGNETIZED · {p.magnetLeft.toFixed(1)}s</div>}{p.shieldBroken&&<div className="hud-warning" role="status">SHIELD BROKEN</div>}{p.stun>0&&<div className="hud-warning" role="status">STUNNED · {p.stun.toFixed(1)}s</div>}<div className="hud-actions"><span>DASH <b>{p.dashCd>0?`${p.dashCd.toFixed(1)}s`:'READY'}</b></span><span>PARRY <b>{p.blocking?'BLOCKING':p.parryCd>0?`${p.parryCd.toFixed(1)}s`:'READY'}</b></span><span className={p.streak?'perfect-streak':''}>PERFECT <b>×{p.streak}</b>{p.streak>0&&<small>+{Math.round(p.streak*BALANCE.streakBonus*100)}% DAMAGE</small>}</span>{mode==='online'&&<small>{latency}ms · {view.players.filter(q=>q.hp>0).length} ALIVE</small>}</div></div>}
+      {playing&&p&&<PlayerHud player={p} network={mode==='online'?`${latency}ms · ${view.players.filter(q=>q.hp>0).length} ALIVE`:null}/>}
+      {playing&&p&&view.phase==='combat'&&!paused&&!inventory&&!settings&&<PerfectParryHud player={p}/>}
+
       {playing&&<div className="room-hud"><span>{levelTheme(view).name}</span><small>LEVEL {(view.stage??0)+1} · ROOM {view.room+1} / 5 · {view.phase==='draft'?'KIT DRAFT':view.phase==='route'?'EXITS OPEN':['shop','altar'].includes(view.phase)?'EXTRA STOP':`${view.enemies.length} ENEMIES`}</small>{view.runSystems&&<strong className="scrap-count">SCRAP {view.scrap} · SHARED</strong>}<div className="boss-pair">{bosses.map(boss=><HudMeter key={boss.id} label={ENEMIES[boss.kind].name} value={boss.hp} max={boss.maxHp} kind="boss"/>)}</div></div>}
 
       {mode==='online'&&playing&&<div className="party-hud">{view.players.filter(q=>q.id!==me).map(q=><span key={q.id} style={{color:COLORS[q.slot]}}>■ {q.name} · {q.hp>0?`${Math.ceil(q.hp)} HP`:'DOWN'}</span>)}</div>}
