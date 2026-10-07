@@ -2,7 +2,7 @@ import { BALANCE } from './config.js';
 
 const percent=(value,max)=>Math.max(0,Math.min(100,value/max*100));
 
-export function PlayerHud({player:p,network}){
+export function PlayerHud({player:p,network,scrap}){
   const hp=Math.max(0,Math.min(p.maxHp,p.hp)),internal=Math.min(hp,Math.max(0,p.internal));
   const shield=Math.max(0,BALANCE.shieldCapacity-(p.shieldDamage||0));
   return <div className="game-hud compact-hud" aria-label="Player status">
@@ -19,6 +19,7 @@ export function PlayerHud({player:p,network}){
     {p.shieldBroken&&<div className="hud-warning" role="status">SHIELD BROKEN</div>}
     {p.stun>0&&<div className="hud-warning" role="status">STUNNED · {p.stun.toFixed(1)}s</div>}
     {network&&<small className="hud-network">{network}</small>}
+    {scrap!=null&&<strong className="scrap-count">SCRAP {scrap} · SHARED</strong>}
   </div>;
 }
 
