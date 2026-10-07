@@ -1,3 +1,4 @@
+import { damageHealth } from './player-damage.js';
 import {stepPeaceful,beginRoute,upgradeOffers,scrapFor} from './run-content.js';
 import {specialEnemy,escortRiot,fireSpecial,frontShield,shieldBlocks,prepareProjectile,ricochetMove,projectileDistance,dartHit,specialHazard,dashBlast} from './level2.js';
 import { ObjectPool, SpatialGrid, compact } from './performance.js';
@@ -177,21 +178,21 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0) {
       if(p.weapon==='longsword')for(const e of g.enemies)if(distance(e,p)<130)move(g,e,Math.cos(Math.atan2(e.y-p.y,e.x-p.x))*35,Math.sin(Math.atan2(e.y-p.y,e.x-p.x))*35,15);
       if(p.stunNova||p.mirror||p.parryHeal)perfectTraits(g,p);event(g,'perfect',p.x,p.y,`PERFECT ×${p.streak}`,p.id);return 'perfect';
     }
-    p.hp=Math.max(0,p.hp-damage*B.regularChip*(1-p.armor));
+    damageHealth(p,damage*B.regularChip*(1-p.armor));
     p.internal=clamp(p.internal+damage*B.regularStored*(1-p.armor),0,B.internalMax);
-    p.lastRegular=g.time;p.streak=0;p.regulars++;
+    p.lastRegular=g.time;p.regulars++;
     event(g,'regular',p.x,p.y,'REGULAR',p.id);return 'regular';
   }
   if((p.blocking||(!parryable&&p.guardHeld))&&!p.shieldBroken&&facing) {
     const chip=damage*(1-p.armor)*(1-B.blockReduction);
-    p.hp=Math.max(0,p.hp-chip);p.streak=0;
+    damageHealth(p,chip);
     p.shieldDamage=Math.min(B.shieldCapacity,(p.shieldDamage||0)+damage);
     if(p.shieldDamage>=B.shieldCapacity){p.shieldBroken=true;p.blocking=false;event(g,'shieldbreak',p.x,p.y,'SHIELD BROKEN',p.id);}
     event(g,'block',p.x,p.y,`BLOCK −${Math.ceil(chip)}`,p.id);
     if(!p.hp)event(g,'death',p.x,p.y,'DOWN',p.id);
     return 'block';
   }
-  const total=damage*(1-p.armor)+p.internal;p.hp=Math.max(0,p.hp-total);p.internal=0;p.streak=0;p.invuln=B.hurtIframes;
+  const total=damage*(1-p.armor)+p.internal;damageHealth(p,total);p.internal=0;p.invuln=B.hurtIframes;
   event(g,'hurt',p.x,p.y,`−${Math.ceil(total)}`,p.id); if(!p.hp)event(g,'death',p.x,p.y,'DOWN',p.id);
   return 'hurt';
 }
@@ -307,7 +308,7 @@ export function stepPlayer(g,p,i,dt,locked=false){
     for(const k of PLAYER_TIMERS)p[k]=Math.max(0,(p[k]||0)-dt);
     if(p.magnetLeft>0)p.magnetLeft=Math.max(0,p.magnetLeft-dt);
     if(!p.streakLeft)p.streak=0;
-    if(p.parryLeft>0){p.parryLeft-=dt;p.parryAge+=dt;if(p.parryLeft<=0&&!p.parrySuccess){p.streak=0;event(g,'miss',p.x,p.y,'MISS',p.id);}}
+    if(p.parryLeft>0){p.parryLeft-=dt;p.parryAge+=dt;if(p.parryLeft<=0&&!p.parrySuccess){event(g,'miss',p.x,p.y,'MISS',p.id);}}
     if(p.hp<=0)return;
     if(locked){p.blocking=false;p.guardHeld=false;p.dashLeft=0;p.vx=0;p.vy=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;return;}
     if(Number.isFinite(i.angle))p.angle=i.angle;
