@@ -38,3 +38,52 @@ body{background:#122b29}.game-screen{width:100%;height:100svh;padding:0;color:#f
 
 @media(max-width:580px){.shop-tooltip{top:var(--shop-tooltip-bottom)!important;margin-top:0}}
 .rarity-tag{display:block;margin-top:7px;text-transform:uppercase;font:bold 10px monospace;letter-spacing:1px}.upgrade-card .rarity-tag{margin-top:-7px}.curse-entry{border-color:#e58d8d66;background:#492e36}.curse-entry>span,.curse-entry b{color:#ff9c9c}.curse-entry small{display:block;margin-top:5px;color:#efb3a9;font:10px monospace}
+
+/* Compact combat HUD and perfect-parry impact feedback. */
+.arena-ui .compact-hud{width:180px;padding:10px;border-color:#d7c99866}
+.hud-shield-bar,.hud-health-bar{position:relative;overflow:hidden;border-radius:2px;background:#152e2c;border:1px solid #9fc6b144}
+.hud-shield-bar{height:6px;margin-bottom:4px;border-color:#8dcfff55}
+.hud-shield-bar i{display:block;height:100%;background:#6dbdff;box-shadow:0 0 8px #67bfff88;transition:width .1s linear}
+.hud-health-bar{height:19px}
+.hud-health-bar>i{position:absolute;top:0;bottom:0;transition:width .1s linear,left .1s linear}
+.hud-health-fill{left:0;background:#a5dca1}
+.hud-internal-fill{background:repeating-linear-gradient(135deg,#edac68 0 4px,#d99153 4px 7px);border-left:1px solid #ffdc9b}
+.hud-health-bar>span{position:absolute;inset:0;display:grid;place-items:center;color:#fff6d9;font:bold 10px monospace;text-shadow:0 1px 2px #102f28,0 0 3px #102f28}
+.hud-level{margin-top:7px;color:#e8dfb3;font:bold 10px monospace;letter-spacing:1px}
+.hud-network{display:block;margin-top:7px;font:8px monospace;color:#a7bba1}
+.arena-ui .party-hud{top:185px}
+.parry-combo{position:absolute;z-index:14;left:50%;top:30%;transform:translate(-50%,-50%);width:132px;text-align:center;pointer-events:none;color:#d0ffc1;filter:drop-shadow(0 2px 4px #0b201c)}
+.parry-impact{position:relative;display:grid;place-items:center;height:112px}
+.parry-count{position:relative;font:900 var(--combo-size,76px)/1 monospace;letter-spacing:-5px;padding-right:5px;text-shadow:0 0 12px #8aff8277,0 3px 0 #346342;transform-origin:center;animation:parry-number-impact .48s cubic-bezier(.16,.8,.3,1) both}
+.parry-burst{position:absolute;width:84px;height:84px;border:2px solid #c4ffac;border-radius:50%;box-shadow:0 0 14px #a8ff9077;animation:parry-ring-impact .42s ease-out both}
+.parry-combo-label{display:block;font:bold 9px monospace;letter-spacing:3px;margin:0 0 8px;color:#baffaa}
+.parry-combo-timer{height:5px;width:96px;margin:auto;background:#132d25bb;border:1px solid #c4ffac66;border-radius:3px;overflow:hidden}
+.parry-combo-timer i{display:block;height:100%;background:#baffaa;box-shadow:0 0 7px #aeff98;transition:width .1s linear}
+@keyframes parry-number-impact{0%{opacity:0;transform:scale(.45) rotate(-9deg)}18%{opacity:1;transform:scale(var(--combo-burst,1.65)) rotate(3deg);color:#fffde5;text-shadow:0 0 24px #c7ffb7}48%{transform:scale(.94) rotate(-2deg)}72%{transform:scale(1.08) rotate(0)}100%{opacity:.88;transform:scale(1)}}
+@keyframes parry-ring-impact{0%{opacity:.9;transform:scale(.35)}100%{opacity:0;transform:scale(2.1)}}
+@media(max-width:580px){.arena-ui .compact-hud{width:140px;padding:8px}.arena-ui .party-hud{top:165px}.parry-combo{width:116px}.parry-count{font-size:calc(var(--combo-size,76px)*.8)}.parry-impact{height:92px}}
+@media(prefers-reduced-motion:reduce){.parry-count,.parry-burst{animation:none}.parry-burst{display:none}.hud-shield-bar i,.hud-health-bar>i,.parry-combo-timer i{transition:none}}
+
+/* Keep currency at the bottom of player status and reveal the arena behind room status. */
+.compact-hud .scrap-count{margin-top:9px;padding-top:8px;border-top:1px solid #d7c99833;font-size:10px}
+.arena-ui .room-hud{background:#102f2873;border-color:#d7c99855}
+.arena-ui .room-hud .hud-meter{background:#16352966}
+
+/* Larger vitals, translucent player status, and distinct damage reactions. */
+.arena-ui .compact-hud{width:259px;background:#102f2873;border-color:#d7c99855}
+.compact-hud .hud-level{margin:0 0 7px}
+.hud-vitals{position:relative}
+.hud-health-impact,.hud-internal-impact{position:absolute;inset:0;pointer-events:none;opacity:0}
+.hud-health-impact{background:#ff514fcc;box-shadow:inset 0 0 0 2px #ffe5c4;animation:hud-health-hit .45s ease-out both}
+.hud-internal-impact{background:repeating-linear-gradient(135deg,transparent 0 8px,#ffd18aaa 8px 13px,transparent 13px 22px);box-shadow:inset 0 0 8px #ffac46;animation:hud-internal-wave .65s ease-out both}
+.hud-loss-pop,.hud-internal-pop{position:absolute;right:0;font:bold 12px monospace;pointer-events:none;opacity:0;text-shadow:0 2px 3px #142d25}
+.hud-loss-pop{top:-4px;color:#ff9c90;animation:hud-loss-rise .65s ease-out both}
+.hud-internal-pop{top:32px;color:#ffd194;font-size:9px;animation:hud-internal-rise .75s ease-out both}
+@keyframes hud-health-hit{0%{opacity:1;transform:scaleX(1.06)}22%{opacity:.85;transform:scaleX(.98)}48%{opacity:.55;transform:scaleX(1.02)}100%{opacity:0;transform:scaleX(1)}}
+@keyframes hud-internal-wave{0%{opacity:0;background-position:-80px 0}20%{opacity:1}65%{opacity:.7}100%{opacity:0;background-position:80px 0}}
+@keyframes hud-loss-rise{0%{opacity:1;transform:translateY(0) scale(1.3)}100%{opacity:0;transform:translateY(-26px) scale(1)}}
+@keyframes hud-internal-rise{0%{opacity:1;transform:translateX(-8px)}100%{opacity:0;transform:translate(5px,15px)}}
+@media(max-width:580px){.arena-ui .compact-hud{width:201px;padding:8px}}
+@media(max-width:380px){.arena-ui .room-hud{top:150px}.arena-ui .party-hud{top:235px}}
+@media(prefers-reduced-motion:reduce){.hud-health-impact{animation:hud-feedback-fade .45s ease-out both}.hud-internal-impact{animation:hud-feedback-fade .65s ease-out both}.hud-loss-pop,.hud-internal-pop{animation:hud-feedback-fade .65s ease-out both}}
+@keyframes hud-feedback-fade{from{opacity:1}to{opacity:0}}

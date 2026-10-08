@@ -1,3 +1,4 @@
+import { damageHealth } from './player-damage.js';
 import {BALANCE as B,ENEMIES} from './config.js';
 const TAU=Math.PI*2;
 const angleDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
@@ -214,5 +215,5 @@ export function specialHazard(g,h,dt,alive,api){
 function pointSegmentDistance(px,py,ax,ay,bx,by){const dx=bx-ax,dy=by-ay,t=clamp(((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(px-ax-dx*t,py-ay-dy*t);}
 export function dashBlast(g,p,damage,api){
   if(p.hp<=0||p.dashLeft>0&&p.dashAge<p.dashIframes)return 'immune';
-  const low=p.lowHpArmor&&p.hp/p.maxHp<.4?.35*(1-p.hp/(p.maxHp*.4)):0,total=damage*(1-p.armor-low)+p.internal;p.hp=Math.max(0,p.hp-total);p.internal=0;p.streak=0;p.invuln=B.hurtIframes+(p.longIframes?.18:0);api.event(g,'hurt',p.x,p.y,`−${Math.ceil(total)}`,p.id);if(!p.hp)api.event(g,'death',p.x,p.y,'DOWN',p.id);return 'hurt';
+  const low=p.lowHpArmor&&p.hp/p.maxHp<.4?.35*(1-p.hp/(p.maxHp*.4)):0,total=damage*(1-p.armor-low)+p.internal;damageHealth(p,total);p.internal=0;p.invuln=B.hurtIframes+(p.longIframes?.18:0);api.event(g,'hurt',p.x,p.y,`−${Math.ceil(total)}`,p.id);if(!p.hp)api.event(g,'death',p.x,p.y,'DOWN',p.id);return 'hurt';
 }

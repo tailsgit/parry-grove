@@ -1,3 +1,4 @@
+import { damageHealth } from './player-damage.js';
 import {stepPeaceful,beginRoute,upgradeOffers,scrapFor,activeCurses} from './run-content.js';
 import {specialEnemy,escortRiot,fireSpecial,frontShield,shieldBlocks,prepareProjectile,ricochetMove,projectileDistance,dartHit,specialHazard,dashBlast} from './level2.js';
 import { ObjectPool, SpatialGrid, compact } from './performance.js';
@@ -210,15 +211,15 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity) 
       if(p.weapon==='longsword')for(const e of g.enemies)if(distance(e,p)<130)move(g,e,Math.cos(Math.atan2(e.y-p.y,e.x-p.x))*35,Math.sin(Math.atan2(e.y-p.y,e.x-p.x))*35,15);
       if(p.stunNova||p.mirror||p.parryHeal)perfectTraits(g,p);event(g,'perfect',p.x,p.y,`PERFECT ×${p.streak}`,p.id);return 'perfect';
     }
-    p.hp=Math.max(0,p.hp-damage*B.regularChip*(1-p.armor));
+    damageHealth(p,damage*B.regularChip*(1-p.armor));
     if(p.longIframes)p.invuln=Math.max(p.invuln,B.hurtIframes+.18);
     p.internal=clamp(p.internal+damage*B.regularStored*(1-p.armor),0,B.internalMax);
-    p.lastRegular=g.time;p.streak=0;p.regulars++;
+    p.lastRegular=g.time;p.regulars++;
     event(g,'regular',p.x,p.y,'REGULAR',p.id);return 'regular';
   }
   if(!p.perfectOnly&&(p.blocking||(!parryable&&p.guardHeld))&&!p.shieldBroken&&facing) {
     const chip=damage*(1-p.armor)*(1-B.blockReduction);
-    p.hp=Math.max(0,p.hp-chip);p.streak=0;
+    damageHealth(p,chip);
     if(p.longIframes)p.invuln=Math.max(p.invuln,B.hurtIframes+.18);
     p.shieldDamage=Math.min(B.shieldCapacity,(p.shieldDamage||0)+damage);
     if(p.shieldDamage>=B.shieldCapacity){p.shieldBroken=true;p.blocking=false;event(g,'shieldbreak',p.x,p.y,'SHIELD BROKEN',p.id);}
@@ -226,7 +227,7 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity) 
     if(!p.hp)event(g,'death',p.x,p.y,'DOWN',p.id);
     return 'block';
   }
-  const total=damage*(1-p.armor)+p.internal;p.hp=Math.max(0,p.hp-total);p.internal=0;p.streak=0;p.invuln=B.hurtIframes+(p.longIframes?.18:0);
+  const total=damage*(1-p.armor)+p.internal;damageHealth(p,total);p.internal=0;p.invuln=B.hurtIframes+(p.longIframes?.18:0);
   event(g,'hurt',p.x,p.y,`−${Math.ceil(total)}`,p.id); if(!p.hp)event(g,'death',p.x,p.y,'DOWN',p.id);
   return 'hurt';
 }
@@ -369,14 +370,14 @@ export function step(g,inputs,dt) {
   dt=clamp(dt,0,1/30);g.time+=dt;if(g.runSystems&&stepPeaceful(g,inputs,dt))return;
   if(g.phase==='levelclear'){
     const ready=g.players.some(p=>p.hp>0&&(inputs[p.id]?.interact||0)>p.seenInteract);
-    if(ready){for(const p of g.players){p.seenInteract=inputs[p.id]?.interact||0;p.shieldDamage=0;p.shieldBroken=false;}g.stage=(g.stage??0)+1;g.room=0;g.phase='combat';generateRoom(g);}
+    if(ready){for(const p of g.players){p.seenInteract=inputs[p.id]?.interact||0;p.shieldDamage=0;p.shieldBroken=false;p.internal=0;}g.stage=(g.stage??0)+1;g.room=0;g.phase='combat';generateRoom(g);}
     return;
   }
   if(g.phase!=='combat') {
     if(g.phase==='upgrade'&&g.players.every(p=>p.hp<=0||p.chosen)) {
       if(g.runSystems){beginRoute(g);return;}
       const ready=g.players.some(p=>(inputs[p.id]?.interact||0)>p.seenInteract);
-      if(ready) {g.players.forEach(p=>{p.seenInteract=inputs[p.id]?.interact||0;/* Decision: fallen co-op allies revive between rooms, never mid-fight. */if(p.hp<=0)p.hp=p.maxHp*.5;else p.hp=Math.min(p.maxHp,p.hp+8);p.internal=0;});g.room++;g.phase='combat';generateRoom(g);}
+      if(ready) {g.players.forEach(p=>{p.seenInteract=inputs[p.id]?.interact||0;/* Decision: fallen co-op allies revive between rooms, never mid-fight. */if(p.hp<=0)p.hp=p.maxHp*.5;else p.hp=Math.min(p.maxHp,p.hp+8);});g.room++;g.phase='combat';generateRoom(g);}
     }
     return;
   }
