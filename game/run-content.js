@@ -21,7 +21,7 @@ function weightedSample(g,pool,n,altar=false){
  }
  return out;
 }
-const CURSES=[
+export const CURSES=[
  {id:'enemyHaste',name:'Fleet Foes',description:'Enemies move faster.',severity:1},
  {id:'shortParry',name:'Narrow Timing',description:'Your parry window is shorter.',severity:2},
  {id:'missedParry',name:'Punishing Miss',description:'Taking a hit shortly after a missed parry hurts more.',severity:2},
@@ -36,6 +36,25 @@ const CURSES=[
 ];
 export function activeCurses(p,room,stage=0){return (p?.curses||[]).filter(c=>c.expiresAtRoom>=stage*B.encounters+room);}
 export function grantUpgrade(p,id){const u=UPGRADES.find(u=>u.id===id);if(!u)throw Error('Unknown upgrade.');if(u.kind&&p.upgrades.includes(id))throw Error('You already own this relic or synergy.');u.apply(p);p.upgrades.push(id);}
+export function adminAddUpgrade(p,id){if(!p)throw Error('Player unavailable.');grantUpgrade(p,id);}
+export function adminRemoveUpgrade(p,id){
+ if(!p||!p.upgrades.includes(id))throw Error('Player does not have that upgrade.');
+ p.upgrades.splice(p.upgrades.indexOf(id),1);
+ const subtract=(key,amount,min=0)=>{p[key]=Math.max(min,(p[key]??0)-amount);};
+ const toggles={dashReset:'dashReset',fireTrail:'fireTrail',crowdForce:'crowdForce',bleed:'bleed',chillParry:'chillParry',momentum:'momentumDamage',lastStand:'lowHpDamage',perfectTempo:'perfectOnly',dashCounter:'dashCounter',chaoticReturn:'chaoticReturn',parryBeam:'parryBeam',lowHpArmor:'lowHpArmor',longIframes:'longIframes',parryCrystals:'parryCrystals',stunNova:'stunNova',echoBlade:'echoBlade'};
+ const reversals={vitality:()=>{p.maxHp=Math.max(1,p.maxHp-Math.floor(25*(p.healthFactor??1)));p.hp=Math.min(p.hp,p.maxHp);},edge:()=>subtract('damage',.2,1),speed:()=>subtract('speed',.15,1),dash:()=>{p.dashIframes=Math.max(.05,p.dashIframes-.05);p.dashTime=Math.max(p.dashIframes,p.dashTime-.05);},distance:()=>subtract('dashPower',.3,1),armor:()=>subtract('armor',.1),parry:()=>subtract('perfect',.025,B.perfectWindow),cleanse:()=>subtract('cleanse',2,B.meleeCleanse),vampire:()=>subtract('vampire',.01),perfection:()=>subtract('shieldRestore',5),stun:()=>subtract('stunBonus',.5),area:()=>subtract('areaScale',.2,1),returnForce:()=>subtract('returnPower',.25,1),dashSpark:()=>subtract('dashPulse',16),punish:()=>subtract('stunDamage',.3),recovery:()=>subtract('parryHeal',2),stormHeart:()=>subtract('dashPulse',12),bloodroot:()=>{subtract('vampire',.03);subtract('armor',.1);},overdrive:()=>{subtract('damage',.6,1);subtract('returnPower',.25,1);},rebound:()=>{},mirrorEngine:()=>{}};
+ if(reversals[id])reversals[id]();
+ if(toggles[id])p[toggles[id]]=p.upgrades.includes(id);
+ // These effects can be granted by more than one source.
+ p.mirror=p.upgrades.some(upgrade=>['rebound','mirrorEngine'].includes(upgrade));p.mirrorShots=p.mirror?3:0;
+ p.thunderStep=p.upgrades.includes('thunderStep')||p.upgrades.includes('stormHeart');
+ if(id==='parryCrystals')p.crystals=[];
+}
+export function adminAddCurse(p,id,rarity='common',currentRoom=0){
+ if(!p)throw Error('Player unavailable.');const curse=CURSES.find(c=>c.id===id);if(!curse)throw Error('Unknown curse.');
+ const tier=rarityTier[rarity];if(!tier)throw Error('Choose a valid curse rarity.');p.curses=[...(p.curses||[]),{...curse,rarity,strength:1+(tier-1)*.25,expiresAtRoom:currentRoom+Math.ceil(curse.severity*(.75+tier*.25))}];
+}
+export function adminRemoveCurse(p,index){if(!p||!Number.isInteger(index)||index<0||index>=(p.curses||[]).length)throw Error('Player does not have that curse.');p.curses.splice(index,1);}
 function sample(g,pool,n){const available=[...pool],out=[];while(out.length<n&&available.length){const i=Math.floor(random(g)*available.length);out.push(available.splice(i,1)[0]);}return out;}
 export function upgradeOffers(g,p){
  const eligible=UPGRADES.filter(u=>u.kind==='synergy'&&!p.upgrades.includes(u.id)&&u.requires.every(id=>p.upgrades.includes(id)));

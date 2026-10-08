@@ -101,6 +101,11 @@ export function adminHealth(g,id,hp){
   p.maxHp=Math.max(p.maxHp,hp);p.hp=hp;p.internal=0;p.stun=0;p.invuln=1.5;
   if(g.phase==='death')g.phase='combat';
 }
+export function adminLevel(g,id,level){
+ const p=g?.players.find(p=>p.id===id);
+ if(!p||!Number.isInteger(level)||level<1||level>100)throw Error('Enter a whole player level from 1 to 100.');
+ const delta=level-p.level;p.level=level;p.xp=0;p.maxHp=Math.max(1,p.maxHp+delta*Math.floor(10*(p.healthFactor??1)));p.hp=Math.min(p.maxHp,p.hp);p.damage=Math.max(1,p.damage+delta*.05);
+}
 function insideXY(x,y,o,r=0){return x>o.x-r&&x<o.x+o.w+r&&y>o.y-r&&y<o.y+o.h+r;}
 function inside(p,o,r=0){return insideXY(p.x,p.y,o,r);}
 export function move(g,p,dx,dy,r=B.radius) {

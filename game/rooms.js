@@ -1,5 +1,5 @@
-import {createRun,claimKit,selectRoute,sacrifice} from './run-content.js';
-import { player, step, chooseUpgrade, adminTeleport, adminHealth, clamp } from './engine.js';
+import {createRun,claimKit,selectRoute,sacrifice,adminAddUpgrade,adminRemoveUpgrade,adminAddCurse,adminRemoveCurse} from './run-content.js';
+import { player, step, chooseUpgrade, adminTeleport, adminHealth, adminLevel, clamp } from './engine.js';
 import { WEAPONS, BALANCE } from './config.js';
 export function roomState(member, now) {return {host:member.id,members:[member],game:null,inputs:{},lastTick:now,createdAt:now};}
 export function member(name,weapon,now) {return {id:crypto.randomUUID(),token:crypto.randomUUID(),name:String(name||'Adventurer').trim().slice(0,18)||'Adventurer',weapon:WEAPONS[weapon]?weapon:'sword',ready:false,lastSeen:now,slot:0};}
@@ -46,6 +46,11 @@ export function applyAction(r,m,payload,now) {
       adminTeleport(r.game,payload.level,payload.room);
       for(const p of r.game.players){const i=cleanInput(r.inputs[p.id]);r.inputs[p.id]={...i,mx:0,my:0,attack:false,guard:false};p.seenParry=i.parry;p.seenDash=i.dash;p.seenInteract=i.interact;}
     }else if(payload.operation==='health')adminHealth(r.game,m.id,payload.hp);
+    else if(payload.operation==='level')adminLevel(r.game,m.id,payload.level);
+    else if(payload.operation==='upgradeAdd')adminAddUpgrade(r.game.players.find(p=>p.id===m.id),payload.upgrade);
+    else if(payload.operation==='upgradeRemove')adminRemoveUpgrade(r.game.players.find(p=>p.id===m.id),payload.upgrade);
+    else if(payload.operation==='curseAdd')adminAddCurse(r.game.players.find(p=>p.id===m.id),payload.curse,payload.rarity,(r.game.stage||0)*BALANCE.encounters+r.game.room);
+    else if(payload.operation==='curseRemove')adminRemoveCurse(r.game.players.find(p=>p.id===m.id),payload.index);
     else throw Error('Unknown admin action.');
   }
   if(a==='input')r.inputs[m.id]=cleanInput(payload.input);

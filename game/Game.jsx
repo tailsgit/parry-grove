@@ -2,10 +2,10 @@
 import RunPanels from './RunPanels.jsx';
 import RewardCards from './RewardCards.jsx';
 import {rewardShortcut} from './reward-input.js';
-import {createRun,claimKit,selectRoute,sacrifice} from './run-content.js';
+import {createRun,claimKit,selectRoute,sacrifice,adminAddUpgrade,adminRemoveUpgrade,adminAddCurse,adminRemoveCurse} from './run-content.js';
 import { useEffect, useRef, useState } from 'react';
 import { SoloHitPause } from './hit-pause.js';
-import { xpRequired, createGame, player, chooseUpgrade, adminTeleport, adminHealth, move } from './engine.js';
+import { xpRequired, createGame, player, chooseUpgrade, adminTeleport, adminHealth, adminLevel, move } from './engine.js';
 import { WEAPONS, UPGRADES, COLORS, BALANCE, ENEMIES, RARITY_COLORS, isBoss, levelTheme } from './config.js';
 import Settings from './Settings.jsx';
 import { Renderer } from './renderer.js';
@@ -46,7 +46,9 @@ export default function Game() {
   async function admin(operation,values){
     if(modeRef.current==='solo'){
       if(operation==='teleport'){adminTeleport(world.current,values.level,values.room);soloHitPause.current.reset();const i=input.current;world.current.players.forEach(p=>{p.seenParry=i.parry;p.seenDash=i.dash;p.seenInteract=i.interact;});}
-      else adminHealth(world.current,'solo',values.hp);
+      else if(operation==='health')adminHealth(world.current,'solo',values.hp);
+      else if(operation==='level')adminLevel(world.current,'solo',values.level);
+      else {const p=world.current.players.find(player=>player.id==='solo');if(operation==='upgradeAdd')adminAddUpgrade(p,values.upgrade);else if(operation==='upgradeRemove')adminRemoveUpgrade(p,values.upgrade);else if(operation==='curseAdd')adminAddCurse(p,values.curse,values.rarity,(world.current.stage||0)*BALANCE.encounters+world.current.room);else if(operation==='curseRemove')adminRemoveCurse(p,values.index);else throw Error('Unknown admin action.');}
       keys.current.clear();input.current.mx=0;input.current.my=0;input.current.attack=false;resetGuard(input.current);snapshot(world.current);
     }else if(modeRef.current==='online'){const data=await request({action:'admin',operation,...values});if(net.current)net.current.snapshots=[];accept(data,typeof data.sequence==='number');}
     else throw Error('Start a run before using admin controls.');
