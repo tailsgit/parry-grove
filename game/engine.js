@@ -1,13 +1,13 @@
 import { damageHealth } from './player-damage.js';
-import {stepPeaceful,beginRoute,upgradeOffers,scrapFor} from './run-content.js';
+import {stepPeaceful,beginRoute,upgradeOffers,scrapFor,activeCurses} from './run-content.js';
 import {specialEnemy,escortRiot,fireSpecial,frontShield,shieldBlocks,prepareProjectile,ricochetMove,projectileDistance,dartHit,specialHazard,dashBlast} from './level2.js';
 import { ObjectPool, SpatialGrid, compact } from './performance.js';
 import { BALANCE as B, WEAPONS, ENEMIES, UPGRADES, LEVELS, isBoss } from './config.js';
 const runtimes=new WeakMap(),hazardClocks=new WeakMap();
 function pooledHazard(){const h={};hazardClocks.set(h,{});return h;}
 const EMPTY_INPUT={};
-const PLAYER_TIMERS=['attackCd','parryCd','dashCd','invuln','swing','streakLeft','stun'];
-const ENEMY_TIMERS=['stun','guardLeft','parryAttemptCd','swing','recoil','repositionLeft','repositionCd','slamCd','magnetLeft'];
+const PLAYER_TIMERS=['attackCd','parryCd','dashCd','invuln','swing','streakLeft','stun','attackBoostLeft','attackSlowLeft','missedParryLeft','dashSlowLeft'];
+const ENEMY_TIMERS=['stun','guardLeft','parryAttemptCd','swing','recoil','repositionLeft','repositionCd','slamCd','magnetLeft','bleedLeft','burnLeft','chillLeft'];
 const SHOTGUN_OFFSETS=[-.3,-.15,0,.15,.3],BOSS_OFFSETS=[-.5,-.25,0,.25,.5],SINGLE_OFFSET=[0];
 const liveEnemy=e=>e.hp>0,liveBullet=b=>b.life>0,liveHazard=h=>h.kind==='mine'?h.lifetime>0:(h.kind==='beam'?h.remaining>0:h.remaining>-.25);
 function runtime(g,prewarm=false) {
@@ -17,15 +17,17 @@ function runtime(g,prewarm=false) {
 }
 function clear(array,pool){for(const value of array)pool.release(value);array.length=0;}
 function bullet(g,x,y,vx,vy,damage,kind,predictive,unparryable,target,radius) {
-  const b=runtime(g).bullets.acquire();b.id=++g.serial;b.x=x;b.y=y;b.vx=vx;b.vy=vy;b.damage=damage;b.kind=kind;b.predictive=predictive;b.unparryable=unparryable;b.target=target;b.radius=radius;b.owner='';b.life=7;
-  b.ricochet=undefined;b.bounces=undefined;b.wave=undefined;b.waveAngle=undefined;b.waveSpeed=undefined;b.waveAge=undefined;b.centerX=undefined;b.centerY=undefined;b.thrower=undefined;b.flightAge=undefined;b.returning=undefined;b.curveSide=undefined;b.contactAt=undefined;b.contactPlayer=undefined;b.attachMagnet=undefined;b.magnetEnemyTarget=undefined;
+  const b=runtime(g).bullets.acquire();b.id=++g.serial;b.x=x;b.y=y;const haste=target&&g.players.some(p=>p.id===target)?curseStrength(g,'fastProjectiles'):0;b.vx=vx*(haste?1+.12*haste:1);b.vy=vy*(haste?1+.12*haste:1);b.damage=damage;b.kind=kind;b.predictive=predictive;b.unparryable=unparryable;b.target=target;b.radius=radius;b.owner='';b.life=7;
+  b.ricochet=undefined;b.bounces=undefined;b.wave=undefined;b.waveAngle=undefined;b.waveSpeed=undefined;b.waveAge=undefined;b.centerX=undefined;b.centerY=undefined;b.thrower=undefined;b.flightAge=undefined;b.returning=undefined;b.curveSide=undefined;b.contactAt=undefined;b.contactPlayer=undefined;b.attachMagnet=undefined;b.magnetEnemyTarget=undefined;b.reflected=undefined;b.chillTarget=undefined;b.chainLeft=undefined;b.lastHit=undefined;
   g.bullets.push(b);return b;
 }
 function hazard(g,x,y,r,remaining,damage,kind,sx,sy,ex,ey) {
   const h=runtime(g).hazards.acquire();h.id=++g.serial;h.x=x;h.y=y;h.r=r;h.remaining=remaining;h.total=remaining;h.damage=damage;h.kind=kind;h.sx=sx;h.sy=sy;h.ex=ex;h.ey=ey;h.done=undefined;h.triggerRadius=undefined;h.armed=undefined;h.source=undefined;h.sourceKind=undefined;h.flight=undefined;h.settle=undefined;h.target=undefined;h.dashOnly=undefined;h.vx=undefined;h.vy=undefined;h.owner=undefined;h.lifetime=kind==='mine'?B.mineLifetime:undefined;
-  let hits=hazardClocks.get(h);if(!hits){hits={};hazardClocks.set(h,hits);}for(const key in hits)delete hits[key];h.nextHits=kind==='beam'?hits:undefined;g.hazards.push(h);return h;
+  let hits=hazardClocks.get(h);if(!hits){hits={};hazardClocks.set(h,hits);}for(const key in hits)delete hits[key];h.nextHits=kind==='beam'||kind==='fire'?hits:undefined;g.hazards.push(h);return h;
 }
 function nearest(players,e){let best=players[0];for(let i=1;i<players.length;i++)if(!(distance(best,e)<distance(players[i],e)))best=players[i];return best;}
+function curseStrength(g,id,p){const stage=g.stage??0,curses=p?activeCurses(p,g.room,stage):g.players.flatMap(player=>activeCurses(player,g.room,stage));return curses.filter(c=>c.id===id).reduce((value,c)=>Math.max(value,c.strength||1),0);}
+function hitDamageScale(p){const movement=p.momentumDamage?1+Math.min(.3,Math.hypot(p.vx||0,p.vy||0)/(B.speed*(p.speed||1))*.3):1;const low=p.lowHpDamage&&p.hp/p.maxHp<.4?1+.5*(1-p.hp/(p.maxHp*.4)):1;return movement*low;}
 function rebuildCollisions(g,r){r.collisions.reset(g.width,g.height);for(let i=0;i<g.enemies.length;i++){const e=g.enemies[i];if(e.hp>0)r.collisions.insert(i,e.x,e.y);}r.collisionDirty=false;}
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -37,7 +39,7 @@ export function player(id, name, weapon = 'sword', slot = 0) {
     dashPower: 1, dashIframes: B.dashIframes, dashTime: B.dashTime,
     attackCd: 0, parryCd: 0, dashCd: 0, parryLeft: 0, parryAge: 0, parrySuccess: false, dashLeft: 0, dashAge: 0,
     dx: 0, dy: 0, invuln: 0, swing: 0, blocking: false, shieldDamage: 0, shieldBroken: false, vampire: 0, shieldRestore: 0, guardHeld: false, stun: 0, vx: 0, vy: 0, streak: 0, streakLeft: 0, lastRegular: -100,
-    seenParry: 0, seenDash: 0, seenInteract: 0, upgrades: [], offers: [], chosen: false, kills: 0, perfects: 0, regulars: 0 };
+    seenParry: 0, seenDash: 0, seenInteract: 0, upgrades: [], curses: [], crystals: [], offers: [], chosen: false, kills: 0, perfects: 0, regulars: 0 };
 }
 export function createGame(players, seed = Date.now()>>>0) {
   const g = { seed, time: 0, stage:0, room: 0, phase: 'combat', players, enemies: [], bullets: [], hazards: [], obstacles: [], events: [], serial: 0, eventSerial: 0, width: 900, height: 570, intro: 1.8, encounterParty: players.length };
@@ -48,17 +50,17 @@ export function event(g, kind, x, y, text = '', who = '', sourceKind, weaponActi
   const e=pool.acquire();e.id=++g.eventSerial;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;e.radius=undefined;e.itemId=undefined;e.sourceKind=sourceKind;e.weaponAction=weaponAction;g.events.push(e);return e;
 }
 export function spawnEnemy(g, kind, x, y) {
-  const c = ENEMIES[kind]; const scale = 1+g.room*.12 + (g.encounterParty-1)*(isBoss(kind)?.48:.12);
+  const c = ENEMIES[kind]; const scale = (1+g.room*.12 + (g.encounterParty-1)*(isBoss(kind)?.48:.12))*(1+g.room*.035*curseStrength(g,'roomScaling'));
   const e=runtime(g).enemies.acquire();
-  e.id=++g.serial;e.kind=kind;e.x=x;e.y=y;e.hp=c.hp*scale;e.maxHp=c.hp*scale;e.angle=0;e.cooldown=1+random(g);e.tell=0;e.target='';e.burst=0;e.danger=false;e.stun=0;e.guardLeft=0;e.guardAge=0;e.nearPlayer=false;e.parryAttemptCd=0;e.action='attack';e.swing=0;e.repositionLeft=0;e.repositionCd=0;e.slamCd=0;e.magnetLeft=0;
+  e.id=++g.serial;e.kind=kind;e.x=x;e.y=y;e.hp=c.hp*scale;e.maxHp=c.hp*scale;e.angle=0;e.cooldown=1+random(g);e.tell=0;e.target='';e.burst=0;e.danger=false;e.stun=0;e.guardLeft=0;e.guardAge=0;e.nearPlayer=false;e.parryAttemptCd=0;e.action='attack';e.swing=0;e.repositionLeft=0;e.repositionCd=0;e.slamCd=0;e.magnetLeft=0;e.elite=false;e.damageScale=1;e.bleedLeft=0;e.burnLeft=0;e.chillLeft=0;
   e.routeX=undefined;e.routeY=undefined;e.dead=undefined;e.fireReadyAt=undefined;e.tellTotal=undefined;e.recoil=undefined;e.repositionX=undefined;e.repositionY=undefined;e.minesLaid=kind==='miner'?0:undefined;e.mineTimer=undefined;e.mineState=kind==='miner'?'approach':undefined;e.wanderTimer=undefined;e.wanderAngle=undefined;e.primed=undefined;e.aiVX=undefined;e.aiVY=undefined;e.escortClock=undefined;e.protectedAlly=undefined;e.escortX=undefined;e.escortY=undefined;
   g.enemies.push(e); return e;
 }
-export function clearArena(g,keepCover=false){const r=runtime(g);clear(g.enemies,r.enemies);clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);if(!keepCover)g.obstacles=[];r.collisionDirty=true;}
+export function clearArena(g,keepCover=false){const r=runtime(g);clear(g.enemies,r.enemies);clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);g.doomSnail=undefined;if(!keepCover)g.obstacles=[];r.collisionDirty=true;}
 export function generateRoom(g) {
   g.encounterParty = g.players.length; g.width = 900 + (g.encounterParty-1)*120; g.height = 570 + (g.encounterParty-1)*45;
   const r=runtime(g);clear(g.enemies,r.enemies);clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);r.collisionDirty=true;
-  g.nextEnemyShot=g.time;g.obstacles=[];g.intro=1.5;
+  g.nextEnemyShot=g.time;g.obstacles=[];g.intro=1.5;g.roomStartedAt=g.time;g.doomSnail=curseStrength(g,'doomSnail')?{x:g.width/2,y:90,elapsed:0,speed:0,pause:0,target:null}:undefined;
   // Broad lanes and safe entrance keep random cover from creating unreachable enemies.
   const count = g.room===B.encounters?2:3+Math.floor(random(g)*3);
   for(let i=0;i<count;i++) {
@@ -83,6 +85,8 @@ export function generateRoom(g) {
       spawnEnemy(g,kind,pos.x,pos.y);
     }
   }
+  const eliteStrength=curseStrength(g,'eliteEnemy');
+  if(eliteStrength){let elite=g.enemies.find(e=>!isBoss(e.kind));if(!elite)elite=spawnEnemy(g,(g.stage??0)>0?'ricochet':'bow',g.width*.7,g.height*.3);elite.elite=true;elite.damageScale=1+.25*eliteStrength;elite.hp*=1+.5*eliteStrength;elite.maxHp=elite.hp;}
   if(g.sceneryStage!==(g.stage??0)){g.scenerySeed=g.seed;g.sceneryStage=g.stage??0;}
 }
 // Admin actions use the same simulation in solo and authoritative co-op rooms.
@@ -98,6 +102,11 @@ export function adminHealth(g,id,hp){
   p.maxHp=Math.max(p.maxHp,hp);p.hp=hp;p.internal=0;p.stun=0;p.invuln=1.5;
   if(g.phase==='death')g.phase='combat';
 }
+export function adminLevel(g,id,level){
+ const p=g?.players.find(p=>p.id===id);
+ if(!p||!Number.isInteger(level)||level<1||level>100)throw Error('Enter a whole player level from 1 to 100.');
+ const delta=level-p.level;p.level=level;p.xp=0;p.maxHp=Math.max(1,p.maxHp+delta*Math.floor(10*(p.healthFactor??1)));p.hp=Math.min(p.maxHp,p.hp);p.damage=Math.max(1,p.damage+delta*.05);
+}
 function insideXY(x,y,o,r=0){return x>o.x-r&&x<o.x+o.w+r&&y>o.y-r&&y<o.y+o.h+r;}
 function inside(p,o,r=0){return insideXY(p.x,p.y,o,r);}
 export function move(g,p,dx,dy,r=B.radius) {
@@ -109,6 +118,19 @@ export function move(g,p,dx,dy,r=B.radius) {
 function segmentDistance(p,ax,ay,bx,by) {
   const vx=bx-ax,vy=by-ay,t=clamp(((p.x-ax)*vx+(p.y-ay)*vy)/(vx*vx+vy*vy||1),0,1);
   return Math.hypot(p.x-ax-t*vx,p.y-ay-t*vy);
+}
+function crystalIntercept(g,b,ax,ay,bx,by){
+  for(const p of g.players){if(!p.crystals?.length)continue;for(let i=0;i<p.crystals.length;i++){const a=p.crystals[i],point={x:p.x+Math.cos(a)*23,y:p.y+Math.sin(a)*23};if(segmentDistance(point,ax,ay,bx,by)<(b.radius||3)+5){p.crystals.splice(i,1);event(g,'crystal',point.x,point.y,'BLOCKED',p.id);return true;}}}return false;
+}
+function crystalHits(g){
+  for(const p of g.players){if(!p.crystals?.length)continue;for(let i=p.crystals.length-1;i>=0;i--){const a=p.crystals[i],point={x:p.x+Math.cos(a)*23,y:p.y+Math.sin(a)*23};const e=g.enemies.find(e=>e.hp>0&&distance(e,point)<(isBoss(e.kind)?31:20));if(!e)continue;const damage=12*p.damage*hitDamageScale(p)*(p.dashCounterReady?2:1);if(p.dashCounterReady)p.dashCounterReady=false;e.hp-=damage;event(g,'hit',e.x,e.y,`${Math.round(damage)}`,p.id);if(e.hp<=0)kill(g,e,p);p.crystals.splice(i,1);}}
+}
+function stepDoomSnail(g,alive,dt){
+  const snail=g.doomSnail;if(!snail)return;snail.elapsed+=dt;if(snail.elapsed<10)return;snail.visible=true;
+  const cursed=g.players.filter(p=>p.hp>0&&activeCurses(p,g.room,g.stage??0).some(c=>c.id==='doomSnail'));const target=nearest(cursed.length?cursed:alive,snail);if(!target)return;
+  if(snail.pause>0){snail.pause=Math.max(0,snail.pause-dt);return;}
+  const severity=curseStrength(g,'doomSnail'),cap=B.speed*(target.speed||1)*.5;snail.speed=Math.min(cap,(snail.speed||12)+(18+10*(severity-1))*dt);const angle=Math.atan2(target.y-snail.y,target.x-snail.x),dx=Math.cos(angle)*snail.speed*dt,dy=Math.sin(angle)*snail.speed*dt;move(g,snail,dx,dy,13);
+  if(distance(snail,target)<24){hitPlayer(g,target,8*(1+.2*(severity-1)),false,angle);snail.pause=Math.max(.45,1.1-.15*(severity-1));event(g,'snailhit',snail.x,snail.y,'SNAIL OF DOOM',target.id);}
 }
 function blocked(g,a,b) {
   for(const o of g.obstacles)for(let t=0;t<=1;t+=.1)if(insideXY(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,o))return true;return false;
@@ -152,25 +174,36 @@ export const xpRequired = level => 2 ** level;
 function combatPulse(g,p,damage,radius,stun){
   radius*=p.areaScale||1;runtime(g).collisionDirty=true;
   for(const e of g.enemies){if(e.hp<=0||distance(e,p)>radius||blocked(g,p,e)||ENEMIES[e.kind].invulnerable)continue;
-    if(damage&&!frontShield(e,p.x,p.y)){e.hp-=p.name==='hacker'?e.hp:damage*p.damage;if(e.hp<=0)kill(g,e,p);}
+    if(damage&&!frontShield(e,p.x,p.y)){e.hp-=p.name==='hacker'?e.hp:damage*p.damage*hitDamageScale(p)*(p.dashCounterReady?2:1);if(p.dashCounterReady)p.dashCounterReady=false;if(e.hp<=0)kill(g,e,p);}
     if(stun){e.stun=Math.max(e.stun,isBoss(e.kind)?Math.min(.4,stun):stun);e.tell=0;e.fireReadyAt=null;e.guardLeft=0;}
   }
   event(g,'nova',p.x,p.y,'',p.id).radius=radius;
+}
+function dashPulse(g,p){if(p.dashPulse)combatPulse(g,p,p.dashPulse*(p.thunderStep?2:1),65,p.thunderStep?.5:0);}
+function registerParry(g,p){
+  if(p.parryCrystals){p.crystals=p.crystals||[];if(p.crystals.length<3)p.crystals.push((p.crystals.length/3)*Math.PI*2);}
+  if(p.parryBeam){if(g.time-(p.lastParryTime??-10)<=1){const end=beamEnd(g,{x:p.x,y:p.y},p.angle),beam=hazard(g,p.x,p.y,7,.35,30,'beam',undefined,undefined,end.x,end.y);beam.owner=p.id;event(g,'parrybeam',p.x,p.y,'BEAM',p.id);}p.lastParryTime=g.time;}
 }
 function perfectTraits(g,p){
   if(p.parryHeal)p.hp=Math.min(p.maxHp,p.hp+p.parryHeal);
   if(p.stunNova)combatPulse(g,p,0,110,B.enemyMeleeStun+(p.stunBonus||0));
   if(p.mirror){let target=null,gap=Infinity;for(const e of g.enemies)if(e.hp>0&&distance(e,p)<gap){target=e;gap=distance(e,p);}const a=target?Math.atan2(target.y-p.y,target.x-p.x):p.angle;const count=p.mirrorShots||3;for(let i=0;i<count;i++){const aim=a+(i-(count-1)/2)*.16,b=bullet(g,p.x+Math.cos(aim)*22,p.y+Math.sin(aim)*22,Math.cos(aim)*440,Math.sin(aim)*440,12*(p.returnPower||1),'bow',false,false,'',4);b.owner=p.id;}}
 }
-export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0) {
-  if(p.hp<=0||p.invuln>0||(p.dashLeft>0&&p.dashAge<p.dashIframes))return 'immune';
+export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity) {
+  if(p.hp<=0)return 'immune';
+  if(p.dashLeft>0&&p.dashAge<p.dashIframes){if(p.dashCounter)p.dashCounterReady=true;return 'immune';}
+  if(p.invuln>0)return 'immune';
+  const missCurse=curseStrength(g,'missedParry',p);if(missCurse&&p.missedParryLeft>0)damage*=1+.25*missCurse;
+  if(p.lowHpArmor&&p.hp/p.maxHp<.4)damage*=1-.35*(1-p.hp/(p.maxHp*.4));
   const facing=Math.abs(angleDiff(sourceAngle,p.angle))<B.parryCone;
+  if(p.perfectOnly&&parryable&&p.parryLeft>0&&facing&&p.parryAge>p.perfect){p.parryLeft=0;p.streak=0;p.missedParryLeft=1;event(g,'miss',p.x,p.y,'MISS',p.id);}
   if(parryable&&p.parryLeft>0&&facing) {
     p.parrySuccess=true;
     // Brief successful-parry immunity prevents a single shotgun volley from cashing stored damage immediately.
-    p.invuln=B.parryIframes;
+    p.invuln=p.perfectOnly?.24:B.parryIframes;registerParry(g,p);if(p.chillParry&&sourceEntity)sourceEntity.chillLeft=Math.max(sourceEntity.chillLeft||0,2);
     if(p.parryAge<=p.perfect) {
       p.parryCd=0;
+      if(p.perfectOnly)p.attackBoostLeft=Math.max(p.attackBoostLeft||0,1.5);
       if(p.shieldRestore&&p.shieldDamage>50){p.shieldDamage=Math.max(50,p.shieldDamage-p.shieldRestore);p.shieldBroken=false;}
       p.streak+=p.weapon==='dagger'?2:1;p.streakLeft=B.streakTimeout;p.perfects++;
       if(p.weapon==='sword')p.internal=Math.max(0,p.internal-8);
@@ -179,36 +212,41 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0) {
       if(p.stunNova||p.mirror||p.parryHeal)perfectTraits(g,p);event(g,'perfect',p.x,p.y,`PERFECT ×${p.streak}`,p.id);return 'perfect';
     }
     damageHealth(p,damage*B.regularChip*(1-p.armor));
+    if(p.longIframes)p.invuln=Math.max(p.invuln,B.hurtIframes+.18);
     p.internal=clamp(p.internal+damage*B.regularStored*(1-p.armor),0,B.internalMax);
     p.lastRegular=g.time;p.regulars++;
     event(g,'regular',p.x,p.y,'REGULAR',p.id);return 'regular';
   }
-  if((p.blocking||(!parryable&&p.guardHeld))&&!p.shieldBroken&&facing) {
+  if(!p.perfectOnly&&(p.blocking||(!parryable&&p.guardHeld))&&!p.shieldBroken&&facing) {
     const chip=damage*(1-p.armor)*(1-B.blockReduction);
     damageHealth(p,chip);
+    if(p.longIframes)p.invuln=Math.max(p.invuln,B.hurtIframes+.18);
     p.shieldDamage=Math.min(B.shieldCapacity,(p.shieldDamage||0)+damage);
     if(p.shieldDamage>=B.shieldCapacity){p.shieldBroken=true;p.blocking=false;event(g,'shieldbreak',p.x,p.y,'SHIELD BROKEN',p.id);}
     event(g,'block',p.x,p.y,`BLOCK −${Math.ceil(chip)}`,p.id);
     if(!p.hp)event(g,'death',p.x,p.y,'DOWN',p.id);
     return 'block';
   }
-  const total=damage*(1-p.armor)+p.internal;damageHealth(p,total);p.internal=0;p.invuln=B.hurtIframes;
+  const total=damage*(1-p.armor)+p.internal;damageHealth(p,total);p.internal=0;p.invuln=B.hurtIframes+(p.longIframes?.18:0);
   event(g,'hurt',p.x,p.y,`−${Math.ceil(total)}`,p.id); if(!p.hp)event(g,'death',p.x,p.y,'DOWN',p.id);
   return 'hurt';
 }
 function kill(g,e,owner) {
-  if(e.dead)return;e.dead=true;if(g.runSystems)g.scrap+=scrapFor(e);event(g,'kill',e.x,e.y,g.runSystems?`+${scrapFor(e)} SCRAP`:'',owner?.id);
-  if(owner) {owner.kills++;owner.xp++;
+  if(e.dead)return;e.dead=true;const scrap=Math.max(1,Math.round(scrapFor(e)*(1-.2*curseStrength(g,'lessScrap'))));if(g.runSystems)g.scrap+=scrap;event(g,'kill',e.x,e.y,g.runSystems?`+${scrap} SCRAP`:'',owner?.id);
+  if(owner) {owner.kills++;if(owner.dashReset)owner.dashCd=0;owner.noKillTimer=0;owner.xp++;
     if(owner.vampire)owner.hp=Math.min(owner.maxHp,owner.hp+owner.maxHp*owner.vampire);
     if(owner.xp>=xpRequired(owner.level)){owner.xp-=xpRequired(owner.level);owner.level++;owner.maxHp+=Math.floor(10*(owner.healthFactor??1));owner.hp=Math.min(owner.maxHp,owner.hp+owner.maxHp*.15);owner.damage+=.05;event(g,'level',owner.x,owner.y,`LEVEL ${owner.level}`,owner.id);}
   }
 }
 function melee(g,p) {
-  const w=WEAPONS[p.weapon]; p.attackCd=w.cooldown;p.swing=.15;
+  const w=WEAPONS[p.weapon],slow=curseStrength(g,'missedSwing',p);p.attackCd=w.cooldown*(p.attackBoostLeft>0?.7:1)*(p.attackSlowLeft>0?1+.55*slow:1);p.swing=.15;
   event(g,'swing',p.x,p.y,'',p.id);
   let n=0;
   const candidates=runtime(g).melee;candidates.length=0;for(const e of g.enemies)if(e.hp>0&&distance(e,p)<=w.range+29)candidates.push(e);
   candidates.sort((a,b)=>distance(a,p)-distance(b,p));
+  let crowdTargets=0;
+  if(p.crowdForce)for(const e of candidates){const gap=distance(e,p),radius=isBoss(e.kind)?29:18,bodyAngle=Math.asin(Math.min(1,radius/(gap||1))),guarding=e.guardLeft>0&&Math.abs(angleDiff(Math.atan2(p.y-e.y,p.x-e.x),e.angle))<B.parryCone;if(!ENEMIES[e.kind].invulnerable&&!guarding&&gap<=w.range+radius&&(gap<=B.radius+radius||Math.abs(angleDiff(Math.atan2(e.y-p.y,e.x-p.x),p.angle))<=w.arc*(p.areaScale||1)/2+bodyAngle)&&!blocked(g,p,e)&&!shieldBlocks(g,p,e,e)&&!frontShield(e,p.x,p.y))crowdTargets++;}
+  const crowdBonus=crowdTargets>=2?1+.15*(crowdTargets-1):1;
   for(const e of candidates) {
     const gap=distance(e,p),radius=isBoss(e.kind)?29:18;
     // Intersect the body with the swing sector; touching enemies cannot fall through its center.
@@ -219,16 +257,18 @@ function melee(g,p) {
       p.stun=B.playerParryStun;p.blocking=false;p.guardHeld=false;p.parryLeft=0;p.dashLeft=0;p.swing=0;
       e.guardLeft=0;event(g,'enemyparry',p.x,p.y,'PARRIED · STUNNED',p.id);break;
     }
-    const d=ENEMIES[e.kind].invulnerable?0:p.name==='hacker'?e.hp:w.damage*p.damage*(1+p.streak*B.streakBonus)*(e.stun>0?1+(p.stunDamage||0):1);e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
+    let d=ENEMIES[e.kind].invulnerable?0:p.name==='hacker'?e.hp:w.damage*p.damage*(1+p.streak*B.streakBonus)*(e.stun>0?1+(p.stunDamage||0):1)*hitDamageScale(p)*crowdBonus*(p.dashCounterReady?2:1);if(d&&p.dashCounterReady)p.dashCounterReady=false;e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
+    if(p.bleed&&d){e.bleedLeft=Math.max(e.bleedLeft,3);e.bleedDps=Math.max(e.bleedDps||0,2*p.damage);e.bleedOwner=p.id;}
     event(g,'hit',e.x,e.y,d===0&&ENEMIES[e.kind].invulnerable?'IMMUNE':`${Math.round(d)}`,p.id,undefined,d>0?'melee':undefined);
     if(e.hp<=0)kill(g,e,p);
     if(++n>=w.targets)break;
   }
+  if(!n&&curseStrength(g,'missedSwing',p))p.attackSlowLeft=1.2;
   if(n&&p.echoBlade){p.echoHits=(p.echoHits||0)+1;if(p.echoHits%3===0)combatPulse(g,p,30,75,0);}
 }
-function deflectionTarget(g,b,angle,cone=Math.PI) {
+function deflectionTarget(g,b,angle,cone=Math.PI,ignoreId) {
   let best,nearestDistance=Infinity;
-  for(const e of g.enemies){if(e.hp<=0)continue;const gap=distance(e,b);if(gap>=nearestDistance||blocked(g,b,e)||Math.abs(angleDiff(Math.atan2(e.y-b.y,e.x-b.x),angle))>cone)continue;best=e;nearestDistance=gap;}
+  for(const e of g.enemies){if(e.hp<=0||e.id===ignoreId)continue;const gap=distance(e,b);if(gap>=nearestDistance||blocked(g,b,e)||Math.abs(angleDiff(Math.atan2(e.y-b.y,e.x-b.x),angle))>cone)continue;best=e;nearestDistance=gap;}
   return best;
 }
 function steer(b,target,turn) {
@@ -275,26 +315,26 @@ function bossSlam(g,e){
 function fire(g,e,p) {
   if(!hasLineOfSight(g,e,p)&&!inAoERange(e,p))return false;
   e.recoil=.24;
-  const c=ENEMIES[e.kind],base=e.angle;
+  const c=ENEMIES[e.kind],base=e.angle,damageScale=e.damageScale||1;
   if(fireSpecial(g,e,p,LEVEL2_API))return;
   if(c.melee){
     e.swing=.2;event(g,'meleeswing',e.x,e.y,'','',e.kind,'strike');
     if(distance(e,p)<=c.range+B.radius&&!blocked(g,e,p)&&Math.abs(angleDiff(Math.atan2(p.y-e.y,p.x-e.x),e.angle))<=c.arc/2){
-      const result=hitPlayer(g,p,c.damage*(1+g.room*.08),true,Math.atan2(e.y-p.y,e.x-p.x));
+      const result=hitPlayer(g,p,c.damage*damageScale*(1+g.room*.08),true,Math.atan2(e.y-p.y,e.x-p.x),e);
       if(result==='perfect'||result==='regular'){e.stun=B.enemyMeleeStun+(p.stunBonus||0);e.guardLeft=0;event(g,'enemystun',e.x,e.y,'STUNNED');}
     }
     return;
   }
-  if(e.kind==='railgun') {const end=beamEnd(g,e,base);hazard(g,e.x,e.y,9,1,c.damage*.4,'beam',undefined,undefined,end.x,end.y);event(g,'beam',e.x,e.y,'','',e.kind,'shoot');return;}
+  if(e.kind==='railgun') {const end=beamEnd(g,e,base);hazard(g,e.x,e.y,9,1,c.damage*damageScale*.4,'beam',undefined,undefined,end.x,end.y);event(g,'beam',e.x,e.y,'','',e.kind,'shoot');return;}
   if(e.kind==='mortar') {
     const vx=clamp(p.vx||0,-B.speed*p.speed,B.speed*p.speed),vy=clamp(p.vy||0,-B.speed*p.speed,B.speed*p.speed);
     const x=clamp(p.x+vx*.65,45,g.width-45),y=clamp(p.y+vy*.65,45,g.height-45);
-    hazard(g,x,y,60,1.2,c.damage,undefined,e.x,e.y).sourceKind=e.kind;event(g,'mortar',e.x,e.y,'','',e.kind,'launch');return;
+    hazard(g,x,y,60,1.2,c.damage*damageScale,undefined,e.x,e.y).sourceKind=e.kind;event(g,'mortar',e.x,e.y,'','',e.kind,'launch');return;
   }
   const offsets=e.kind==='shotgun'?SHOTGUN_OFFSETS:e.kind==='boss'?BOSS_OFFSETS:SINGLE_OFFSET;
-  for(const off of offsets) {const aim=predictedAim(g,e,p,c.projectile),a=(aim.predictive?aim.angle:base)+off;bullet(g,e.x+Math.cos(a)*24,e.y+Math.sin(a)*24,Math.cos(a)*c.projectile,Math.sin(a)*c.projectile,c.damage*(1+g.room*.08),e.kind,aim.predictive,e.danger,p.id,c.projectileRadius||3);}
+  for(const off of offsets) {const aim=predictedAim(g,e,p,c.projectile),a=(aim.predictive?aim.angle:base)+off;bullet(g,e.x+Math.cos(a)*24,e.y+Math.sin(a)*24,Math.cos(a)*c.projectile,Math.sin(a)*c.projectile,c.damage*damageScale*(1+g.room*.08),e.kind,aim.predictive,e.danger,p.id,c.projectileRadius||3);}
   if(e.kind==='boss'&&e.hp<e.maxHp*.5) {
-    for(let i=0;i<10;i++){const aim=predictedAim(g,e,p,165),a=aim.predictive?aim.angle:i*Math.PI/5+g.time;bullet(g,e.x,e.y,Math.cos(a)*165,Math.sin(a)*165,10,'bow',aim.predictive,e.danger,p.id);}
+    for(let i=0;i<10;i++){const aim=predictedAim(g,e,p,165),a=aim.predictive?aim.angle:i*Math.PI/5+g.time;bullet(g,e.x,e.y,Math.cos(a)*165,Math.sin(a)*165,10*damageScale,'bow',aim.predictive,e.danger,p.id);}
     hazard(g,p.x,p.y,55,1.5,20,undefined,e.x,e.y).sourceKind=e.kind;event(g,'mortar',e.x,e.y,'','',e.kind,'launch');
   }
   event(g,'fire',e.x,e.y,'','',e.kind,'shoot');
@@ -308,21 +348,23 @@ export function stepPlayer(g,p,i,dt,locked=false){
     for(const k of PLAYER_TIMERS)p[k]=Math.max(0,(p[k]||0)-dt);
     if(p.magnetLeft>0)p.magnetLeft=Math.max(0,p.magnetLeft-dt);
     if(!p.streakLeft)p.streak=0;
-    if(p.parryLeft>0){p.parryLeft-=dt;p.parryAge+=dt;if(p.parryLeft<=0&&!p.parrySuccess){event(g,'miss',p.x,p.y,'MISS',p.id);}}
+    if(p.parryLeft>0){p.parryLeft-=dt;p.parryAge+=dt;if(p.parryLeft<=0&&!p.parrySuccess){p.streak=0;if(curseStrength(g,'missedParry',p))p.missedParryLeft=1.1;event(g,'miss',p.x,p.y,'MISS',p.id);}}
     if(p.hp<=0)return;
     if(locked){p.blocking=false;p.guardHeld=false;p.dashLeft=0;p.vx=0;p.vy=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;return;}
     if(Number.isFinite(i.angle))p.angle=i.angle;
     if(p.stun>0){p.blocking=false;p.guardHeld=false;p.vx=0;p.vy=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;return;}
     const previousX=p.x,previousY=p.y;
     let mx=clamp(i.mx||0,-1,1),my=clamp(i.my||0,-1,1),norm=Math.hypot(mx,my)||1;mx/=norm;my/=norm;
-    if((i.dash||0)>p.seenDash) {p.seenDash=i.dash;if(!p.dashCd){p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id);if(p.dashPulse)combatPulse(g,p,p.dashPulse*(p.thunderStep?2:1),65,p.thunderStep?.5:0);}}
-    if((i.parry||0)>p.seenParry) {p.seenParry=i.parry;if(!p.parryCd){p.parryCd=B.parryCooldown;p.parryLeft=WEAPONS[p.weapon].parry;p.parryAge=0;p.parrySuccess=false;event(g,'guard',p.x,p.y,'',p.id);}}
-    if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);p.dashLeft-=dt;p.dashAge+=dt;}
-    else move(g,p,mx*B.speed*p.speed*(i.guard&&!p.shieldBroken&&p.parryLeft<=0?B.blockSpeed:1)*dt,my*B.speed*p.speed*(i.guard&&!p.shieldBroken&&p.parryLeft<=0?B.blockSpeed:1)*dt);
-    p.guardHeld=i.guard===true&&p.dashLeft<=0;
-    p.blocking=i.guard===true&&!p.shieldBroken&&p.parryLeft<=0&&p.dashLeft<=0;
+    if((i.dash||0)>p.seenDash) {p.seenDash=i.dash;if(!p.dashCd){p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id);dashPulse(g,p);}}
+    if((i.parry||0)>p.seenParry) {p.seenParry=i.parry;if(!p.parryCd){const short=curseStrength(g,'shortParry',p);p.parryCd=B.parryCooldown;p.parryLeft=WEAPONS[p.weapon].parry*(1-.12*short);if(p.perfectOnly)p.parryLeft=Math.min(p.parryLeft,p.perfect);p.parryAge=0;p.parrySuccess=false;event(g,'guard',p.x,p.y,'',p.id);}}
+    if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);if(p.fireTrail){p.fireTrailClock=(p.fireTrailClock||0)-dt;if(p.fireTrailClock<=0){const flame=hazard(g,p.x,p.y,18,.8,0,'fire');flame.owner=p.id;p.fireTrailClock=.07;}}p.dashLeft-=dt;p.dashAge+=dt;if(p.dashLeft<=0){dashPulse(g,p);if(curseStrength(g,'dashSlow',p))p.dashSlowLeft=.8;}}
+    else {const severity=curseStrength(g,'dashSlow',p),slow=severity&&p.dashSlowLeft>0?Math.max(.35,1-.22*severity):1;move(g,p,mx*B.speed*p.speed*slow*(i.guard&&!p.shieldBroken&&p.parryLeft<=0&&!p.perfectOnly?B.blockSpeed:1)*dt,my*B.speed*p.speed*slow*(i.guard&&!p.shieldBroken&&p.parryLeft<=0&&!p.perfectOnly?B.blockSpeed:1)*dt);}
+    p.guardHeld=i.guard===true&&p.dashLeft<=0&&!p.perfectOnly;
+    p.blocking=i.guard===true&&!p.shieldBroken&&p.parryLeft<=0&&p.dashLeft<=0&&!p.perfectOnly;
     p.vx=dt?(p.x-previousX)/dt:0;p.vy=dt?(p.y-previousY)/dt:0;
+    if(p.crystals?.length)p.crystals=p.crystals.map(a=>(a+dt*1.8)%(Math.PI*2));
     if(i.attack&&!p.attackCd)melee(g,p);
+    if(g.phase==='combat'&&curseStrength(g,'noKillHurt',p)){p.noKillTimer=(p.noKillTimer||0)+dt;if(p.noKillTimer>=6){p.noKillTimer-=6;hitPlayer(g,p,5*(1+.2*(curseStrength(g,'noKillHurt',p)-1)),false,p.angle);}}
 }
 export function step(g,inputs,dt) {
   dt=clamp(dt,0,1/30);g.time+=dt;if(g.runSystems&&stepPeaceful(g,inputs,dt))return;
@@ -350,8 +392,9 @@ export function step(g,inputs,dt) {
   for(const e of g.enemies) {
     if(e.hp<=0)continue;
     for(const key of ENEMY_TIMERS)e[key]=Math.max(0,(e[key]||0)-dt);
+    if(e.bleedLeft>0||e.burnLeft>0){const dot=(e.bleedLeft>0?(e.bleedDps||0):0)+(e.burnLeft>0?(e.burnDps||0):0);e.hp-=dot*dt;if(e.hp<=0){const owner=g.players.find(p=>p.id===(e.burnOwner||e.bleedOwner));kill(g,e,owner);continue;}}
     if(e.stun>0)continue;
-    const c=ENEMIES[e.kind],p=nearest(alive,e),d=distance(e,p);
+    const c=ENEMIES[e.kind],p=nearest(alive,e),d=distance(e,p),actionDt=dt*(e.chillLeft>0?.7:1);
     let vx=0,vy=0;
     if(g.intro<=0){
       if(specialEnemy(g,e,p,dt,LEVEL2_API)){vx=e.aiVX;vy=e.aiVY;}
@@ -375,7 +418,7 @@ export function step(g,inputs,dt) {
         }else if(e.kind==='boss'&&!e.repositionCd){
           repositionBoss(g,e,p);vx=e.repositionX*B.bossRepositionSpeed;vy=e.repositionY*B.bossRepositionSpeed;
         }else if(e.tell<=0){
-          e.cooldown-=dt;
+          e.cooldown-=actionDt;
           if(e.cooldown<=0&&(!c.melee||d<=c.range+B.radius-24)){
             e.burst++;e.action='attack';e.danger=e.kind==='mortar'||e.kind==='railgun'||(e.kind==='pistol'&&e.burst%3===0)||(e.kind==='boss'&&e.burst%2===0);
             e.tell=e.danger&&e.kind!=='railgun'?Math.max(.8,c.tell):c.tell;e.tellTotal=e.tell;e.target=p.id;
@@ -389,7 +432,7 @@ export function step(g,inputs,dt) {
           }
         }
       }else if(e.tell>0&&e.fireReadyAt==null){
-        e.tell-=dt;
+        e.tell-=actionDt;
         if(e.tell<=0){
           if(e.action==='slam'){e.tell=0;e.cooldown=.65;repositionBoss(g,e,p);}
           else if(e.action==='parry'){e.tell=0;e.guardLeft=.3;e.cooldown=Math.max(e.cooldown,.5);}
@@ -407,8 +450,10 @@ export function step(g,inputs,dt) {
       if(gap<B.separationRadius){const force=1-gap/B.separationRadius;rx+=(gap?dx/gap:e.id<a.id?-1:1)*force;ry+=(gap?dy/gap:0)*force;}
     }
     const magnitude=Math.max(1,Math.hypot(rx,ry));
-    move(g,e,(vx+rx/magnitude*B.separationSpeed)*dt,(vy+ry/magnitude*B.separationSpeed)*dt,isBoss(e.kind)?29:18);
+    const haste=1+.1*curseStrength(g,'enemyHaste'),chill=e.chillLeft>0?.7:1;
+    move(g,e,(vx*haste*chill+rx/magnitude*B.separationSpeed)*dt,(vy*haste*chill+ry/magnitude*B.separationSpeed)*dt,isBoss(e.kind)?29:18);
   }
+  crystalHits(g);stepDoomSnail(g,alive,dt);
   // Completed telegraphs take turns in order; an enemy volley stays intact.
   if(g.time+1e-9>=(g.nextEnemyShot??0)) {
     let e;for(const candidate of g.enemies)if(candidate.hp>0&&candidate.fireReadyAt!=null&&(!e||candidate.fireReadyAt<e.fireReadyAt||(candidate.fireReadyAt===e.fireReadyAt&&candidate.id<e.id)))e=candidate;
@@ -430,11 +475,12 @@ export function step(g,inputs,dt) {
     if(b.life<=0)continue;
     if(b.thrower&&(b.x<29||b.x>g.width-29||b.y<29||b.y>g.height-29)){b.x=clamp(b.x,29,g.width-29);b.y=clamp(b.y,29,g.height-29);b.returning=true;}
     if(!bounced&&!b.thrower&&(b.x<25||b.x>g.width-25||b.y<25||b.y>g.height-25||g.obstacles.some(o=>inside(b,o,b.radius||3)))){b.life=0;continue;}
+    if(!b.owner&&crystalIntercept(g,b,previousX,previousY,b.x,b.y)){b.life=0;continue;}
     if(b.owner) {
       if((g.stage??0)>0&&shieldBlocks(g,{x:previousX,y:previousY},b)){event(g,'shieldhit',b.x,b.y,'BLOCKED');b.life=0;continue;}
       if(r.collisionDirty&&g.enemies.length>=32)rebuildCollisions(g,r);
       const candidates=g.enemies.length>=32?r.collisions.query(Math.min(previousX,b.x)-29,Math.min(previousY,b.y)-29,Math.max(previousX,b.x)+29,Math.max(previousY,b.y)+29):null;
-      for(let index=0;index<(candidates?candidates.length:g.enemies.length);index++){const e=g.enemies[candidates?candidates[index]:index];if(e.hp>0&&projectileDistance(b,e,previousX,previousY,b.x,b.y,segmentDistance)<(isBoss(e.kind)?29:18)){if(frontShield(e,previousX,previousY)){event(g,'shieldhit',e.x,e.y,'BLOCKED');b.life=0;break;}if(b.attachMagnet){e.magnetLeft=B.magnetDuration;event(g,'magnet',e.x,e.y,'MAGNETIZED');b.life=0;break;}const p=g.players.find(p=>p.id===b.owner),damage=ENEMIES[e.kind].invulnerable?0:p?.name==='hacker'?e.hp:b.damage;e.hp-=damage;event(g,'hit',e.x,e.y,damage===0&&ENEMIES[e.kind].invulnerable?'IMMUNE':`${Math.round(damage)}`,p?.id);if(e.hp<=0)kill(g,e,p);b.life=0;break;}}
+      for(let index=0;index<(candidates?candidates.length:g.enemies.length);index++){const e=g.enemies[candidates?candidates[index]:index];if(e.hp>0&&e.id!==b.lastHit&&projectileDistance(b,e,previousX,previousY,b.x,b.y,segmentDistance)<(isBoss(e.kind)?29:18)){if(frontShield(e,previousX,previousY)){event(g,'shieldhit',e.x,e.y,'BLOCKED');b.life=0;break;}if(b.attachMagnet){e.magnetLeft=B.magnetDuration;event(g,'magnet',e.x,e.y,'MAGNETIZED');b.life=0;break;}const p=g.players.find(p=>p.id===b.owner);let damage=ENEMIES[e.kind].invulnerable?0:p?.name==='hacker'?e.hp:b.damage*(p?hitDamageScale(p):1)*(b.reflected&&e.bleedLeft>0?1.25:1)*(p?.dashCounterReady?2:1);if(damage&&p?.dashCounterReady)p.dashCounterReady=false;e.hp-=damage;if(b.chillTarget&&damage)e.chillLeft=Math.max(e.chillLeft,2);event(g,'hit',e.x,e.y,damage===0&&ENEMIES[e.kind].invulnerable?'IMMUNE':`${Math.round(damage)}`,p?.id);if(e.hp<=0)kill(g,e,p);if(b.chainLeft){const angle=Math.atan2(b.vy,b.vx),next=deflectionTarget(g,{x:e.x,y:e.y},angle,Math.PI*.7,e.id);if(next){const speed=Math.hypot(b.vx,b.vy),aim=Math.atan2(next.y-e.y,next.x-e.x);b.x=e.x;b.y=e.y;b.vx=Math.cos(aim)*speed*.8;b.vy=Math.sin(aim)*speed*.8;b.damage*=.75;b.chainLeft=0;b.lastHit=e.id;b.target=next.id;b.life=2;}else b.life=0;}else b.life=0;break;}}
     } else {
       const target=b.magnetEnemyTarget&&g.enemies.find(e=>e.id===b.magnetEnemyTarget&&e.hp>0);
       if(target&&projectileDistance(b,target,previousX,previousY,b.x,b.y,segmentDistance)<(isBoss(target.kind)?29:18)){
@@ -448,11 +494,11 @@ export function step(g,inputs,dt) {
         // Preserve the player's aim, with a small correction toward nearby visible enemies.
         const s=Math.hypot(b.vx,b.vy)*B.deflectSpeed;
         b.x=p.x;b.y=p.y;
-        const assisted=deflectionTarget(g,b,p.angle,B.deflectAssistCone);
-        const a=p.angle+(assisted?clamp(angleDiff(Math.atan2(assisted.y-p.y,assisted.x-p.x),p.angle),-B.deflectAssistTurn,B.deflectAssistTurn):0);
+        const chaotic=!!p.chaoticReturn;
+        const a=chaotic?p.angle+(random(g)-.5)*.9:p.angle;
         b.wave=false;b.thrower=undefined;
-        b.vx=Math.cos(a)*s;b.vy=Math.sin(a)*s;b.owner=p.id;b.damage*=(outcome==='perfect'?2:1)*(p.returnPower||1);b.life=4;
-        b.target=(assisted|| (b.kind==='homing'?deflectionTarget(g,b,a):null))?.id??null;b.attachMagnet=b.kind==='magnet';
+        b.vx=Math.cos(a)*s;b.vy=Math.sin(a)*s;b.owner=p.id;b.damage*=(outcome==='perfect'?2:1)*(p.returnPower||1);b.life=4;b.reflected=true;b.chillTarget=!!p.chillParry;b.chainLeft=chaotic?1:0;b.lastHit=undefined;
+        b.target=(b.kind==='homing'?deflectionTarget(g,b,a):null)?.id??null;b.attachMagnet=b.kind==='magnet';
         b.x=p.x+Math.cos(a)*24;b.y=p.y+Math.sin(a)*24;
       }else if(b.thrower){b.contactPlayer=p.id;b.contactAt=g.time+.35;}else b.life=0;
         break;
@@ -471,7 +517,8 @@ export function step(g,inputs,dt) {
     }
     if(specialHazard(g,h,dt,alive,LEVEL2_API))continue;
     if(h.kind==='beam'&&h.remaining>0){
-      for(const p of alive)if(segmentDistance(p,h.x,h.y,h.ex,h.ey)<h.r+B.radius&&g.time>=(h.nextHits[p.id]||0)){
+      if(h.owner){const owner=g.players.find(p=>p.id===h.owner);for(const e of g.enemies)if(e.hp>0&&segmentDistance(e,h.x,h.y,h.ex,h.ey)<h.r+(isBoss(e.kind)?29:18)&&g.time>=(h.nextHits[e.id]||0)){h.nextHits[e.id]=g.time+.2;const damage=h.damage*(owner?.damage||1)*(owner?hitDamageScale(owner):1);e.hp-=damage;event(g,'hit',e.x,e.y,`${Math.round(damage)}`,owner?.id);if(e.hp<=0)kill(g,e,owner);}}
+      else for(const p of alive)if(segmentDistance(p,h.x,h.y,h.ex,h.ey)<h.r+B.radius&&g.time>=(h.nextHits[p.id]||0)){
         h.nextHits[p.id]=g.time+.2;
         hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x));
       }
@@ -497,8 +544,7 @@ function parryMine(g,h,alive){
     if(Math.abs(angleDiff(source,p.angle))>=B.parryCone)continue;
     const outcome=hitPlayer(g,p,0,true,source);
     if(outcome!=='perfect'&&outcome!=='regular')continue;
-    const speed=720,assisted=deflectionTarget(g,h,p.angle,B.deflectAssistCone);
-    const angle=p.angle+(assisted?clamp(angleDiff(Math.atan2(assisted.y-p.y,assisted.x-p.x),p.angle),-B.deflectAssistTurn,B.deflectAssistTurn):0);
+    const speed=720,angle=p.angle;
     h.kind='mineProjectile';h.owner=p.id;h.damage=30;h.vx=Math.cos(angle)*speed;h.vy=Math.sin(angle)*speed;
     h.x+=Math.cos(angle)*14;h.y+=Math.sin(angle)*14;h.remaining=99;h.total=99;h.done=false;
     event(g,'parry',p.x,p.y,'MINE RETURNED',p.id);return true;
