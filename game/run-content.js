@@ -11,14 +11,38 @@ export const KITS=[
  {id:'spark',name:'Spark Runner',weapon:'dagger',upgrades:['dashSpark'],desc:'Spark Step · damaging dash pulses'},
 ];
 export const relics=()=>UPGRADES.filter(u=>u.kind==='relic');
+const rarityTier={common:1,rare:2,epic:3,legendary:4};
+function weightedSample(g,pool,n,altar=false){
+ const available=[...pool],out=[];
+ while(out.length<n&&available.length){
+  const weights=available.map(u=>altar?({common:1,rare:3,epic:6,legendary:10}[u.rarity]||1):({common:6,rare:4,epic:2,legendary:.8}[u.rarity]||1));
+  let roll=random(g)*weights.reduce((sum,w)=>sum+w,0),index=weights.findIndex(w=>(roll-=w)<0);if(index<0)index=available.length-1;
+  out.push(available.splice(index,1)[0]);
+ }
+ return out;
+}
+const CURSES=[
+ {id:'enemyHaste',name:'Fleet Foes',description:'Enemies move faster.',severity:1},
+ {id:'shortParry',name:'Narrow Timing',description:'Your parry window is shorter.',severity:2},
+ {id:'missedParry',name:'Punishing Miss',description:'Taking a hit shortly after a missed parry hurts more.',severity:2},
+ {id:'missedSwing',name:'Heavy Swing',description:'Attacks that miss slow your next swings briefly.',severity:1},
+ {id:'dashSlow',name:'Lead Boots',description:'You are slowed briefly after dashing.',severity:1},
+ {id:'noKillHurt',name:'Blood Toll',description:'Every 6 seconds without a kill, you take damage.',severity:3},
+ {id:'fastProjectiles',name:'Swift Shots',description:'Enemy projectiles move faster.',severity:2},
+ {id:'roomScaling',name:'Growing Threat',description:'Enemies gain extra strength each room.',severity:1},
+ {id:'eliteEnemy',name:'Marked Prey',description:'One non-boss enemy is elite each room, with more health and damage.',severity:2},
+ {id:'doomSnail',name:'Snail of Doom',description:'After 10 seconds, a pursuing snail appears and speeds up over time.',severity:3},
+ {id:'lessScrap',name:'Lean Pockets',description:'Enemies drop less Scrap.',severity:1},
+];
+export function activeCurses(p,room,stage=0){return (p?.curses||[]).filter(c=>c.expiresAtRoom>=stage*B.encounters+room);}
 export function grantUpgrade(p,id){const u=UPGRADES.find(u=>u.id===id);if(!u)throw Error('Unknown upgrade.');if(u.kind&&p.upgrades.includes(id))throw Error('You already own this relic or synergy.');u.apply(p);p.upgrades.push(id);}
 function sample(g,pool,n){const available=[...pool],out=[];while(out.length<n&&available.length){const i=Math.floor(random(g)*available.length);out.push(available.splice(i,1)[0]);}return out;}
 export function upgradeOffers(g,p){
  const eligible=UPGRADES.filter(u=>u.kind==='synergy'&&!p.upgrades.includes(u.id)&&u.requires.every(id=>p.upgrades.includes(id)));
  const basic=UPGRADES.filter(u=>!u.kind);const offers=[];
  // A qualified combination gets a 65% featured slot; it is never guaranteed.
- if(eligible.length&&random(g)<.65)offers.push(sample(g,eligible,1)[0].id);
- offers.push(...sample(g,basic,3-offers.length).map(u=>u.id));return offers;
+ if(eligible.length&&random(g)<.65)offers.push(weightedSample(g,eligible,1)[0].id);
+ offers.push(...weightedSample(g,basic,3-offers.length).map(u=>u.id));return offers;
 }
 export function createRun(players,seed){const g=createGame(players,seed);g.runSystems=true;g.hostId=players[0]?.id;g.scrap=0;g.phase='draft';clearArena(g);g.intro=0;
  g.kits=sample(g,KITS,players.length===1?3:players.length+2).map((kit,i)=>({id:kit.id,x:280+(i%3)*170,y:players.length===1?285:220+Math.floor(i/3)*180,claimedBy:null}));
@@ -42,13 +66,13 @@ export function beginRoute(g){g.phase='route';g.pendingRoom=g.room+1;g.routeOpti
  // Physical routing needs living party members, including a host downed in combat.
  const survivor=g.players.find(p=>p.hp>0);for(const p of g.players)if(p.hp<=0){p.hp=p.maxHp*.5;p.routeRevived=true;if(survivor){p.x=survivor.x;p.y=survivor.y;}}
 }
-function enterCombat(g){event(g,'roomenter',g.width/2,g.height/2);g.room=g.pendingRoom;g.pendingRoom=undefined;g.phase='combat';g.stock=[];g.altarOffers=[];g.routeDoors=[];for(const p of g.players){p.vendorOpen=false;p.altarOpen=false;p.hp=p.hp<=0?p.maxHp*.5:Math.min(p.maxHp,p.hp+(p.routeRevived?0:8));p.routeRevived=false;p.internal=0;}generateRoom(g);}
+function enterCombat(g){event(g,'roomenter',g.width/2,g.height/2);g.room=g.pendingRoom;g.pendingRoom=undefined;g.phase='combat';g.stock=[];g.altarOffers=[];g.routeDoors=[];for(const p of g.players){p.curses=activeCurses(p,g.room,g.stage??0);p.vendorOpen=false;p.altarOpen=false;p.hp=p.hp<=0?p.maxHp*.5:Math.min(p.maxHp,p.hp+(p.routeRevived?0:8));p.routeRevived=false;p.internal=0;}generateRoom(g);}
 export function selectRoute(g,id,choice){if(g.phase!=='route'||id!==g.hostId||!g.routeOptions.includes(choice))throw Error('Only the host can choose an available route.');
  const p=g.players.find(p=>p.id===id),door=g.routeDoors?.find(d=>d.choice===choice);if(!p||p.hp<=0||!door||distance(p,door)>32)throw Error('Walk through the chosen exit.');
  if(choice==='continue'){enterCombat(g);return;}event(g,'roomenter',g.width/2,g.height/2);g.routeDoors=[];g.phase=choice;clearArena(g);g.intro=0;g.stopSerial=(g.stopSerial||0)+1;g.station={x:g.width/2,y:g.height/2};g.exit={x:g.width-(choice==='shop'?32:100),y:g.height/2};
  for(const [i,p] of g.players.entries()){p.x=130;p.y=g.height/2+(i-(g.players.length-1)/2)*40;p.vendorOpen=false;p.altarOpen=false;p.shopContacts=0;}
- if(choice==='shop')g.stock=[{id:'repair',name:'Full shield repair',desc:'Restore your shield to 100.',cost:45,left:2},{id:'heal',name:'Health tonic',desc:'Heal 35% of your maximum HP.',cost:25,left:2},...sample(g,UPGRADES.filter(u=>!u.kind),2).map(u=>({id:u.id,name:u.name,desc:u.desc,cost:35,left:1})),...sample(g,relics(),2).map(u=>({id:u.id,name:u.name,desc:u.desc,cost:90,left:1}))];
- if(choice==='shop')layoutShopStock(g);else g.altarOffers=sample(g,relics(),3).map(u=>u.id);
+ if(choice==='shop')g.stock=[{id:'repair',name:'Full shield repair',desc:'Restore your shield to 100.',cost:45,left:2},{id:'heal',name:'Health tonic',desc:'Heal 35% of your maximum HP.',cost:25,left:2},...sample(g,UPGRADES.filter(u=>!u.kind),2).map(u=>({id:u.id,name:u.name,desc:u.desc,rarity:u.rarity,cost:35,left:1})),...sample(g,relics(),2).map(u=>({id:u.id,name:u.name,desc:u.desc,rarity:u.rarity,cost:90,left:1}))];
+ if(choice==='shop')layoutShopStock(g);else g.altarOffers=weightedSample(g,UPGRADES.filter(u=>g.players.some(player=>!player.upgrades.includes(u.id)&&(!u.requires||u.requires.every(id=>player.upgrades.includes(id))))),3,true).map(u=>u.id);
 }
 export function layoutShopStock(g){
  g.shopStartedAt=g.time;g.exit={x:g.width-32,y:g.height/2};
@@ -78,14 +102,12 @@ function shopContacts(g,p,input){
  const problem=shopPurchaseProblem(g,p,item);if(problem)event(g,'shopdeny',p.x,p.y,problem,p.id);else buyItem(g,p.id,item.id);
 }
 export function sacrifice(g,id,relic){const p=g.players.find(p=>p.id===id);
- if(g.phase!=='altar'||!p||p.hp<=0||!p.altarOpen||distance(p,g.station)>90||p.altarUsed===g.stopSerial||!g.altarOffers.includes(relic)||p.maxHp<20)throw Error('This sacrifice is unavailable.');
+ if(g.phase!=='altar'||!p||p.hp<=0||!p.altarOpen||distance(p,g.station)>90||p.altarUsed===g.stopSerial||!g.altarOffers.includes(relic))throw Error('This sacrifice is unavailable.');
  if(p.upgrades.includes(relic))throw Error('You already own this relic.');
- const curses=[
-  ()=>{const loss=Math.ceil(p.maxHp*.25);p.healthFactor=(p.healthFactor??1)*.75;p.maxHp-=loss;p.hp=Math.min(p.hp,p.maxHp);return '−25% MAX HP';},
-  ()=>{p.damage=(p.damage??1)*.8;return '−20% DAMAGE';},
-  ()=>{p.speed=(p.speed??1)*.85;return '−15% SPEED';},
- ];
- const curse=curses[Math.floor(random(g)*curses.length)]();p.altarUsed=g.stopSerial;grantUpgrade(p,relic);event(g,'sacrifice',p.x,p.y,`CURSE: ${curse}`,p.id);
+ const upgrade=UPGRADES.find(u=>u.id===relic),curse=CURSES[Math.floor(random(g)*CURSES.length)],tier=rarityTier[upgrade?.rarity]||1;
+ const entry={...curse,rarity:upgrade?.rarity||'common',strength:1+(tier-1)*.25,expiresAtRoom:(g.stage??0)*B.encounters+g.room+Math.ceil(curse.severity*(.75+tier*.25))};
+ p.curses=[...(p.curses||[]),entry];p.altarUsed=g.stopSerial;grantUpgrade(p,relic);
+ event(g,'sacrifice',p.x,p.y,`CURSE: ${entry.name} · ${entry.description} · ${entry.expiresAtRoom-((g.stage??0)*B.encounters+g.room)+1} rooms`,p.id);
 }
 export function stepPeaceful(g,inputs,dt){
  if(!['draft','shop','altar','route'].includes(g.phase))return false;
