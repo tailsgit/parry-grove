@@ -11,6 +11,6 @@ export function resetGuard(input) {
   input.guard = false;
 }
 export function mouseButton(input, button, pressed) {
-  if (button === 0) input.attack = pressed;
+  if (button === 0) {if(pressed&&!input.attack)input.attackPress=(input.attackPress||0)+1;input.attack = pressed;}
   if (button === 2) guardButton(input, 'mouse', pressed);
 }

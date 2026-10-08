@@ -12,7 +12,7 @@ import Settings from './Settings.jsx';
 import { Renderer } from './renderer.js';
 import { mouseButton, guardButton, resetGuard } from './input.js';
 
-const emptyInput=()=>({mx:0,my:0,angle:0,attack:false,guard:false,parry:0,dash:0,interact:0});
+const emptyInput=()=>({mx:0,my:0,angle:0,attack:false,attackPress:0,guard:false,parry:0,dash:0,interact:0});
 export default function Game() {
   const canvas=useRef(null),renderer=useRef(null),world=useRef(null),input=useRef(emptyInput()),keys=useRef(new Set()),modeRef=useRef('menu'),net=useRef(null),realtime=useRef(null),pausedRef=useRef(false),cursor=useRef(null);
   const [mode,setMode]=useState('menu'),[view,setView]=useState(null),[room,setRoom]=useState(null),[weapon]=useState('sword'),[name,setName]=useState('Adventurer'),[code,setCode]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[muted,setMuted]=useState(false),[paused,setPaused]=useState(false),[copied,setCopied]=useState(false),[latency,setLatency]=useState(0);
@@ -46,7 +46,7 @@ export default function Game() {
   }
   async function admin(operation,values){
     if(modeRef.current==='solo'){
-      if(operation==='teleport'){adminTeleport(world.current,values.level,values.room);soloHitPause.current.reset();const i=input.current;world.current.players.forEach(p=>{p.seenParry=i.parry;p.seenDash=i.dash;p.seenInteract=i.interact;});}
+      if(operation==='teleport'){adminTeleport(world.current,values.level,values.room);soloHitPause.current.reset();const i=input.current;world.current.players.forEach(p=>{p.seenParry=i.parry;p.seenDash=i.dash;p.seenAttack=i.attackPress;p.seenInteract=i.interact;});}
       else if(operation==='health')adminHealth(world.current,'solo',values.hp);
       else if(operation==='level')adminLevel(world.current,'solo',values.level);
       else {const p=world.current.players.find(player=>player.id==='solo');if(operation==='upgradeAdd')adminAddUpgrade(p,values.upgrade);else if(operation==='upgradeRemove')adminRemoveUpgrade(p,values.upgrade);else if(operation==='curseAdd')adminAddCurse(p,values.curse,values.rarity,(world.current.stage||0)*BALANCE.encounters+world.current.room);else if(operation==='curseRemove')adminRemoveCurse(p,values.index);else throw Error('Unknown admin action.');}

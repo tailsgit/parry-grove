@@ -3,7 +3,7 @@ import { player, step, chooseUpgrade, adminTeleport, adminHealth, adminLevel, cl
 import { WEAPONS, BALANCE } from './config.js';
 export function roomState(member, now) {return {host:member.id,members:[member],game:null,inputs:{},lastTick:now,createdAt:now};}
 export function member(name,weapon,now) {return {id:crypto.randomUUID(),token:crypto.randomUUID(),name:String(name||'Adventurer').trim().slice(0,18)||'Adventurer',weapon:WEAPONS[weapon]?weapon:'sword',ready:false,lastSeen:now,slot:0};}
-export function cleanInput(i={}) {return {mx:clamp(Number(i.mx)||0,-1,1),my:clamp(Number(i.my)||0,-1,1),angle:clamp(Number(i.angle)||0,-Math.PI*2,Math.PI*2),attack:i.attack===true,guard:i.guard===true,parry:clamp(Math.floor(Number(i.parry)||0),0,1e9),dash:clamp(Math.floor(Number(i.dash)||0),0,1e9),interact:clamp(Math.floor(Number(i.interact)||0),0,1e9)};}
+export function cleanInput(i={}) {return {mx:clamp(Number(i.mx)||0,-1,1),my:clamp(Number(i.my)||0,-1,1),angle:clamp(Number(i.angle)||0,-Math.PI*2,Math.PI*2),attack:i.attack===true,attackPress:clamp(Math.floor(Number(i.attackPress)||0),0,1e9),guard:i.guard===true,parry:clamp(Math.floor(Number(i.parry)||0),0,1e9),dash:clamp(Math.floor(Number(i.dash)||0),0,1e9),interact:clamp(Math.floor(Number(i.interact)||0),0,1e9)};}
 export function advanceRoom(r,now) {
   const stale=r.members.filter(m=>now-m.lastSeen>BALANCE.disconnectSeconds*1000).map(m=>m.id);
   r.members=r.members.filter(m=>!stale.includes(m.id));for(const id of stale)delete r.inputs[id];
@@ -44,7 +44,7 @@ export function applyAction(r,m,payload,now) {
     if(!r.game)throw Error('Start a run before using admin controls.');
     if(payload.operation==='teleport'){
       adminTeleport(r.game,payload.level,payload.room);
-      for(const p of r.game.players){const i=cleanInput(r.inputs[p.id]);r.inputs[p.id]={...i,mx:0,my:0,attack:false,guard:false};p.seenParry=i.parry;p.seenDash=i.dash;p.seenInteract=i.interact;}
+      for(const p of r.game.players){const i=cleanInput(r.inputs[p.id]);r.inputs[p.id]={...i,mx:0,my:0,attack:false,guard:false};p.seenParry=i.parry;p.seenDash=i.dash;p.seenAttack=i.attackPress;p.seenInteract=i.interact;p.dashBufferLeft=0;p.parryBufferLeft=0;p.meleeBufferLeft=0;}
     }else if(payload.operation==='health')adminHealth(r.game,m.id,payload.hp);
     else if(payload.operation==='level')adminLevel(r.game,m.id,payload.level);
     else if(payload.operation==='upgradeAdd')adminAddUpgrade(r.game.players.find(p=>p.id===m.id),payload.upgrade);

@@ -6,7 +6,8 @@ import { BALANCE as B, WEAPONS, ENEMIES, UPGRADES, LEVELS, isBoss } from './conf
 const runtimes=new WeakMap(),hazardClocks=new WeakMap();
 function pooledHazard(){const h={};hazardClocks.set(h,{});return h;}
 const EMPTY_INPUT={};
-const PLAYER_TIMERS=['attackCd','parryCd','dashCd','invuln','swing','streakLeft','stun','attackBoostLeft','attackSlowLeft','missedParryLeft','dashSlowLeft'];
+const PLAYER_TIMERS=['attackCd','parryCd','dashCd','invuln','swing','streakLeft','stun','attackBoostLeft','attackSlowLeft','missedParryLeft','dashSlowLeft','dashBufferLeft','parryBufferLeft','meleeBufferLeft'];
+const INPUT_BUFFER=7/60;
 const ENEMY_TIMERS=['stun','guardLeft','parryAttemptCd','swing','recoil','repositionLeft','repositionCd','slamCd','magnetLeft','bleedLeft','burnLeft','chillLeft'];
 const SHOTGUN_OFFSETS=[-.3,-.15,0,.15,.3],BOSS_OFFSETS=[-.5,-.25,0,.25,.5],SINGLE_OFFSET=[0];
 const liveEnemy=e=>e.hp>0,liveBullet=b=>b.life>0,liveHazard=h=>h.kind==='mine'?h.lifetime>0:(h.kind==='beam'?h.remaining>0:h.remaining>-.25);
@@ -39,7 +40,7 @@ export function player(id, name, weapon = 'sword', slot = 0) {
     dashPower: 1, dashIframes: B.dashIframes, dashTime: B.dashTime,
     attackCd: 0, parryCd: 0, dashCd: 0, parryLeft: 0, parryAge: 0, parrySuccess: false, dashLeft: 0, dashAge: 0,
     dx: 0, dy: 0, invuln: 0, swing: 0, blocking: false, shieldDamage: 0, shieldBroken: false, vampire: 0, shieldRestore: 0, guardHeld: false, stun: 0, vx: 0, vy: 0, streak: 0, streakLeft: 0, lastRegular: -100,
-    seenParry: 0, seenDash: 0, seenInteract: 0, upgrades: [], curses: [], crystals: [], offers: [], chosen: false, kills: 0, perfects: 0, regulars: 0 };
+    seenParry: 0, seenDash: 0, seenAttack: 0, seenInteract: 0, dashBufferLeft:0, parryBufferLeft:0, meleeBufferLeft:0, upgrades: [], curses: [], crystals: [], offers: [], chosen: false, kills: 0, perfects: 0, regulars: 0 };
 }
 export function createGame(players, seed = Date.now()>>>0) {
   const g = { seed, time: 0, stage:0, room: 0, phase: 'combat', players, enemies: [], bullets: [], hazards: [], obstacles: [], events: [], serial: 0, eventSerial: 0, width: 900, height: 570, intro: 1.8, encounterParty: players.length };
@@ -349,21 +350,24 @@ export function stepPlayer(g,p,i,dt,locked=false){
     if(p.magnetLeft>0)p.magnetLeft=Math.max(0,p.magnetLeft-dt);
     if(!p.streakLeft)p.streak=0;
     if(p.parryLeft>0){p.parryLeft-=dt;p.parryAge+=dt;if(p.parryLeft<=0&&!p.parrySuccess){p.streak=0;if(curseStrength(g,'missedParry',p))p.missedParryLeft=1.1;event(g,'miss',p.x,p.y,'MISS',p.id);}}
-    if(p.hp<=0)return;
-    if(locked){p.blocking=false;p.guardHeld=false;p.dashLeft=0;p.vx=0;p.vy=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;return;}
+    if(p.hp<=0){p.dashBufferLeft=0;p.parryBufferLeft=0;p.meleeBufferLeft=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;p.seenAttack=i.attackPress||0;return;}
+    if(locked){p.blocking=false;p.guardHeld=false;p.dashLeft=0;p.vx=0;p.vy=0;p.dashBufferLeft=0;p.parryBufferLeft=0;p.meleeBufferLeft=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;p.seenAttack=i.attackPress||0;return;}
     if(Number.isFinite(i.angle))p.angle=i.angle;
-    if(p.stun>0){p.blocking=false;p.guardHeld=false;p.vx=0;p.vy=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;return;}
+    if((i.dash||0)>p.seenDash){p.seenDash=i.dash;p.dashBufferLeft=INPUT_BUFFER;}
+    if((i.parry||0)>p.seenParry){p.seenParry=i.parry;p.parryBufferLeft=INPUT_BUFFER;}
+    if((i.attackPress||0)>p.seenAttack){p.seenAttack=i.attackPress;p.meleeBufferLeft=INPUT_BUFFER;}
+    if(p.stun>0){p.blocking=false;p.guardHeld=false;p.vx=0;p.vy=0;return;}
     const previousX=p.x,previousY=p.y;
     let mx=clamp(i.mx||0,-1,1),my=clamp(i.my||0,-1,1),norm=Math.hypot(mx,my)||1;mx/=norm;my/=norm;
-    if((i.dash||0)>p.seenDash) {p.seenDash=i.dash;if(!p.dashCd){p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id);dashPulse(g,p);}}
-    if((i.parry||0)>p.seenParry) {p.seenParry=i.parry;if(!p.parryCd){const short=curseStrength(g,'shortParry',p);p.parryCd=B.parryCooldown;p.parryLeft=WEAPONS[p.weapon].parry*(1-.12*short);if(p.perfectOnly)p.parryLeft=Math.min(p.parryLeft,p.perfect);p.parryAge=0;p.parrySuccess=false;event(g,'guard',p.x,p.y,'',p.id);}}
+    if(p.dashBufferLeft>0&&!p.dashCd){p.dashBufferLeft=0;p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id);dashPulse(g,p);}
+    if(p.parryBufferLeft>0&&!p.parryCd){p.parryBufferLeft=0;const short=curseStrength(g,'shortParry',p);p.parryCd=B.parryCooldown;p.parryLeft=WEAPONS[p.weapon].parry*(1-.12*short);if(p.perfectOnly)p.parryLeft=Math.min(p.parryLeft,p.perfect);p.parryAge=0;p.parrySuccess=false;event(g,'guard',p.x,p.y,'',p.id);}
     if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);if(p.fireTrail){p.fireTrailClock=(p.fireTrailClock||0)-dt;if(p.fireTrailClock<=0){const flame=hazard(g,p.x,p.y,18,.8,0,'fire');flame.owner=p.id;p.fireTrailClock=.07;}}p.dashLeft-=dt;p.dashAge+=dt;if(p.dashLeft<=0){dashPulse(g,p);if(curseStrength(g,'dashSlow',p))p.dashSlowLeft=.8;}}
     else {const severity=curseStrength(g,'dashSlow',p),slow=severity&&p.dashSlowLeft>0?Math.max(.35,1-.22*severity):1;move(g,p,mx*B.speed*p.speed*slow*(i.guard&&!p.shieldBroken&&p.parryLeft<=0&&!p.perfectOnly?B.blockSpeed:1)*dt,my*B.speed*p.speed*slow*(i.guard&&!p.shieldBroken&&p.parryLeft<=0&&!p.perfectOnly?B.blockSpeed:1)*dt);}
     p.guardHeld=i.guard===true&&p.dashLeft<=0&&!p.perfectOnly;
     p.blocking=i.guard===true&&!p.shieldBroken&&p.parryLeft<=0&&p.dashLeft<=0&&!p.perfectOnly;
     p.vx=dt?(p.x-previousX)/dt:0;p.vy=dt?(p.y-previousY)/dt:0;
     if(p.crystals?.length)p.crystals=p.crystals.map(a=>(a+dt*1.8)%(Math.PI*2));
-    if(i.attack&&!p.attackCd)melee(g,p);
+    if((p.meleeBufferLeft>0||i.attack)&&!p.attackCd){p.meleeBufferLeft=0;melee(g,p);}
     if(g.phase==='combat'&&curseStrength(g,'noKillHurt',p)){p.noKillTimer=(p.noKillTimer||0)+dt;if(p.noKillTimer>=6){p.noKillTimer-=6;hitPlayer(g,p,5*(1+.2*(curseStrength(g,'noKillHurt',p)-1)),false,p.angle);}}
 }
 export function step(g,inputs,dt) {
