@@ -12,7 +12,7 @@ import Settings from './Settings.jsx';
 import { Renderer } from './renderer.js';
 import { mouseButton, guardButton, resetGuard } from './input.js';
 
-const emptyInput=()=>({mx:0,my:0,angle:0,attack:false,guard:false,parry:0,dash:0,interact:0});
+const emptyInput=()=>({mx:0,my:0,angle:0,attack:false,attackPress:0,guard:false,parry:0,dash:0,interact:0});
 export default function Game() {
   const canvas=useRef(null),renderer=useRef(null),world=useRef(null),input=useRef(emptyInput()),keys=useRef(new Set()),modeRef=useRef('menu'),net=useRef(null),realtime=useRef(null),pausedRef=useRef(false),cursor=useRef(null);
   const [mode,setMode]=useState('menu'),[view,setView]=useState(null),[room,setRoom]=useState(null),[weapon]=useState('sword'),[name,setName]=useState('Adventurer'),[code,setCode]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[muted,setMuted]=useState(false),[paused,setPaused]=useState(false),[copied,setCopied]=useState(false),[latency,setLatency]=useState(0);
@@ -46,7 +46,7 @@ export default function Game() {
   }
   async function admin(operation,values){
     if(modeRef.current==='solo'){
-      if(operation==='teleport'){adminTeleport(world.current,values.level,values.room);soloHitPause.current.reset();const i=input.current;world.current.players.forEach(p=>{p.seenParry=i.parry;p.seenDash=i.dash;p.seenInteract=i.interact;});}
+      if(operation==='teleport'){adminTeleport(world.current,values.level,values.room);soloHitPause.current.reset();const i=input.current;world.current.players.forEach(p=>{p.seenParry=i.parry;p.seenDash=i.dash;p.seenAttack=i.attackPress;p.seenInteract=i.interact;});}
       else if(operation==='health')adminHealth(world.current,'solo',values.hp);
       else if(operation==='level')adminLevel(world.current,'solo',values.level);
       else {const p=world.current.players.find(player=>player.id==='solo');if(operation==='upgradeAdd')adminAddUpgrade(p,values.upgrade);else if(operation==='upgradeRemove')adminRemoveUpgrade(p,values.upgrade);else if(operation==='curseAdd')adminAddCurse(p,values.curse,values.rarity,(world.current.stage||0)*BALANCE.encounters+world.current.room);else if(operation==='curseRemove')adminRemoveCurse(p,values.index);else throw Error('Unknown admin action.');}
@@ -117,8 +117,8 @@ export default function Game() {
       frame=requestAnimationFrame(loop);
     };frame=requestAnimationFrame(loop);
     const down=e=>{if(settingsRef.current){if(e.key==='Escape'){e.preventDefault();if(!e.repeat)closeSettings();}return;}const hero=world.current?.players.find(p=>p.id===(net.current?.id||'solo'));if(hero?.vendorOpen||hero?.altarOpen){if(e.key==='Escape')runAction('vendorClose');return;}const key=e.key.toLowerCase();if(pausedRef.current&&!inventoryRef.current){if(key==='escape'){e.preventDefault();if(!e.repeat)togglePause();}if(key==='tab'){const buttons=pauseDialog.current?.querySelectorAll('button');if(buttons?.length&&document.activeElement===(e.shiftKey?buttons[0]:buttons[buttons.length-1])){e.preventDefault();buttons[e.shiftKey?buttons.length-1:0].focus();}}return;}if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if(key==='i'||(key==='escape'&&inventoryRef.current)){e.preventDefault();if(!e.repeat)toggleInventory();return;}if(inventoryRef.current){if(key==='tab'){const buttons=inventoryDialog.current?.querySelectorAll('button');if(buttons?.length){e.preventDefault();buttons[e.shiftKey?buttons.length-1:0].focus();}}return;}if(world.current?.phase==='upgrade'&&/^[123]$/.test(key)){e.preventDefault();const id=rewardShortcut(world.current,net.current?.id||'solo',key,e.repeat);if(id)pick(id);return;}if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(key))e.preventDefault();keys.current.add(key);if(e.repeat)return;if(key===' '){input.current.dash++;draw.unlockAudio();}if(key==='q'){guardButton(input.current,'keyboard',true);draw.unlockAudio();}if(key==='e')input.current.interact++;if(key==='escape'){e.preventDefault();togglePause();}};
-    const up=e=>{const key=e.key.toLowerCase();keys.current.delete(key);if(key==='q')guardButton(input.current,'keyboard',false);};const blur=()=>{keys.current.clear();input.current.attack=false;resetGuard(input.current);input.current.mx=0;input.current.my=0;};
-    const visibility=()=>{if(document.hidden){blur();if(modeRef.current==='solo'){pausedRef.current=true;setPaused(true);}}};
+    const up=e=>{const key=e.key.toLowerCase();keys.current.delete(key);if(key==='q')guardButton(input.current,'keyboard',false);};const blur=()=>{keys.current.clear();input.current.attack=false;resetGuard(input.current);input.current.mx=0;input.current.my=0;if(modeRef.current==='solo'){const i=input.current;world.current?.players.forEach(p=>{p.dashBufferLeft=0;p.parryBufferLeft=0;p.meleeBufferLeft=0;p.seenDash=i.dash;p.seenParry=i.parry;p.seenAttack=i.attackPress;});if(!pausedRef.current){pausedRef.current=true;setPaused(true);}}};
+    const visibility=()=>{if(document.hidden)blur();};
     const release=e=>mouseButton(input.current,e.button,false);
     window.addEventListener('mouseup',release);
     window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('blur',blur);document.addEventListener('visibilitychange',visibility);
