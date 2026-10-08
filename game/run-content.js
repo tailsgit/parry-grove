@@ -42,7 +42,7 @@ export function beginRoute(g){g.phase='route';g.pendingRoom=g.room+1;g.routeOpti
  // Physical routing needs living party members, including a host downed in combat.
  const survivor=g.players.find(p=>p.hp>0);for(const p of g.players)if(p.hp<=0){p.hp=p.maxHp*.5;p.routeRevived=true;if(survivor){p.x=survivor.x;p.y=survivor.y;}}
 }
-function enterCombat(g){event(g,'roomenter',g.width/2,g.height/2);g.room=g.pendingRoom;g.pendingRoom=undefined;g.phase='combat';g.stock=[];g.altarOffers=[];g.routeDoors=[];for(const p of g.players){p.vendorOpen=false;p.altarOpen=false;p.hp=p.hp<=0?p.maxHp*.5:Math.min(p.maxHp,p.hp+(p.routeRevived?0:8));p.routeRevived=false;p.internal=0;}generateRoom(g);}
+function enterCombat(g){event(g,'roomenter',g.width/2,g.height/2);g.room=g.pendingRoom;g.pendingRoom=undefined;g.phase='combat';g.stock=[];g.altarOffers=[];g.routeDoors=[];for(const p of g.players){p.vendorOpen=false;p.altarOpen=false;p.hp=p.hp<=0?p.maxHp*.5:Math.min(p.maxHp,p.hp+(p.routeRevived?0:8));p.routeRevived=false;}generateRoom(g);}
 export function selectRoute(g,id,choice){if(g.phase!=='route'||id!==g.hostId||!g.routeOptions.includes(choice))throw Error('Only the host can choose an available route.');
  const p=g.players.find(p=>p.id===id),door=g.routeDoors?.find(d=>d.choice===choice);if(!p||p.hp<=0||!door||distance(p,door)>32)throw Error('Walk through the chosen exit.');
  if(choice==='continue'){enterCombat(g);return;}event(g,'roomenter',g.width/2,g.height/2);g.routeDoors=[];g.phase=choice;clearArena(g);g.intro=0;g.stopSerial=(g.stopSerial||0)+1;g.station={x:g.width/2,y:g.height/2};g.exit={x:g.width-(choice==='shop'?32:100),y:g.height/2};

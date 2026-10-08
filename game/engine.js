@@ -328,14 +328,14 @@ export function step(g,inputs,dt) {
   dt=clamp(dt,0,1/30);g.time+=dt;if(g.runSystems&&stepPeaceful(g,inputs,dt))return;
   if(g.phase==='levelclear'){
     const ready=g.players.some(p=>p.hp>0&&(inputs[p.id]?.interact||0)>p.seenInteract);
-    if(ready){for(const p of g.players){p.seenInteract=inputs[p.id]?.interact||0;p.shieldDamage=0;p.shieldBroken=false;}g.stage=(g.stage??0)+1;g.room=0;g.phase='combat';generateRoom(g);}
+    if(ready){for(const p of g.players){p.seenInteract=inputs[p.id]?.interact||0;p.shieldDamage=0;p.shieldBroken=false;p.internal=0;}g.stage=(g.stage??0)+1;g.room=0;g.phase='combat';generateRoom(g);}
     return;
   }
   if(g.phase!=='combat') {
     if(g.phase==='upgrade'&&g.players.every(p=>p.hp<=0||p.chosen)) {
       if(g.runSystems){beginRoute(g);return;}
       const ready=g.players.some(p=>(inputs[p.id]?.interact||0)>p.seenInteract);
-      if(ready) {g.players.forEach(p=>{p.seenInteract=inputs[p.id]?.interact||0;/* Decision: fallen co-op allies revive between rooms, never mid-fight. */if(p.hp<=0)p.hp=p.maxHp*.5;else p.hp=Math.min(p.maxHp,p.hp+8);p.internal=0;});g.room++;g.phase='combat';generateRoom(g);}
+      if(ready) {g.players.forEach(p=>{p.seenInteract=inputs[p.id]?.interact||0;/* Decision: fallen co-op allies revive between rooms, never mid-fight. */if(p.hp<=0)p.hp=p.maxHp*.5;else p.hp=Math.min(p.maxHp,p.hp+8);});g.room++;g.phase='combat';generateRoom(g);}
     }
     return;
   }
