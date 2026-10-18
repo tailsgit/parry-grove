@@ -2,7 +2,7 @@
 export const FEEL=Object.freeze({
   particles:240,labels:28,rings:24,contacts:24,reactions:40,afterimages:32,reflections:32,flights:8,
   voices:12,soundGap:.035,pickupGap:.12,pickupReset:.55,pickupPitchCap:5,
-  missGap:.8,eventAge:.7,shake:7,impulseTime:.12,contactTime:.1,recoilTime:.14,
+  missGap:1.5,numberGroup:.12,numberLife:.65,criticalRatio:.2,eventAge:.7,shake:7,impulseTime:.12,contactTime:.1,recoilTime:.14,
   ghostGap:.035,ghostLife:.18,flightTime:.55,flightGroup:.075,
   teammateScale:.45,distantScale:.22,distantRange:480,
   perfect:Object.freeze({color:'#b8ffaf',count:18,radius:43,duration:.23,shake:4.5}),

@@ -78,7 +78,7 @@ export const UPGRADES = [
   {id:'overdrive',name:'Overdrive Core',icon:'⚔',rarity:'legendary',kind:'relic',desc:'+60% melee damage and +25% reflected damage.',apply:p=>{p.damage+=.6;p.returnPower=(p.returnPower||1)+.25;}},
 ];
 export const RARITY_ORDER=['common','rare','epic','legendary'];
-export const RARITY_COLORS={common:'#c3d2c3',rare:'#79b9ff',epic:'#d19aff',legendary:'#ffd478'};
+export const RARITY_COLORS={common:'#b8c7ad',rare:'#9dbfce',epic:'#c2acd2',legendary:'#e7c480'};
 export const COLORS = ['#94e8cf', '#aebdff', '#ffd478', '#ffa5be'];
 
 export const ROOM_THEMES = [

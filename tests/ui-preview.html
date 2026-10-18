@@ -1,0 +1,4 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app/globals.css"></head><body><div id="app"></div><script type="module">
+import React from 'react';import {createRoot} from 'react-dom/client';import Game from '../game/Game.jsx';import * as engine from '../game/engine.js';import * as run from '../game/run-content.js';import * as config from '../game/config.js';import {Renderer} from '../game/renderer.js';
+window.qa={engine,run,config,Renderer};createRoot(document.getElementById('app')).render(React.createElement(Game));
+</script></body></html>
