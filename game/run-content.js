@@ -10,6 +10,9 @@ export const KITS=[
  {id:'hungry',name:'Hungry Knight',weapon:'longsword',upgrades:['vampire'],health:80,desc:'Vampire · starts with 80 maximum HP'},
  {id:'spark',name:'Spark Runner',weapon:'dagger',upgrades:['dashSpark'],desc:'Spark Step · damaging dash pulses'},
 ];
+export const KIT_ACCENTS=['#df9c71','#9ee9b1','#cab0ff','#e9cf83','#77dce2','#96bca2','#ed9fa6','#a6b6ff'];
+export function kitAccent(id){return KIT_ACCENTS[Math.max(0,KITS.findIndex(k=>k.id===id))];}
+export function kitDetails(kit){return kit.upgrades.map(id=>{const u=UPGRADES.find(u=>u.id===id);return u?`${u.name}: ${u.desc}`:id;}).join(' · ')+` · Max HP ${kit.health||B.hp}${kit.health?` (starts ${B.hp-kit.health} lower)`:``} · Shield ${B.shieldCapacity-(kit.shield||0)}${kit.shield?` (starts ${kit.shield} lower)`:``}`;}
 export const relics=()=>UPGRADES.filter(u=>u.kind==='relic');
 const rarityTier={common:1,rare:2,epic:3,legendary:4};
 function weightedSample(g,pool,n,altar=false){
@@ -69,7 +72,7 @@ export function createRun(players,seed){const g=createGame(players,seed);g.runSy
 export function claimKit(g,id,kitId){const p=g.players.find(p=>p.id===id),pick=g.kits?.find(k=>k.id===kitId),kit=KITS.find(k=>k.id===kitId);
  if(g.phase!=='draft'||!p||p.kitId||!pick||pick.claimedBy||distance(p,pick)>80)throw Error('Move next to an available kit and press E.');
  pick.claimedBy=id;p.kitId=kitId;p.weapon=kit.weapon;p.maxHp=kit.health||p.maxHp;p.hp=p.maxHp;p.shieldDamage=kit.shield||0;for(const u of kit.upgrades)grantUpgrade(p,u);
- event(g,'kitpickup',p.x,p.y,kit.name,p.id);finishDraft(g);
+ event(g,'kitpickup',p.x,p.y,`${kit.name} equipped · Max HP ${p.maxHp} · Shield ${B.shieldCapacity-p.shieldDamage}`,p.id);finishDraft(g);
 }
 function finishDraft(g){if(g.players.length&&g.players.every(p=>p.kitId)){g.kits=[];g.phase='combat';generateRoom(g);}}
 export function openRouteDoors(g){

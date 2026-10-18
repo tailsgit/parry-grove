@@ -15,6 +15,7 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const managedLinux = readExecutionProfile() === "managed-linux";
 
 const localBindingConfig = {
+  vars: { ENABLE_DEV_TOOLS: process.env.ENABLE_DEV_TOOLS ?? 'false' },
   name: process.env.CLOUDFLARE_WORKER_NAME ?? "parry-grove",
   main: "./build/sites-worker.ts",
   compatibility_flags: ["nodejs_compat"],

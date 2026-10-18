@@ -71,7 +71,7 @@ export class EnemyAudio{
   for(const kind of Object.keys(WEAPON_VOICES)){this.buffer(kind,'attack');for(const action of EXTRA[kind]||[])this.buffer(kind,action);}
  }
  buffer(kind,action){const key=kind+':'+actionKey(kind,action);let buffer=this.buffers.get(key);if(!buffer){buffer=this.context.createBuffer(1,Math.ceil(this.context.sampleRate*weaponDuration(kind,action)),this.context.sampleRate);renderWeaponSound(kind,action,this.context.sampleRate,buffer.getChannelData(0));this.buffers.set(key,buffer);}return buffer;}
- setMuted(value){this.muted=value;this.output.gain.setValueAtTime(value?0:1,this.context.currentTime);}
+ setMuted(value){this.muted=value;this.output.gain.setValueAtTime(value?0:(this.volume??1),this.context.currentTime);}
  play(event,listener,width){
   if(this.muted||!Object.hasOwn(WEAPON_VOICES,event.sourceKind))return false;
   const c=this.context;if(c.state!=='running')return false;
