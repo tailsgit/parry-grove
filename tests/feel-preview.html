@@ -1,0 +1,68 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Parry Grove feedback fixture</title><link rel="stylesheet" href="/app/globals.css"><style>html,body,#stage{width:100%;height:100%;margin:0}#overlay{position:absolute;inset:0;pointer-events:none}.preview-rewards{position:absolute;inset:22% 12%;display:grid;place-items:center;pointer-events:auto}</style></head><body><main class="game-screen"><div id="stage" class="canvas-wrap immersive-screen"><canvas id="arena"></canvas><div id="overlay"></div></div></main>
+<script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {flushSync} from 'react-dom';
+import {Renderer} from '../game/renderer.js';
+import {player,createGame,spawnEnemy,step,hitPlayer,event,chooseUpgrade} from '../game/engine.js';
+import {PlayerHud,PerfectParryHud} from '../game/CombatHud.jsx';
+import RewardCards,{RewardConfirmation} from '../game/RewardCards.jsx';
+import {UPGRADES} from '../game/config.js';
+import Game from '../game/Game.jsx';
+if(new URLSearchParams(location.search).has('app')){
+ document.body.innerHTML='<div id=app></div>';createRoot(document.getElementById('app')).render(React.createElement(Game));
+}else{
+const before=new URLSearchParams(location.search).has('before');
+const RenderClass=before?(await import('/__before/game/renderer.js')).Renderer:Renderer;
+const canvas=document.getElementById('arena'),root=createRoot(document.getElementById('overlay')),draw=new RenderClass(canvas);draw.observeMotion?.();
+let g,p,paused=true,last=performance.now(),frames=[];
+function paint(dt=0){
+ draw.draw(g,'solo',dt);
+ const reward=g.events.findLast(e=>e.kind==='upgrade'&&g.time-e.time<.75);
+ flushSync(()=>root.render(React.createElement('div',{className:'arena-ui'},
+  React.createElement(PlayerHud,{player:{...p},scrap:g.scrap}),React.createElement(PerfectParryHud,{player:p}),
+  React.createElement('div',{className:'room-hud'},React.createElement('span',null,'Sunlit Grove'),React.createElement('small',null,'LEVEL 1 · ROOM 1 / 5')),
+  g.phase==='upgrade'&&!p.chosen?React.createElement('div',{className:'preview-rewards'},React.createElement(RewardCards,{offers:p.offers,onPick:id=>{chooseUpgrade(g,p.id,id);paint(0);}})):null,
+  reward?React.createElement(RewardConfirmation,{event:reward}):null)));
+}
+function setup(name='melee'){
+ if(window.preview)window.preview.ready=false;
+ draw.feedback?.reset();draw.lastEvent=0;draw.previousTime=-1;
+ p=player('solo','Preview','sword');g=createGame([p],314159);g.intro=0;g.enemies=[];g.obstacles=[];g.runSystems=true;g.scrap=0;
+ p.x=430;p.y=310;p.invuln=0;
+ const near=spawnEnemy(g,'brawler',p.x+52,p.y);near.cooldown=100;near.angle=Math.PI;
+ spawnEnemy(g,'bow',700,180).cooldown=100;
+ // Establish a prior HUD sample so HP/internal changes animate correctly.
+ paint(0);
+ requestAnimationFrame(()=>{
+  if(name==='melee')step(g,{solo:{attack:true,angle:0}},1/60);
+  if(name==='perfect'||name==='regular'||name==='internal'){
+   p.streak=name==='perfect'?5:0;p.perfects=p.streak;p.streakLeft=3;
+   p.parryLeft=.2;p.parryAge=name==='perfect'?0:.16;
+   g.bullets=[{id:900,x:p.x+20,y:p.y,vx:-350,vy:0,damage:20,kind:'pistol',owner:'',life:2}];
+   step(g,{},1/60);
+  }
+  if(name==='dash'){step(g,{solo:{dash:1,mx:1}},1/60);for(let n=0;n<5;n++){paint(1/60);step(g,{solo:{mx:1}},1/60);}}
+  if(name==='scrap'){
+   p.weapon='longsword';p.damage=100;g.enemies=[];
+   for(let n=0;n<12;n++)spawnEnemy(g,'bow',p.x+35+n%3*10,p.y+(n%5-2)*10).cooldown=100;
+   spawnEnemy(g,'bow',780,120).cooldown=100;
+   step(g,{solo:{attack:true,angle:0}},1/60);
+  }
+  if(name==='explosion'){event(g,'explosion',540,310,'','', 'boss','impact').radius=145;}
+  if(name==='boss'){g.enemies=[];const boss=spawnEnemy(g,'boss',p.x+50,p.y);boss.cooldown=100;p.damage=1000;step(g,{solo:{attack:true,angle:0}},1/60);}
+  if(name==='reward'){g.phase='upgrade';p.offers=UPGRADES.slice(0,3).map(u=>u.id);}
+  if(name==='heavy'||name==='crowded'){
+   for(let n=0;n<3;n++){const ally=player('ally'+n,'Ally');ally.x=200+n*160;ally.y=220;ally.slot=n+1;g.players.push(ally);}
+   for(let n=0;n<(name==='heavy'?180:32);n++)spawnEnemy(g,'brawler',60+n%20*40,80+Math.floor(n/20)*40);
+   for(let n=0;n<(name==='heavy'?200:80);n++)g.bullets.push({id:1000+n,x:40+n%20*40,y:40+Math.floor(n/20)*40,vx:100,vy:20,kind:'bow',owner:n%2?'':'solo',life:2});
+   for(let n=0;n<65;n++)event(g,n%2?'perfect':'explosion',80+n%12*60,120+Math.floor(n/12)*60,'',n%4?'ally0':'solo').radius=80;
+  }
+  paint(.016);window.preview.ready=true;
+ });
+}
+window.preview={ready:false,setup,unlock(){draw.unlockAudio();},advance(dt=.016){paint(dt);},stats(){return {scrap:g.scrap,time:g.time,players:g.players.length,events:g.events.length,particles:draw.particles.length,rings:draw.rings.length,ghosts:draw.feedback?.ghosts.length,flights:draw.feedback?.flights.length,lastEvent:draw.lastEvent,reducedMotion:draw.reducedMotion,voices:draw.feedbackAudio?.voices.length,arrivals:draw.feedback?.arrivals,frameMs:frames};},start(){paused=false;draw.unlockAudio();},stop(){paused=true;},parry(){p.invuln=0;p.parryLeft=.2;p.parryAge=0;hitPlayer(g,p,10,true,0);paint(.016);}};
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!paused){step(g,{},dt);const start=performance.now();paint(dt);frames.push(performance.now()-start);if(frames.length>240)frames.shift();}requestAnimationFrame(loop);}
+setup(new URLSearchParams(location.search).get('scene')||'perfect');requestAnimationFrame(loop);
+}
+</script></body></html>

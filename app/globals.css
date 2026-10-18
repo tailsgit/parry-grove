@@ -87,3 +87,28 @@ body{background:#122b29}.game-screen{width:100%;height:100svh;padding:0;color:#f
 @media(max-width:380px){.arena-ui .room-hud{top:150px}.arena-ui .party-hud{top:235px}}
 @media(prefers-reduced-motion:reduce){.hud-health-impact{animation:hud-feedback-fade .45s ease-out both}.hud-internal-impact{animation:hud-feedback-fade .65s ease-out both}.hud-loss-pop,.hud-internal-pop{animation:hud-feedback-fade .65s ease-out both}}
 @keyframes hud-feedback-fade{from{opacity:1}to{opacity:0}}
+
+/* Presentation polish: layout, arena anchors and HUD dimensions stay unchanged. */
+.parry-combo{color:var(--combo-color,#d0ffc1)}
+.parry-count{text-shadow:0 0 var(--combo-glow,12px) color-mix(in srgb,var(--combo-color,#baffaa) 65%,transparent),0 3px 0 #346342}
+.parry-burst{border-color:var(--combo-color,#c4ffac)}
+.parry-combo-label{color:var(--combo-color,#baffaa)}
+.parry-combo-timer i{background:var(--combo-color,#baffaa)}
+.scrap-count{transform-origin:left center}
+@media(max-width:580px) and (orientation:portrait){.parry-combo{position:fixed;top:14svh}}
+.game-screen button{transition:transform .16s cubic-bezier(.2,.8,.3,1.4),box-shadow .16s,background .15s,border-color .15s}
+.game-screen button:not(:disabled):hover{box-shadow:0 3px 0 #071e2355;transform:translateY(-1px)}
+.game-screen button:not(:disabled):active{transform:translateY(2px) scale(.975,.95);box-shadow:0 0 0 #071e2300}
+.game-screen .primary,.game-screen .secondary{position:relative;overflow:hidden}
+.game-screen .primary:after,.game-screen .secondary:after{content:'';position:absolute;inset:0;pointer-events:none;background:#fff3c6;opacity:0;transform:scale(.4);transition:opacity .2s,transform .2s;border-radius:inherit}
+.game-screen .primary:active:after,.game-screen .secondary:active:after{opacity:.16;transform:scale(1)}
+.upgrade-card{animation:reward-reveal .32s cubic-bezier(.2,.8,.3,1.2) backwards;animation-delay:var(--reveal-delay,0s)}
+.upgrade-card .upgrade-icon{animation:reward-icon-reveal .4s ease-out backwards;animation-delay:var(--reveal-delay,0s)}
+.upgrade-card.reward-selected{outline:3px solid var(--reward-accent);background:#38543e;opacity:1;animation:reward-selected .3s ease-out both}
+.reward-confirmation{position:absolute;z-index:24;top:12%;left:50%;transform:translateX(-50%);pointer-events:none;display:flex;align-items:center;gap:10px;padding:9px 14px;border:1px solid #efd18b99;border-radius:5px;background:#102f28d9;color:#fff1bb;font:12px monospace;animation:reward-confirm .36s cubic-bezier(.2,.8,.3,1.25) both}
+.reward-confirmation>span{font-size:27px;color:#f0cf88}
+@keyframes reward-reveal{from{opacity:.45;transform:translateY(9px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes reward-icon-reveal{0%{transform:scale(.8);filter:brightness(1)}45%{transform:scale(1.12);filter:brightness(1.3)}100%{transform:scale(1);filter:brightness(1)}}
+@keyframes reward-selected{0%{transform:scale(.96)}50%{transform:scale(1.035)}100%{transform:scale(1)}}
+@keyframes reward-confirm{0%{opacity:0;transform:translateX(-50%) scale(.82)}55%{opacity:1;transform:translateX(-50%) scale(1.08)}100%{opacity:1;transform:translateX(-50%) scale(1)}}
+@media(prefers-reduced-motion:reduce){.game-screen button{transition:background .15s,border-color .15s}.game-screen button:not(:disabled):hover,.game-screen button:not(:disabled):active{transform:none}.upgrade-card,.upgrade-card .upgrade-icon,.upgrade-card.reward-selected,.reward-confirmation{animation:none}.game-screen .primary:after,.game-screen .secondary:after{transition:none;transform:none}}

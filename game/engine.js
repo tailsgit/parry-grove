@@ -48,7 +48,7 @@ export function createGame(players, seed = Date.now()>>>0) {
 }
 export function event(g, kind, x, y, text = '', who = '', sourceKind, weaponAction) {
   const pool=runtime(g).events;if(g.events.length>=70)pool.release(g.events.shift());
-  const e=pool.acquire();e.id=++g.eventSerial;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;e.radius=undefined;e.itemId=undefined;e.sourceKind=sourceKind;e.weaponAction=weaponAction;g.events.push(e);return e;
+  const e=pool.acquire();e.id=++g.eventSerial;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;e.radius=undefined;e.itemId=undefined;e.fx=undefined;e.sourceKind=sourceKind;e.weaponAction=weaponAction;g.events.push(e);return e;
 }
 export function spawnEnemy(g, kind, x, y) {
   const c = ENEMIES[kind]; const scale = (1+g.room*.12 + (g.encounterParty-1)*(isBoss(kind)?.48:.12))*(1+g.room*.035*curseStrength(g,'roomScaling'));
@@ -197,7 +197,7 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity) 
   const missCurse=curseStrength(g,'missedParry',p);if(missCurse&&p.missedParryLeft>0)damage*=1+.25*missCurse;
   if(p.lowHpArmor&&p.hp/p.maxHp<.4)damage*=1-.35*(1-p.hp/(p.maxHp*.4));
   const facing=Math.abs(angleDiff(sourceAngle,p.angle))<B.parryCone;
-  if(p.perfectOnly&&parryable&&p.parryLeft>0&&facing&&p.parryAge>p.perfect){p.parryLeft=0;p.streak=0;p.missedParryLeft=1;event(g,'miss',p.x,p.y,'MISS',p.id);}
+  if(p.perfectOnly&&parryable&&p.parryLeft>0&&facing&&p.parryAge>p.perfect){p.parryLeft=0;p.missedParryLeft=1;event(g,'miss',p.x,p.y,'MISS',p.id);}
   if(parryable&&p.parryLeft>0&&facing) {
     p.parrySuccess=true;
     // Brief successful-parry immunity prevents a single shotgun volley from cashing stored damage immediately.
@@ -210,13 +210,13 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity) 
       if(p.weapon==='sword')p.internal=Math.max(0,p.internal-8);
       if(p.weapon==='longsword')runtime(g).collisionDirty=true;
       if(p.weapon==='longsword')for(const e of g.enemies)if(distance(e,p)<130)move(g,e,Math.cos(Math.atan2(e.y-p.y,e.x-p.x))*35,Math.sin(Math.atan2(e.y-p.y,e.x-p.x))*35,15);
-      if(p.stunNova||p.mirror||p.parryHeal)perfectTraits(g,p);event(g,'perfect',p.x,p.y,`PERFECT ×${p.streak}`,p.id);return 'perfect';
+      if(p.stunNova||p.mirror||p.parryHeal)perfectTraits(g,p);event(g,'perfect',p.x,p.y,`PERFECT ×${p.streak}`,p.id).fx={angle:sourceAngle,x:p.x+Math.cos(sourceAngle)*20,y:p.y+Math.sin(sourceAngle)*20};return 'perfect';
     }
     damageHealth(p,damage*B.regularChip*(1-p.armor));
     if(p.longIframes)p.invuln=Math.max(p.invuln,B.hurtIframes+.18);
     p.internal=clamp(p.internal+damage*B.regularStored*(1-p.armor),0,B.internalMax);
     p.lastRegular=g.time;p.regulars++;
-    event(g,'regular',p.x,p.y,'REGULAR',p.id);return 'regular';
+    event(g,'regular',p.x,p.y,'REGULAR',p.id).fx={angle:sourceAngle,x:p.x+Math.cos(sourceAngle)*20,y:p.y+Math.sin(sourceAngle)*20};return 'regular';
   }
   if(!p.perfectOnly&&(p.blocking||(!parryable&&p.guardHeld))&&!p.shieldBroken&&facing) {
     const chip=damage*(1-p.armor)*(1-B.blockReduction);
@@ -233,7 +233,7 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity) 
   return 'hurt';
 }
 function kill(g,e,owner) {
-  if(e.dead)return;e.dead=true;const scrap=Math.max(1,Math.round(scrapFor(e)*(1-.2*curseStrength(g,'lessScrap'))));if(g.runSystems)g.scrap+=scrap;event(g,'kill',e.x,e.y,g.runSystems?`+${scrap} SCRAP`:'',owner?.id);
+  if(e.dead)return;e.dead=true;const scrap=Math.max(1,Math.round(scrapFor(e)*(1-.2*curseStrength(g,'lessScrap'))));if(g.runSystems)g.scrap+=scrap;event(g,'kill',e.x,e.y,g.runSystems?`+${scrap} SCRAP`:'',owner?.id).fx={amount:g.runSystems?scrap:0,boss:isBoss(e.kind),targetId:e.id};
   if(owner) {owner.kills++;if(owner.dashReset)owner.dashCd=0;owner.noKillTimer=0;owner.xp++;
     if(owner.vampire)owner.hp=Math.min(owner.maxHp,owner.hp+owner.maxHp*owner.vampire);
     if(owner.xp>=xpRequired(owner.level)){owner.xp-=xpRequired(owner.level);owner.level++;owner.maxHp+=Math.floor(10*(owner.healthFactor??1));owner.hp=Math.min(owner.maxHp,owner.hp+owner.maxHp*.15);owner.damage+=.05;event(g,'level',owner.x,owner.y,`LEVEL ${owner.level}`,owner.id);}
@@ -241,7 +241,7 @@ function kill(g,e,owner) {
 }
 function melee(g,p) {
   const w=WEAPONS[p.weapon],slow=curseStrength(g,'missedSwing',p);p.attackCd=w.cooldown*(p.attackBoostLeft>0?.7:1)*(p.attackSlowLeft>0?1+.55*slow:1);p.swing=.15;
-  event(g,'swing',p.x,p.y,'',p.id);
+  event(g,'swing',p.x,p.y,'',p.id).fx={angle:p.angle};
   let n=0;
   const candidates=runtime(g).melee;candidates.length=0;for(const e of g.enemies)if(e.hp>0&&distance(e,p)<=w.range+29)candidates.push(e);
   candidates.sort((a,b)=>distance(a,p)-distance(b,p));
@@ -260,7 +260,8 @@ function melee(g,p) {
     }
     let d=ENEMIES[e.kind].invulnerable?0:p.name==='hacker'?e.hp:w.damage*p.damage*(1+p.streak*B.streakBonus)*(e.stun>0?1+(p.stunDamage||0):1)*hitDamageScale(p)*crowdBonus*(p.dashCounterReady?2:1);if(d&&p.dashCounterReady)p.dashCounterReady=false;e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
     if(p.bleed&&d){e.bleedLeft=Math.max(e.bleedLeft,3);e.bleedDps=Math.max(e.bleedDps||0,2*p.damage);e.bleedOwner=p.id;}
-    event(g,'hit',e.x,e.y,d===0&&ENEMIES[e.kind].invulnerable?'IMMUNE':`${Math.round(d)}`,p.id,undefined,d>0?'melee':undefined);
+    const contactAngle=Math.atan2(e.y-p.y,e.x-p.x),contactDistance=Math.max(0,gap-radius);
+    event(g,'hit',e.x,e.y,d===0&&ENEMIES[e.kind].invulnerable?'IMMUNE':`${Math.round(d)}`,p.id,undefined,d>0?'melee':undefined).fx={targetId:e.id,angle:p.angle+(p.weapon==='dagger'?0:Math.PI/2),x:p.x+Math.cos(contactAngle)*contactDistance,y:p.y+Math.sin(contactAngle)*contactDistance,weight:Math.min(1.6,d/w.damage)};
     if(e.hp<=0)kill(g,e,p);
     if(++n>=w.targets)break;
   }
@@ -343,13 +344,13 @@ function fire(g,e,p) {
 export function chooseUpgrade(g,id,upgradeId) {
   const p=g.players.find(p=>p.id===id),u=UPGRADES.find(u=>u.id===upgradeId);
   if(g.phase!=='upgrade'||!p||p.hp<=0||p.chosen||!p.offers.includes(upgradeId)||!u)return false;
-  u.apply(p);p.upgrades.push(upgradeId);p.chosen=true;event(g,'upgrade',p.x,p.y,u.name,p.id);return true;
+  u.apply(p);p.upgrades.push(upgradeId);p.chosen=true;event(g,'upgrade',p.x,p.y,u.name,p.id).itemId=upgradeId;return true;
 }
 export function stepPlayer(g,p,i,dt,locked=false){
     for(const k of PLAYER_TIMERS)p[k]=Math.max(0,(p[k]||0)-dt);
     if(p.magnetLeft>0)p.magnetLeft=Math.max(0,p.magnetLeft-dt);
     if(!p.streakLeft)p.streak=0;
-    if(p.parryLeft>0){p.parryLeft-=dt;p.parryAge+=dt;if(p.parryLeft<=0&&!p.parrySuccess){p.streak=0;if(curseStrength(g,'missedParry',p))p.missedParryLeft=1.1;event(g,'miss',p.x,p.y,'MISS',p.id);}}
+    if(p.parryLeft>0){p.parryLeft-=dt;p.parryAge+=dt;if(p.parryLeft<=0&&!p.parrySuccess){if(curseStrength(g,'missedParry',p))p.missedParryLeft=1.1;event(g,'miss',p.x,p.y,'MISS',p.id);}}
     if(p.hp<=0){p.dashBufferLeft=0;p.parryBufferLeft=0;p.meleeBufferLeft=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;p.seenAttack=i.attackPress||0;return;}
     if(locked){p.blocking=false;p.guardHeld=false;p.dashLeft=0;p.vx=0;p.vy=0;p.dashBufferLeft=0;p.parryBufferLeft=0;p.meleeBufferLeft=0;p.seenParry=i.parry||0;p.seenDash=i.dash||0;p.seenAttack=i.attackPress||0;return;}
     if(Number.isFinite(i.angle))p.angle=i.angle;
@@ -359,9 +360,9 @@ export function stepPlayer(g,p,i,dt,locked=false){
     if(p.stun>0){p.blocking=false;p.guardHeld=false;p.vx=0;p.vy=0;return;}
     const previousX=p.x,previousY=p.y;
     let mx=clamp(i.mx||0,-1,1),my=clamp(i.my||0,-1,1),norm=Math.hypot(mx,my)||1;mx/=norm;my/=norm;
-    if(p.dashBufferLeft>0&&!p.dashCd){p.dashBufferLeft=0;p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id);dashPulse(g,p);}
+    if(p.dashBufferLeft>0&&!p.dashCd){p.dashBufferLeft=0;p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id).fx={angle:Math.atan2(p.dy,p.dx)};dashPulse(g,p);}
     if(p.parryBufferLeft>0&&!p.parryCd){p.parryBufferLeft=0;const short=curseStrength(g,'shortParry',p);p.parryCd=B.parryCooldown;p.parryLeft=WEAPONS[p.weapon].parry*(1-.12*short);if(p.perfectOnly)p.parryLeft=Math.min(p.parryLeft,p.perfect);p.parryAge=0;p.parrySuccess=false;event(g,'guard',p.x,p.y,'',p.id);}
-    if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);if(p.fireTrail){p.fireTrailClock=(p.fireTrailClock||0)-dt;if(p.fireTrailClock<=0){const flame=hazard(g,p.x,p.y,18,.8,0,'fire');flame.owner=p.id;p.fireTrailClock=.07;}}p.dashLeft-=dt;p.dashAge+=dt;if(p.dashLeft<=0){dashPulse(g,p);if(curseStrength(g,'dashSlow',p))p.dashSlowLeft=.8;}}
+    if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);if(p.fireTrail){p.fireTrailClock=(p.fireTrailClock||0)-dt;if(p.fireTrailClock<=0){const flame=hazard(g,p.x,p.y,18,.8,0,'fire');flame.owner=p.id;p.fireTrailClock=.07;}}p.dashLeft-=dt;p.dashAge+=dt;if(p.dashLeft<=0){event(g,'dashend',p.x,p.y,'',p.id).fx={angle:Math.atan2(p.dy,p.dx)};dashPulse(g,p);if(curseStrength(g,'dashSlow',p))p.dashSlowLeft=.8;}}
     else {const severity=curseStrength(g,'dashSlow',p),slow=severity&&p.dashSlowLeft>0?Math.max(.35,1-.22*severity):1;move(g,p,mx*B.speed*p.speed*slow*(i.guard&&!p.shieldBroken&&p.parryLeft<=0&&!p.perfectOnly?B.blockSpeed:1)*dt,my*B.speed*p.speed*slow*(i.guard&&!p.shieldBroken&&p.parryLeft<=0&&!p.perfectOnly?B.blockSpeed:1)*dt);}
     p.guardHeld=i.guard===true&&p.dashLeft<=0&&!p.perfectOnly;
     p.blocking=i.guard===true&&!p.shieldBroken&&p.parryLeft<=0&&p.dashLeft<=0&&!p.perfectOnly;
@@ -504,6 +505,7 @@ export function step(g,inputs,dt) {
         b.vx=Math.cos(a)*s;b.vy=Math.sin(a)*s;b.owner=p.id;b.damage*=(outcome==='perfect'?2:1)*(p.returnPower||1);b.life=4;b.reflected=true;b.chillTarget=!!p.chillParry;b.chainLeft=chaotic?1:0;b.lastHit=undefined;
         b.target=(b.kind==='homing'?deflectionTarget(g,b,a):null)?.id??null;b.attachMagnet=b.kind==='magnet';
         b.x=p.x+Math.cos(a)*24;b.y=p.y+Math.sin(a)*24;
+        event(g,'reflect',b.x,b.y,'',p.id).fx={bulletId:b.id,angle:Math.atan2(b.vy,b.vx)};
       }else if(b.thrower){b.contactPlayer=p.id;b.contactAt=g.time+.35;}else b.life=0;
         break;
       }
@@ -528,7 +530,7 @@ export function step(g,inputs,dt) {
       }
       h.remaining-=dt;
     }else{
-      h.remaining-=dt;if(h.remaining<=0&&!h.done){h.done=true;event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact');for(const p of alive)if(distance(p,h)<h.r+B.radius){if(h.dashOnly)dashBlast(g,p,h.damage,LEVEL2_API);else hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x));}}
+      h.remaining-=dt;if(h.remaining<=0&&!h.done){h.done=true;event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact').radius=h.r;for(const p of alive)if(distance(p,h)<h.r+B.radius){if(h.dashOnly)dashBlast(g,p,h.damage,LEVEL2_API);else hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x));}}
     }
   }
   compact(g.hazards,liveHazard,r.hazards);compact(g.bullets,liveBullet,r.bullets);compact(g.enemies,liveEnemy,r.enemies);

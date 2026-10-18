@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { vitalityChange } from './hud-feedback.js';
+import { FEEL } from './feel-config.js';
 import { BALANCE } from './config.js';
 
 const percent=(value,max)=>Math.max(0,Math.min(100,value/max*100));
@@ -49,8 +50,8 @@ export function PerfectParryHud({player:p}){
   if(p.hp<=0||p.streak<=0||p.streakLeft<=0)return null;
   // Dagger grants two damage-bonus stacks per parry; show actual parries.
   const count=Math.ceil(p.streak/(p.weapon==='dagger'?2:1));
-  const intensity=Math.min(5,count-1);
-  return <div className="parry-combo" style={{'--combo-size':`${76+intensity*5}px`,'--combo-burst':1.65+intensity*.1}} aria-label={`${count} consecutive perfect ${count===1?'parry':'parries'}`}>
+  const intensity=Math.min(FEEL.streakCap-1,count-1);
+  return <div className="parry-combo" style={{'--combo-size':`${76+intensity*5}px`,'--combo-burst':1.65+intensity*.1,'--combo-color':`hsl(${112-intensity*3} ${70+intensity*6}% ${83-intensity*4}%)`,'--combo-glow':`${12+intensity*3}px`}} aria-label={`${count} consecutive perfect ${count===1?'parry':'parries'}`}>
     <div className="parry-impact" key={p.perfects}>
       <span className="parry-burst" aria-hidden="true"/>
       <strong className="parry-count">{count}</strong>

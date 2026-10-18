@@ -189,7 +189,7 @@ not a competitive action-game backend.
   Moonlit Marsh, and Brass Foundry. Random cover changes each encounter.
 - Perfect means the first 90ms after pressing parry. The guard covers a forward
   130-degree half-angle; attacks from behind bypass it. Streaks end after 3s
-  without a perfect parry, a missed guard, a regular parry, or an unguarded hit.
+  without a perfect parry or when health actually drops. Missed guards, attacks, dashes, and zero-damage contacts preserve the streak.
 - Default dash lasts 160ms with 100ms immunity. Upgrades can extend immunity to
   300ms and extend dash duration as needed so that increased immunity is usable.
 - Dagger perfect parries add two streak counts; Sword clears 8 internal damage;
@@ -384,3 +384,7 @@ Bought items fly toward the player; shared funds and stock update immediately.
 One copy is purchased per contact; step off and return to buy another remaining
 copy. Full-health tonics, full-shield repairs and owned relics never charge you.
 The host leaves by walking through the right-hand combat door.
+
+## Game-feel polish
+
+See [the feedback inventory, implementation notes, captures, and validation](docs/game-feel.md). Presentation tuning lives in `game/feel-config.js`; combat balance remains in `game/config.js`.
