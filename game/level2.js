@@ -179,7 +179,7 @@ export function specialHazard(g,h,dt,alive,api){
   if(h.kind==='mineBlast'){
     h.remaining-=dt;
     if(h.remaining<=0&&!h.done){
-      h.done=true;h.kind='mineExplosion';h.remaining=-.01;api.event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact');
+      h.done=true;h.kind='mineExplosion';h.remaining=-.01;api.event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact').radius=h.r;
       for(const p of alive)if(api.distance(p,h)<h.r+B.radius)api.hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x));
     }
     return true;
@@ -190,7 +190,7 @@ export function specialHazard(g,h,dt,alive,api){
     let impact=wall;
     for(const e of g.enemies)if(e.hp>0&&e.x>Math.min(x,h.x)-20&&e.x<Math.max(x,h.x)+20&&e.y>Math.min(y,h.y)-20&&e.y<Math.max(y,h.y)+20&&pointSegmentDistance(e.x,e.y,x,y,h.x,h.y)<(e.kind==='boss'||e.kind==='twinBomber'||e.kind==='twinRicochet'?29:18)+8){impact=true;break;}
     if(impact||h.remaining<=0){
-      h.kind='mineProjectileBlast';h.remaining=.2;h.total=.2;h.done=true;api.event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact');
+      h.kind='mineProjectileBlast';h.remaining=.2;h.total=.2;h.done=true;api.event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact').radius=h.r;
       for(const e of g.enemies){
         if(e.hp<=0||ENEMIES[e.kind].invulnerable||api.distance(e,h)>h.r||frontShield(e,h.x,h.y))continue;
         const owner=g.players.find(p=>p.id===h.owner),damage=owner?.name==='hacker'?e.hp:h.damage;e.hp-=damage;api.event(g,'hit',e.x,e.y,`${Math.round(damage)}`,owner?.id);if(e.hp<=0)api.kill(g,e,owner);
