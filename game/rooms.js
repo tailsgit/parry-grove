@@ -16,7 +16,7 @@ export function advanceRoom(r,now) {
   }
   r.lastTick=now;
 }
-export function applyAction(r,m,payload,now) {
+export function applyAction(r,m,payload,now,authorization={allowAdmin:false}) {
   const a=payload.action;
   if(a==='ready'){if(r.game)throw Error('The run has already begun.');m.ready=!m.ready;}
   if(a==='weapon'){if(r.game)throw Error('Choose your weapon in the lobby.');if(WEAPONS[payload.weapon])m.weapon=payload.weapon;}
@@ -40,6 +40,7 @@ export function applyAction(r,m,payload,now) {
     r.game=null;r.inputs={};r.members.forEach(m=>m.ready=false);
   }
   if(a==='admin'){
+    if(!authorization.allowAdmin)throw Error('Developer controls are disabled on this server.');
     if(m.id!==r.host)throw Error('Only the host can use admin controls.');
     if(!r.game)throw Error('Start a run before using admin controls.');
     if(payload.operation==='teleport'){

@@ -6,6 +6,7 @@ const COUNTS={cluster:14,bounce:3,magnet:8,land:5,explosion:28,shieldbreak:16,en
 const COLORS_BY_KIND={explosion:'#ffbf67',enemyparry:'#d7a2ff',shieldbreak:'#a6daff',block:'#a6daff',hurt:'#ff9b91',miss:'#e4b18d'};
 
 export function processFeedback(r,e,g,me){
+  if(e.kind==='miss'){if(e.who!==me||g.time-(r.lastMissAt??-10)<FEEL.missGap)return;r.lastMissAt=g.time;e={...e,text:'NO CONTACT',y:e.y-40};}
   const listener=g.players.find(p=>p.id===me),scale=effectScale(e,listener),profile=impactProfile(e),f=e.fx||{};
   const volume=scale*(e.kind==='swing'?.65:1);
   if(e.sourceKind&&e.weaponAction){if(!r.muted)r.enemyAudio?.play(e,listener,g.width);}
@@ -46,7 +47,7 @@ export function processFeedback(r,e,g,me){
   }
   if(e.kind==='explosion')for(let i=0;i<Math.ceil(5*scale);i++)r.addParticle(e.x,e.y,(Math.random()-.5)*50,-20-Math.random()*30,'#807763');
   // The central DOM streak replaces the old second PERFECT label at the player.
-  if(e.text&&e.kind!=='perfect'&&e.kind!=='upgrade'&&!(e.kind==='kill'&&f.amount>0))r.addLabel(e,color);
+  if(e.text&&e.kind!=='perfect'&&e.kind!=='upgrade'&&e.kind!=='kitpickup'&&!(e.kind==='kill'&&f.amount>0))r.addLabel(e,color);
 }
 
 export function drawGhosts(r,c,g,me){

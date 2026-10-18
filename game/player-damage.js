@@ -2,5 +2,5 @@
 export function damageHealth(p,amount){
   const before=p.hp;
   p.hp=Math.max(0,p.hp-Math.max(0,amount));
-  if(p.hp<before)p.streak=0;
+  if(p.hp<before){p.healthDamageTotal=(p.healthDamageTotal||0)+before-p.hp;p.streak=0;}
 }

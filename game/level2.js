@@ -180,7 +180,7 @@ export function specialHazard(g,h,dt,alive,api){
     h.remaining-=dt;
     if(h.remaining<=0&&!h.done){
       h.done=true;h.kind='mineExplosion';h.remaining=-.01;api.event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact').radius=h.r;
-      for(const p of alive)if(api.distance(p,h)<h.r+B.radius)api.hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x));
+      for(const p of alive)if(api.distance(p,h)<h.r+B.radius)api.hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x),undefined,h.sourceKind);
     }
     return true;
   }
@@ -215,5 +215,5 @@ export function specialHazard(g,h,dt,alive,api){
 function pointSegmentDistance(px,py,ax,ay,bx,by){const dx=bx-ax,dy=by-ay,t=clamp(((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(px-ax-dx*t,py-ay-dy*t);}
 export function dashBlast(g,p,damage,api){
   if(p.hp<=0||p.dashLeft>0&&p.dashAge<p.dashIframes)return 'immune';
-  const low=p.lowHpArmor&&p.hp/p.maxHp<.4?.35*(1-p.hp/(p.maxHp*.4)):0,total=damage*(1-p.armor-low)+p.internal;damageHealth(p,total);p.internal=0;p.invuln=B.hurtIframes+(p.longIframes?.18:0);api.event(g,'hurt',p.x,p.y,`−${Math.ceil(total)}`,p.id);if(!p.hp)api.event(g,'death',p.x,p.y,'DOWN',p.id);return 'hurt';
+  const low=p.lowHpArmor&&p.hp/p.maxHp<.4?.35*(1-p.hp/(p.maxHp*.4)):0,total=damage*(1-p.armor-low)+p.internal;damageHealth(p,total);p.internal=0;p.invuln=B.hurtIframes+(p.longIframes?.18:0);api.event(g,'hurt',p.x,p.y,`−${Math.ceil(total)}`,p.id);if(!p.hp){p.deathInfo={time:g.time,room:g.room+1,area:(g.stage??0)+1,cause:'DASH ONLY explosion'};api.event(g,'death',p.x,p.y,'DOWN',p.id);}return 'hurt';
 }

@@ -20,7 +20,7 @@ type RealtimeRoom = {
 function compactGame(game: Game | null) {
   if (!game) return null;
   const pick = (values: Record<string,unknown>[], fields: string[]) => values.map(value => Object.fromEntries(fields.filter(key => value[key] !== undefined).map(key => [key,value[key]])));
-  const playerFields = ['id','name','weapon','slot','x','y','angle','hp','maxHp','internal','level','xp','shieldDamage','shieldBroken','magnetLeft','damage','speed','armor','perfect','dashLeft','dashCd','dx','dy','invuln','swing','blocking','stun','vx','vy','streak','streakLeft','parryCd','parryLeft','parryAge','upgrades','curses','crystals','offers','chosen','kills','perfects','regulars','kitId','healthFactor','shopContacts','vendorOpen','altarOpen','altarUsed','stunBonus','areaScale','returnPower','dashPulse','stunDamage','parryHeal','stunNova','thunderStep','mirror','echoBlade','momentumDamage','lowHpDamage','lowHpArmor','perfectOnly','dashCounterReady','attackBoostLeft','missedParryLeft','dashSlowLeft','noKillTimer','lastParryTime','parryCrystals'];
+  const playerFields = ['id','name','weapon','slot','x','y','angle','hp','maxHp','internal','level','xp','shieldDamage','shieldBroken','magnetLeft','damage','speed','armor','perfect','dashLeft','dashCd','dx','dy','invuln','swing','blocking','stun','vx','vy','streak','streakLeft','parryCd','parryLeft','parryAge','upgrades','curses','crystals','offers','chosen','kills','perfects','regulars','kitId','healthDamageTotal','deathInfo','healthFactor','shopContacts','vendorOpen','altarOpen','altarUsed','stunBonus','areaScale','returnPower','dashPulse','stunDamage','parryHeal','stunNova','thunderStep','mirror','echoBlade','momentumDamage','lowHpDamage','lowHpArmor','perfectOnly','dashCounterReady','attackBoostLeft','missedParryLeft','dashSlowLeft','noKillTimer','lastParryTime','parryCrystals'];
   const enemyFields = ['id','kind','x','y','hp','maxHp','angle','tell','tellTotal','danger','action','swing','guardLeft','stun','recoil','mineState','mineTimer','primed','repositionLeft','repositionX','repositionY','elite','bleedLeft','burnLeft','chillLeft'];
   const bulletFields = ['id','x','y','vx','vy','kind','owner','radius','unparryable','ricochet','thrower','wave','waveAge','chainLeft','reflected','lastHit','chillTarget'];
   const hazardFields = ['id','kind','x','y','r','remaining','total','dashOnly','sx','sy','ex','ey','flight','armed','triggerRadius','owner','damage'];
@@ -79,7 +79,7 @@ export class RoomRealtime extends DurableObject<Cloudflare.Env> {
         const member = this.room?.members.find(value => value.id === body.id && value.token === body.token);
         if (!member || !this.room?.game) return Response.json({error:'You have disconnected. Join a new lobby.'},{status:401});
         const now=Date.now();member.lastSeen=now;
-        if(['admin','kit','route','buy','sacrifice','vendorClose'].includes(body.action||''))applyAction(this.room,member,body,now);
+        if(['admin','kit','route','buy','sacrifice','vendorClose'].includes(body.action||''))applyAction(this.room,member,body,now,{allowAdmin:this.env.ENABLE_DEV_TOOLS==='true'});
         else if(body.action==='leave')applyAction(this.room,member,{action:'leave'},now);
         else this.room.inputs[member.id]=cleanInput(body.input||{});
         advanceRoom(this.room,now);this.revision++;

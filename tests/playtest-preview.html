@@ -1,0 +1,4 @@
+<!doctype html><html><head><link rel="stylesheet" href="/app/globals.css"></head><body><div id="app"></div><script type="module">
+import React from 'react';import {createRoot} from 'react-dom/client';import Game from '../game/Game.jsx';import {Renderer} from '../game/renderer.js';import * as engine from '../game/engine.js';import * as run from '../game/run-content.js';
+window.qa={engine,run,Renderer};createRoot(document.getElementById('app')).render(React.createElement(Game));
+</script></body></html>

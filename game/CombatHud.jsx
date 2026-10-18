@@ -6,10 +6,10 @@ import { BALANCE } from './config.js';
 const percent=(value,max)=>Math.max(0,Math.min(100,value/max*100));
 
 export function PlayerHud({player:p,network,scrap}){
-  const previous=useRef({id:p.id,hp:p.hp,internal:p.internal});
+  const previous=useRef({id:p.id,hp:p.hp,internal:p.internal,kitId:p.kitId,healthDamageTotal:p.healthDamageTotal});
   const [feedback,setFeedback]=useState({health:0,internal:0,loss:0,gain:0});
   useEffect(()=>{
-    const next={id:p.id,hp:p.hp,internal:p.internal};
+    const next={id:p.id,hp:p.hp,internal:p.internal,kitId:p.kitId,healthDamageTotal:p.healthDamageTotal};
     const change=vitalityChange(previous.current,next);
     const changedPlayer=previous.current.id!==next.id;
     previous.current=next;
@@ -19,7 +19,7 @@ export function PlayerHud({player:p,network,scrap}){
       internal:old.internal+(change.internalGain>0?1:0),
       loss:change.healthLoss||old.loss,gain:change.internalGain||old.gain,
     }));
-  },[p.id,p.hp,p.internal]);
+  },[p.id,p.hp,p.internal,p.kitId,p.healthDamageTotal]);
   const hp=Math.max(0,Math.min(p.maxHp,p.hp)),internal=Math.min(hp,Math.max(0,p.internal));
   const shield=Math.max(0,BALANCE.shieldCapacity-(p.shieldDamage||0));
   return <div className="game-hud compact-hud" aria-label="Player status">

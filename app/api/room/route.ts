@@ -37,13 +37,13 @@ export async function POST(request: Request) {
       }
       if(m)m.lastSeen=now;
       // Apply fresh controls before bounded catch-up to avoid another polling interval of input delay.
-      if(m&&body.action==='input')applyAction(r,m,body,now);
+      if(m&&body.action==='input')applyAction(r,m,body,now,{allowAdmin:env.ENABLE_DEV_TOOLS==='true'});
       advanceRoom(r,now);
       if(body.action==='join') {
         if(r.game)return Response.json({error:'This room is already in a run. Wait for the lobby.'},{status:409});
         if(r.members.length>=4)return Response.json({error:'This room is full (4 players).'}, {status:409});
         m=member(body.name,body.weapon,now);m.slot=[0,1,2,3].find(s=>!r.members.some((p:{slot:number})=>p.slot===s))||0;r.members.push(m);if(!r.host)r.host=m.id;
-      }else if(body.action!=='input')applyAction(r,m,body,now);
+      }else if(body.action!=='input')applyAction(r,m,body,now,{allowAdmin:env.ENABLE_DEV_TOOLS==='true'});
       const changed=await db.prepare('UPDATE game_rooms SET state = ?, revision = revision + 1, updated_at = ? WHERE code = ? AND revision = ?').bind(JSON.stringify(r),now,code,row.revision).run();
       if(changed.meta.changes)return Response.json({...publicRoom(code,r,row.revision+1),...(body.action==='join'?{session:{id:m.id,token:m.token}}:{})},{headers:{'Cache-Control':'no-store'}});
     }

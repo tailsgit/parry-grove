@@ -2,7 +2,7 @@
 export function vitalityChange(before,after){
   if(!before||before.id!==after.id)return {healthLoss:0,internalGain:0};
   return {
-    healthLoss:Math.max(0,before.hp-after.hp),
+    healthLoss:Number.isFinite(after.healthDamageTotal)&&Number.isFinite(before.healthDamageTotal)?Math.max(0,after.healthDamageTotal-before.healthDamageTotal):before.kitId!==after.kitId?0:Math.max(0,before.hp-after.hp),
     internalGain:Math.max(0,after.internal-before.internal),
   };
 }

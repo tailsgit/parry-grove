@@ -35,7 +35,7 @@ export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 export const angleDiff = (a,b) => Math.atan2(Math.sin(a-b),Math.cos(a-b));
 export function random(g) { g.seed = (Math.imul(g.seed,1664525)+1013904223)>>>0; return g.seed/4294967296; }
 export function player(id, name, weapon = 'sword', slot = 0) {
-  return { id, name, weapon, slot, x: 160, y: 260, angle: 0, hp: B.hp, maxHp: B.hp, internal: 0, level: 1, xp: 0,
+  return { id, name, weapon, slot, x: 160, y: 260, angle: 0, hp: B.hp, maxHp: B.hp, healthDamageTotal:0, internal: 0, level: 1, xp: 0,
     damage: 1, speed: 1, armor: 0, cleanse: B.meleeCleanse, perfect: B.perfectWindow,
     dashPower: 1, dashIframes: B.dashIframes, dashTime: B.dashTime,
     attackCd: 0, parryCd: 0, dashCd: 0, parryLeft: 0, parryAge: 0, parrySuccess: false, dashLeft: 0, dashAge: 0,
@@ -190,8 +190,9 @@ function perfectTraits(g,p){
   if(p.stunNova)combatPulse(g,p,0,110,B.enemyMeleeStun+(p.stunBonus||0));
   if(p.mirror){let target=null,gap=Infinity;for(const e of g.enemies)if(e.hp>0&&distance(e,p)<gap){target=e;gap=distance(e,p);}const a=target?Math.atan2(target.y-p.y,target.x-p.x):p.angle;const count=p.mirrorShots||3;for(let i=0;i<count;i++){const aim=a+(i-(count-1)/2)*.16,b=bullet(g,p.x+Math.cos(aim)*22,p.y+Math.sin(aim)*22,Math.cos(aim)*440,Math.sin(aim)*440,12*(p.returnPower||1),'bow',false,false,'',4);b.owner=p.id;}}
 }
-export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity) {
+export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity,sourceKind=sourceEntity?.kind) {
   if(p.hp<=0)return 'immune';
+  const healthBefore=p.hp;const recordDeath=()=>{if(healthBefore>0&&p.hp<=0)p.deathInfo={time:g.time,room:g.room+1,area:(g.stage??0)+1,cause:ENEMIES[sourceKind]?.name||'Combat damage'};};
   if(p.dashLeft>0&&p.dashAge<p.dashIframes){if(p.dashCounter)p.dashCounterReady=true;return 'immune';}
   if(p.invuln>0)return 'immune';
   const missCurse=curseStrength(g,'missedParry',p);if(missCurse&&p.missedParryLeft>0)damage*=1+.25*missCurse;
@@ -216,6 +217,7 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity) 
     if(p.longIframes)p.invuln=Math.max(p.invuln,B.hurtIframes+.18);
     p.internal=clamp(p.internal+damage*B.regularStored*(1-p.armor),0,B.internalMax);
     p.lastRegular=g.time;p.regulars++;
+    if(!p.hp){recordDeath();event(g,'death',p.x,p.y,'DOWN',p.id);}
     event(g,'regular',p.x,p.y,'REGULAR',p.id).fx={angle:sourceAngle,x:p.x+Math.cos(sourceAngle)*20,y:p.y+Math.sin(sourceAngle)*20};return 'regular';
   }
   if(!p.perfectOnly&&(p.blocking||(!parryable&&p.guardHeld))&&!p.shieldBroken&&facing) {
@@ -225,11 +227,11 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity) 
     p.shieldDamage=Math.min(B.shieldCapacity,(p.shieldDamage||0)+damage);
     if(p.shieldDamage>=B.shieldCapacity){p.shieldBroken=true;p.blocking=false;event(g,'shieldbreak',p.x,p.y,'SHIELD BROKEN',p.id);}
     event(g,'block',p.x,p.y,`BLOCK −${Math.ceil(chip)}`,p.id);
-    if(!p.hp)event(g,'death',p.x,p.y,'DOWN',p.id);
+    if(!p.hp){recordDeath();event(g,'death',p.x,p.y,'DOWN',p.id);}
     return 'block';
   }
   const total=damage*(1-p.armor)+p.internal;damageHealth(p,total);p.internal=0;p.invuln=B.hurtIframes+(p.longIframes?.18:0);
-  event(g,'hurt',p.x,p.y,`−${Math.ceil(total)}`,p.id); if(!p.hp)event(g,'death',p.x,p.y,'DOWN',p.id);
+  event(g,'hurt',p.x,p.y,`−${Math.ceil(total)}`,p.id); if(!p.hp){recordDeath();event(g,'death',p.x,p.y,'DOWN',p.id);}
   return 'hurt';
 }
 function kill(g,e,owner) {
@@ -493,7 +495,7 @@ export function step(g,inputs,dt) {
       }
       for(const p of alive)if(projectileDistance(b,p,previousX,previousY,b.x,b.y,segmentDistance)<B.radius+(b.radius||3)+2){
       if(b.contactPlayer===p.id&&g.time<(b.contactAt||0))continue;
-      const outcome=b.kind==='magnet'?dartHit(g,b,p,LEVEL2_API):hitPlayer(g,p,b.damage,!b.unparryable,Math.atan2(-b.vy,-b.vx));
+      const outcome=b.kind==='magnet'?dartHit(g,b,p,LEVEL2_API):hitPlayer(g,p,b.damage,!b.unparryable,Math.atan2(-b.vy,-b.vx),undefined,b.kind);
       if(outcome==='immune')continue;
       if(outcome==='perfect'||outcome==='regular') {
         // Preserve the player's aim, with a small correction toward nearby visible enemies.
@@ -526,11 +528,11 @@ export function step(g,inputs,dt) {
       if(h.owner){const owner=g.players.find(p=>p.id===h.owner);for(const e of g.enemies)if(e.hp>0&&segmentDistance(e,h.x,h.y,h.ex,h.ey)<h.r+(isBoss(e.kind)?29:18)&&g.time>=(h.nextHits[e.id]||0)){h.nextHits[e.id]=g.time+.2;const damage=h.damage*(owner?.damage||1)*(owner?hitDamageScale(owner):1);e.hp-=damage;event(g,'hit',e.x,e.y,`${Math.round(damage)}`,owner?.id);if(e.hp<=0)kill(g,e,owner);}}
       else for(const p of alive)if(segmentDistance(p,h.x,h.y,h.ex,h.ey)<h.r+B.radius&&g.time>=(h.nextHits[p.id]||0)){
         h.nextHits[p.id]=g.time+.2;
-        hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x));
+        hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x),undefined,h.sourceKind);
       }
       h.remaining-=dt;
     }else{
-      h.remaining-=dt;if(h.remaining<=0&&!h.done){h.done=true;event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact').radius=h.r;for(const p of alive)if(distance(p,h)<h.r+B.radius){if(h.dashOnly)dashBlast(g,p,h.damage,LEVEL2_API);else hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x));}}
+      h.remaining-=dt;if(h.remaining<=0&&!h.done){h.done=true;event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact').radius=h.r;for(const p of alive)if(distance(p,h)<h.r+B.radius){if(h.dashOnly)dashBlast(g,p,h.damage,LEVEL2_API);else hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x),undefined,h.sourceKind);}}
     }
   }
   compact(g.hazards,liveHazard,r.hazards);compact(g.bullets,liveBullet,r.bullets);compact(g.enemies,liveEnemy,r.enemies);

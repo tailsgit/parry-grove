@@ -1,14 +1,14 @@
 'use client';
-import {KITS,shopPurchaseProblem} from './run-content.js';
+import {KITS,kitDetails,kitAccent,shopPurchaseProblem} from './run-content.js';
 import {WEAPONS,UPGRADES,RARITY_COLORS,BALANCE} from './config.js';
 
 export default function RunPanels({game:g,player:p,host,action}){
   const currentRoom=(g.stage??0)*BALANCE.encounters+g.room;
   if(g.phase==='draft'){
-    const near=g.kits.find(k=>!k.claimedBy&&p&&Math.hypot(p.x-k.x,p.y-k.y)<=80),kit=near&&KITS.find(k=>k.id===near.id);
-    if(p?.kitId)return <div className="draft-wait" role="status">Kit claimed · waiting for your party</div>;
+    const near=g.kits.find(k=>p&&Math.hypot(p.x-k.x,p.y-k.y)<=80),kit=near&&KITS.find(k=>k.id===near.id);
+    if(p?.kitId)return <div className="draft-wait" role="status">{KITS.find(k=>k.id===p.kitId)?.name} equipped · Max HP {p.maxHp} · Shield {BALANCE.shieldCapacity-(p.shieldDamage||0)} · waiting for your party</div>;
     if(!kit)return null;
-    return <section className="draft-tooltip" aria-label="Nearby weapon kit" style={{left:`calc(var(--arena-left, 0px) + var(--arena-width, 100%) * ${near.x/g.width})`,top:`calc(var(--arena-top, 0px) + var(--arena-height, 100%) * ${near.y/g.height} - 60px)`}}><strong>{kit.name}</strong><span>{WEAPONS[kit.weapon].name}</span><p>{kit.desc}</p><button onClick={()=>action('kit',{kit:kit.id})}>Pick up · E</button></section>;
+    return <section className="draft-tooltip" aria-label="Nearby weapon kit" style={{left:`calc(var(--arena-left, 0px) + var(--arena-width, 100%) * ${near.x/g.width})`,top:`calc(var(--arena-top, 0px) + var(--arena-height, 100%) * ${near.y/g.height} - 60px)`}}><strong>{kit.name}</strong><span>{WEAPONS[kit.weapon].name}</span><p style={{borderLeft:`3px solid ${kitAccent(kit.id)}`,paddingLeft:8}}>{kitDetails(kit)}</p>{near.claimedBy&&<small>Claimed by {g.players.find(q=>q.id===near.claimedBy)?.name||'a teammate'} · unavailable</small>}<button disabled={!!near.claimedBy} onClick={()=>action('kit',{kit:kit.id})}>Pick up · E</button></section>;
   }
   if(g.phase==='route')return <p className="route-accessibility" role="status">{host?'Walk through an open door to choose the next room.':'The host chooses the next room by walking through a door.'} {g.routeOptions.includes('continue')&&'Sword at the left: combat.'} {g.routeOptions.includes('altar')&&'Blood altar at the right: choose an upgrade and accept a random curse.'} {g.routeOptions.includes('shop')&&'Coin at the bottom: shop.'}</p>;
   if(g.phase==='shop'){

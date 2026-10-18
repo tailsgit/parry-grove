@@ -18,7 +18,7 @@ test('two WebSocket clients receive the same contact/ownership cues while moveme
   const joined=await post({action:'join',code:host.code,name:'Guest'}),guest={code:host.code,...joined.session};
   await post({action:'ready'},host);await post({action:'ready'},guest);await post({action:'start'},host);
   const row=await db.prepare('SELECT state FROM game_rooms WHERE code = ?').bind(host.code).first(),room=JSON.parse(row.state),g=room.game,p=g.players[0];
-  g.phase='combat';g.intro=0;g.enemies=[];g.obstacles=[];g.time=10;p.x=200;p.y=200;p.invuln=0;
+  g.phase='combat';g.intro=0;g.enemies=[];g.obstacles=[];g.time=10;p.x=200;p.y=200;p.invuln=0;p.shieldDamage=55;p.internal=15;
   g.players[1].x=400;g.players[1].y=300;g.players[1].invuln=0;
   spawnEnemy(g,'bow',700,450).cooldown=100;
   const target=spawnEnemy(g,'bow',240,200);target.hp=1;target.cooldown=100;
@@ -36,7 +36,7 @@ test('two WebSocket clients receive the same contact/ownership cues while moveme
   for(const snapshot of [a.initial,b.initial]){
    const hit=snapshot.game.events.find(e=>e.weaponAction==='melee'),kill=snapshot.game.events.find(e=>e.kind==='kill');
    assert.equal(hit.fx.targetId,target.id);assert.ok(Number.isFinite(hit.fx.angle));assert.equal(kill.fx.amount,8);
-   assert.ok(snapshot.game.players.find(q=>q.id===host.id).streakLeft>0);
+   const local=snapshot.game.players.find(q=>q.id===host.id);assert.ok(local.streakLeft>0);assert.equal(local.shieldDamage,55);assert.equal(local.internal,5);assert.ok(Number.isFinite(local.healthDamageTotal));
   }
   const cursor=new CombatFeedback();for(const e of a.initial.game.events)cursor.accept(e,a.initial.game.time);
   assert.ok(b.initial.game.events.every(e=>!cursor.accept(e,b.initial.game.time)));

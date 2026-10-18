@@ -299,14 +299,29 @@ a mechanics explanation and counterplay advice. Search by name or mechanic,
 or filter by campaign level. Settings pauses solo play; co-op continues.
 Use **Close / Esc** to return to the game.
 
-## Admin controls
+## Developer testing
 
-During a run, open **Settings → Admin controls** to teleport to any campaign
-level and room (room 5 is the boss room), or set your HP from 1 to 1,000,000.
-Teleport preserves stats and upgrades and revives downed players. Setting HP
-above your current maximum raises that maximum and clears internal damage.
-In co-op, only the room host can use these controls: teleport moves the whole
-party, while custom HP changes apply to the host.
+Normal production Settings contains audio, accessibility, controls/HUD help and the enemy encyclopedia.
+The separate developer/test page is opt-in locally:
+
+```sh
+VITE_ENABLE_DEV_TOOLS=true ENABLE_DEV_TOOLS=true npm run dev
+```
+
+The client flag reveals the panel; the independent server binding `ENABLE_DEV_TOOLS=true`
+permits authenticated host actions. Without the server binding, HTTP and Durable Object
+admin actions are denied even to a host. Keep this opt-in restricted to authorized testing.
+The normal production configuration defaults to disabled.
+
+## Safe combat practice
+
+First-time solo players can practice or skip straight to the draft. Replay with
+**Combat practice** on the menu or from menu Settings. Eight short lessons use a
+separate disposable solo world: movement, melee, dash, both parries, held block,
+internal damage and the three-second streak. Progression and rewards never leave
+practice. Completion/skip and effects volume/reduced-motion preferences are saved locally.
+There is no music category, so the volume control affects the existing effects mix.
+See [the playtest fixes and verification](docs/playtest.md).
 
 ## Drafts, Scrap, shops and sacrifices
 

@@ -23,7 +23,7 @@ const server=createServer(async(req,res)=>{
   }else{res.setHeader('Content-Type','text/html');res.end(html);}
  }catch(error){res.statusCode=500;res.end(error.message);}
 });
-const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE||undefined,args:['--no-sandbox','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--autoplay-policy=no-user-gesture-required']});
+const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE||undefined,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--no-zygote','--autoplay-policy=no-user-gesture-required']});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const errors=[],results={};
 try{
@@ -50,7 +50,7 @@ try{
   }
  }
  console.log('Actual client controls');await page.goto(`${url}/?app`);
- await page.getByRole('button',{name:'Play solo ↗'}).click();await page.locator('.game-hud').waitFor();
+ await page.evaluate(()=>localStorage.setItem('parry-grove-practice','skipped'));await page.getByRole('button',{name:'Play solo ↗'}).click();await page.locator('.game-hud').waitFor();
  await page.locator('canvas').focus();await page.keyboard.down('d');await page.waitForTimeout(440);await page.keyboard.up('d');
  if(!await page.getByRole('button',{name:'Pick up · E'}).isVisible()){await page.keyboard.down('d');await page.waitForTimeout(180);await page.keyboard.up('d');}
  await page.getByRole('button',{name:'Pick up · E'}).waitFor();await page.keyboard.press('e');
