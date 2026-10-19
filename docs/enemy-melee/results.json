@@ -1,0 +1,49 @@
+{
+  "poses": [
+    {
+      "kind": "brawler",
+      "contact": {
+        "angle": 0,
+        "tip": 90,
+        "trail": true,
+        "tail": -0.9,
+        "alpha": 0.7,
+        "phase": "strike",
+        "thrust": false,
+        "bash": false
+      }
+    },
+    {
+      "kind": "lancer",
+      "contact": {
+        "angle": 0,
+        "tip": 130,
+        "trail": true,
+        "tail": -0.45,
+        "alpha": 0.7,
+        "phase": "strike",
+        "thrust": true,
+        "bash": false
+      }
+    },
+    {
+      "kind": "riot",
+      "contact": {
+        "angle": 0,
+        "tip": 80,
+        "trail": true,
+        "tail": -0.825,
+        "alpha": 0.7,
+        "phase": "strike",
+        "thrust": false,
+        "bash": true
+      }
+    }
+  ],
+  "stress": {
+    "medianMs": 0.40000000002328306,
+    "p95Ms": 0.9000000000232831,
+    "cache": 63
+  },
+  "pageErrors": []
+}
