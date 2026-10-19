@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { vitalityChange } from './hud-feedback.js';
 import { FEEL } from './feel-config.js';
+import {criticalHealth} from './ui-model.js';
 import { BALANCE } from './config.js';
 
 const percent=(value,max)=>Math.max(0,Math.min(100,value/max*100));
@@ -22,8 +23,8 @@ export function PlayerHud({player:p,network,scrap}){
   },[p.id,p.hp,p.internal,p.kitId,p.healthDamageTotal]);
   const hp=Math.max(0,Math.min(p.maxHp,p.hp)),internal=Math.min(hp,Math.max(0,p.internal));
   const shield=Math.max(0,BALANCE.shieldCapacity-(p.shieldDamage||0));
-  return <div className="game-hud compact-hud" aria-label="Player status">
-    <div className="hud-level">LV {p.level}</div>
+  return <div className={`game-hud compact-hud${criticalHealth(p)?' is-critical':''}`} aria-label="Player status">
+    <div className="hud-level">LV {p.level}{criticalHealth(p)&&<span className="critical-label" role="status">LOW HEALTH</span>}</div>
     <div className="hud-vitals">
     <div className="hud-shield-bar" role="meter" aria-label="Shield" aria-valuemin={0} aria-valuemax={BALANCE.shieldCapacity} aria-valuenow={shield}>
       <i style={{width:`${percent(shield,BALANCE.shieldCapacity)}%`}}/>

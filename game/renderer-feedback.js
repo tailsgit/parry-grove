@@ -6,7 +6,7 @@ const COUNTS={cluster:14,bounce:3,magnet:8,land:5,explosion:28,shieldbreak:16,en
 const COLORS_BY_KIND={explosion:'#ffbf67',enemyparry:'#d7a2ff',shieldbreak:'#a6daff',block:'#a6daff',hurt:'#ff9b91',miss:'#e4b18d'};
 
 export function processFeedback(r,e,g,me){
-  if(e.kind==='miss'){if(e.who!==me||g.time-(r.lastMissAt??-10)<FEEL.missGap)return;r.lastMissAt=g.time;e={...e,text:'NO CONTACT',y:e.y-40};}
+  if(e.kind==='miss'){if(!g.practiceWorld&&!r.coaching)return;if(e.who!==me||g.time-(r.lastMissAt??-10)<FEEL.missGap)return;r.lastMissAt=g.time;e={...e,text:'NO CONTACT',y:e.y-40};}
   const listener=g.players.find(p=>p.id===me),scale=effectScale(e,listener),profile=impactProfile(e),f=e.fx||{};
   const volume=scale*(e.kind==='swing'?.65:1);
   if(e.sourceKind&&e.weaponAction){if(!r.muted)r.enemyAudio?.play(e,listener,g.width);}

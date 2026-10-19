@@ -1,0 +1,9 @@
+{
+  "browserClients": 2,
+  "realServerMeleeClear": true,
+  "sharedRewardBarrier": true,
+  "independentSelections": true,
+  "routeAfterBothConfirm": true,
+  "defaultAdminDenied": true,
+  "pageErrors": []
+}

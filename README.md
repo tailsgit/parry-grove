@@ -403,3 +403,11 @@ The host leaves by walking through the right-hand combat door.
 ## Game-feel polish
 
 See [the feedback inventory, implementation notes, captures, and validation](docs/game-feel.md). Presentation tuning lives in `game/feel-config.js`; combat balance remains in `game/config.js`.
+
+## UI and visual consistency
+
+See [the complete 17-item UI audit, verification and before/after gallery](docs/ui-polish.md).
+Upgrade icons share pixel-style path artwork between menus and world vending.
+Settings includes effects percentage, reduced motion, solo name visibility and optional
+parry coaching. Unsuccessful guards stay quiet by default; practice teaches timing.
+Reward confirmation is local presentation, with server rewards still applied immediately.

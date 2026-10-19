@@ -1,0 +1,26 @@
+{
+  "rewardSelectionAndInputGate": true,
+  "physicalRoute": true,
+  "spaceSelectDoesNotDash": true,
+  "rarityAndWrapping": true,
+  "kitRows": 8,
+  "criticalRecovery": true,
+  "settingsAndHelp": true,
+  "endedInventory": true,
+  "controlledCampaignRooms": [
+    "0:0",
+    "0:1",
+    "0:2",
+    "0:3",
+    "0:4",
+    "1:0",
+    "1:1",
+    "1:2",
+    "1:3",
+    "1:4"
+  ],
+  "controlledCampaignComplete": true,
+  "practiceDashWithoutClick": true,
+  "practiceShortViewport": true,
+  "pageErrors": []
+}

@@ -1,0 +1,54 @@
+{
+  "menuPortraits": 19,
+  "practiceCompleted": true,
+  "practiceReplayAndSkip": true,
+  "kits": [
+    {
+      "kit": "fractured",
+      "maxHp": 100,
+      "shield": 55
+    },
+    {
+      "kit": "precise",
+      "maxHp": 100,
+      "shield": 100
+    },
+    {
+      "kit": "wide",
+      "maxHp": 100,
+      "shield": 100
+    },
+    {
+      "kit": "stunner",
+      "maxHp": 100,
+      "shield": 100
+    },
+    {
+      "kit": "runner",
+      "maxHp": 85,
+      "shield": 100
+    },
+    {
+      "kit": "bark",
+      "maxHp": 100,
+      "shield": 100
+    },
+    {
+      "kit": "hungry",
+      "maxHp": 80,
+      "shield": 100
+    },
+    {
+      "kit": "spark",
+      "maxHp": 100,
+      "shield": 100
+    }
+  ],
+  "activePortraitsAndPause": true,
+  "naturalReward": true,
+  "bossHud": true,
+  "preferences": true,
+  "deathAndRetry": true,
+  "failedPortraitIsolated": true,
+  "pageErrors": []
+}

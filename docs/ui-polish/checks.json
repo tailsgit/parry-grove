@@ -1,0 +1,39 @@
+{
+  "base": "97d9f3f",
+  "targeted": {
+    "passed": 52,
+    "failed": 0
+  },
+  "full": {
+    "passed": 207,
+    "failed": 17
+  },
+  "baseline": {
+    "passed": 201,
+    "failed": 17
+  },
+  "newFailureNames": [],
+  "existingFailureNames": [
+    "Cloudflare serializes competing shared-stock purchases and persists permanent individual sacrifices",
+    "Cloudflare walking contacts share one last item and broadcast floor positions and sale animation",
+    "Magnetizer dart homes, attaches through block without damage or shield cost, and expires after five seconds",
+    "all weapons have a 0.5s cooldown with a real gap and cannot restart by spamming",
+    "armed proximity mines explode and can be blocked, while a distant player does not trigger them",
+    "campaign heals on level clear, restores shield on advancement, and keeps EXP, stats, weapon and upgrades when entering Level 2",
+    "deflections accelerate and assist near aim without snapping to off-axis enemies",
+    "hacker reflected projectiles also kill bosses in one hit, including zero-damage darts",
+    "items cannot be bought in flight; walking onto a landed item purchases once until leaving it",
+    "optimized simulation retains original tick states: 12 enemies",
+    "optimized simulation retains original tick states: 180 enemies",
+    "optimized simulation retains original tick states: 32 enemies",
+    "sacrifices are optional, individual, once per altar, and permanently scale future maximum-health gains",
+    "saved ejection and pickup states remain deterministic after serialization",
+    "shorter melee wind-ups and longer ranges connect on the first stationary-target strike",
+    "two co-op contacts cannot buy the same last relic, and stock/funds are shared",
+    "unaffordable contact never charges or removes stock and reports once per contact"
+  ],
+  "lint": "pass",
+  "typecheck": "pass",
+  "build": "pass",
+  "builtWorkerSmoke": "pass"
+}
