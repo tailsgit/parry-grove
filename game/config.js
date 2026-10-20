@@ -35,6 +35,14 @@ export const ENEMIES = {
   boomerang: { name: 'Boomerang Thrower', hp: 65, speed: 80, projectile: 280, projectileRadius: 9, damage: 14, rate: 1.9, tell: .5, color: '#e9a7c4' },
   twinBomber: { name: 'The Bomber', boss: true, hp: 440, speed: 135, damage: 24, aoeRadius: 120, rate: 1.65, tell: .5, color: '#f39e67' },
   twinRicochet: { name: 'The Ricochet', boss: true, hp: 470, speed: 80, projectile: 335, damage: 13, rate: 1.25, tell: .45, color: '#bcc47b' },
+  poisoner: { name: 'Bile Brewer', hp: 72, speed: 58, projectile: 175, damage: 9, rate: 2.2, tell: .5, color: '#a8dc68', special: true },
+  wallmaker: { name: 'Bulkhead Engineer', hp: 88, speed: 48, damage: 22, aoeRadius: 74, rate: 3.4, tell: .55, color: '#d2a25d', special: true },
+  sticky: { name: 'Adhesive Bomber', hp: 68, speed: 72, projectile: 170, damage: 22, aoeRadius: 68, rate: 2.5, tell: .5, color: '#e58c55', special: true },
+  flamethrower: { name: 'Torch Trooper', hp: 78, speed: 60, damage: 8, rate: 3.1, tell: .45, color: '#ff7651', special: true },
+  saw: { name: 'Saw Runner', hp: 92, speed: 205, projectile: 230, damage: 16, rate: 3, tell: .45, color: '#c1c6c4', special: true },
+  digger: { name: 'Scrap Digger', hp: 90, speed: 120, projectile: 145, damage: 12, rate: 2, tell: .5, color: '#dfb969', special: true },
+  radWorm: { name: 'The Reactor Wyrm', boss: true, hp: 120, speed: 120, projectile: 290, damage: 12, rate: 1.7, tell: .55, color: '#9bea62', special: true },
+  radMinion: { name: 'Rad Warden', hp: 1, speed: 105, projectile: 330, damage: 8, rate: 2.4, tell: .45, color: '#b3ef70', special: true, invulnerable: true },
   boss: { name: 'The Brass Warden', boss: true, hp: 550, speed: 95, projectile: 250, damage: 12, rate: .95, tell: .5, color: '#ffce72' },
 };
 export const UPGRADES = [
@@ -87,11 +95,13 @@ export const ROOM_THEMES = [
   {name:'Forgotten Courtyard', floor:['#8b9d99','#97aaa5','#82948f'], border:'#ced2bc', edge:'#435e5c', detail:'#c1d2c4', stone:'#9aada9', highlight:'#c5d2cd', scenery:'tiles'},
   {name:'Moonlit Marsh', floor:['#506f78','#587d86','#496873'], border:'#a8bcb8', edge:'#293f55', detail:'#8acabd', stone:'#778f9c', highlight:'#adc6cf', scenery:'water'},
   {name:'Brass Foundry', floor:['#796758','#887362','#716051'], border:'#c6a267', edge:'#3f3534', detail:'#dda05b', stone:'#9d8270', highlight:'#ceb096', scenery:'forge'},
+  {name:'Irradiated Works', floor:['#526b52','#5d7657','#485d4b'], border:'#a6c46c', edge:'#283b32', detail:'#acd954', stone:'#626d58', highlight:'#bdcb77', scenery:'toxic'},
 ];
 
 export const LEVELS = [
   {name:'Sunlit Grove',theme:0,enemies:['bow','pistol','homing','shotgun','mortar','brawler','lancer','railgun'],bosses:['boss']},
   {name:'Brass Foundry',theme:4,enemies:['miner','ricochet','suicide','cluster','magnet','sine','riot','boomerang'],bosses:['twinBomber','twinRicochet']},
+  {name:'Irradiated Works',theme:5,enemies:['poisoner','wallmaker','sticky','flamethrower','saw','digger'],bosses:['radWorm']},
 ];
 export const isBoss = kind => ENEMIES[kind]?.boss===true;
 export const levelTheme = game => ROOM_THEMES[LEVELS[game.stage??0]?.theme??0];

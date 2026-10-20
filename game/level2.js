@@ -192,8 +192,8 @@ export function specialHazard(g,h,dt,alive,api){
     if(impact||h.remaining<=0){
       h.kind='mineProjectileBlast';h.remaining=.2;h.total=.2;h.done=true;api.event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact').radius=h.r;
       for(const e of g.enemies){
-        if(e.hp<=0||ENEMIES[e.kind].invulnerable||api.distance(e,h)>h.r||frontShield(e,h.x,h.y))continue;
-        const owner=g.players.find(p=>p.id===h.owner),damage=owner?.name==='hacker'?e.hp:h.damage;e.hp-=damage;api.event(g,'hit',e.x,e.y,`${Math.round(damage)}`,owner?.id);if(e.hp<=0)api.kill(g,e,owner);
+        if(e.hp<=0||ENEMIES[e.kind].invulnerable||e.wormInvulnerable||api.distance(e,h)>h.r||frontShield(e,h.x,h.y))continue;
+        const owner=g.players.find(p=>p.id===h.owner),damage=h.damage;e.hp-=damage;api.event(g,'hit',e.x,e.y,`${Math.round(damage)}`,owner?.id);if(e.hp<=0)api.kill(g,e,owner);
       }
     }
     return true;

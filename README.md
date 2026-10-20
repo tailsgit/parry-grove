@@ -1,7 +1,7 @@
 # Parry Grove
 
 A playable vertical slice of the attached 2D co-op roguelike design. One character,
-three weapons, two levels of five rooms each, and persistent run upgrades. Desktop
+three weapons, three levels of five rooms each, and persistent run upgrades. Desktop
 mouse and keyboard are required.
 
 ## Play online
@@ -184,9 +184,9 @@ not a competitive action-game backend.
 
 ## Decisions where the design was unspecified
 
-- Four regular rooms and one deterministic area boss finish the slice. There is
-  five visual themes: Sunlit Grove, Amber Orchard, Forgotten Courtyard,
-  Moonlit Marsh, and Brass Foundry. Random cover changes each encounter.
+- Four regular rooms and one deterministic area boss finish each level. There are
+  six visual themes: Sunlit Grove, Amber Orchard, Forgotten Courtyard,
+  Moonlit Marsh, Brass Foundry, and Irradiated Works. Random cover changes each encounter.
 - Perfect means the first 90ms after pressing parry. The guard covers a forward
   130-degree half-angle; attacks from behind bypass it. Streaks end after 3s
   without a perfect parry or when health actually drops. Missed guards, attacks, dashes, and zero-damage contacts preserve the streak.
@@ -291,9 +291,18 @@ All new projectiles, enemies and hazards use the existing object pools. Ricochet
 collision uses swept reflected segments and reused scratch storage; multiplayer
 snapshots carry the same simulation state.
 
+## Level 3: Irradiated Works
+
+Clear Level 2’s fifth room and press **E / Enter Level 3**. Run upgrades and
+health carry forward, and shield capacity fully restores. The factory adds toxic
+clouds, breakable blast bulkheads, sticky charges, short flame lanes, a parryable
+ricocheting saw, and a wrench-throwing digger. Its fifth room is a single boss
+fight against the Reactor Wyrm, which circles the arena, sheds radiation clouds,
+and charges with perpendicular projectile volleys.
+
 ## Enemy encyclopedia
 
-Open **Settings → Enemy encyclopedia** from the menu or during a run. All 19
+Open **Settings → Enemy encyclopedia** from the menu or during a run. All 26
 enemies and bosses have a static portrait drawn from their actual game artwork,
 a mechanics explanation and counterplay advice. Search by name or mechanic,
 or filter by campaign level. Settings pauses solo play; co-op continues.

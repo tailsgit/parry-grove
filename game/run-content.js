@@ -34,7 +34,7 @@ export const CURSES=[
  {id:'fastProjectiles',name:'Swift Shots',description:'Enemy projectiles move faster.',severity:2},
  {id:'roomScaling',name:'Growing Threat',description:'Enemies gain extra strength each room.',severity:1},
  {id:'eliteEnemy',name:'Marked Prey',description:'One non-boss enemy is elite each room, with more health and damage.',severity:2},
- {id:'doomSnail',name:'Snail of Doom',description:'After 10 seconds, a pursuing snail appears and speeds up over time.',severity:3},
+ {id:'doomSnail',name:'Snail of Doom',description:'After 1 second, a pursuing snail appears and speeds up over time.',severity:3},
  {id:'lessScrap',name:'Lean Pockets',description:'Enemies drop less Scrap.',severity:1},
 ];
 export function activeCurses(p,room,stage=0){return (p?.curses||[]).filter(c=>c.expiresAtRoom>=stage*B.encounters+room);}
