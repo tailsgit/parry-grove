@@ -18,9 +18,16 @@ export const WEAPON_VOICES=Object.freeze({
  boomerang:{name:'Boomerang air whip',mode:'whoosh',f0:720,f1:210,duration:.38,noise:.45},
  twinBomber:{name:'Heavy boss grenade launcher',mode:'rattle',f0:88,f1:30,duration:.36,noise:.73},
  twinRicochet:{name:'Boss ricochet double crack',mode:'metalshot',f0:310,f1:90,duration:.29,noise:.83},
+ poisoner:{name:'Toxic vial launch',mode:'electric',f0:215,f1:95,duration:.26,noise:.32},
+ wallmaker:{name:'Bulkhead deployment',mode:'metal',f0:160,f1:68,duration:.38,noise:.7},
+ sticky:{name:'Adhesive charge toss',mode:'rattle',f0:195,f1:74,duration:.28,noise:.48},
+ flamethrower:{name:'Torch ignition',mode:'launch',f0:130,f1:48,duration:.42,noise:.78},
+ saw:{name:'Saw runner burst',mode:'metalshot',f0:355,f1:110,duration:.24,noise:.82},
+ digger:{name:'Scrap wrench volley',mode:'metal',f0:260,f1:105,duration:.23,noise:.58},
+ radWorm:{name:'Reactor charge',mode:'electric',f0:82,f1:410,duration:.68,noise:.42},
  boss:{name:'Brass Warden cannon report',mode:'brass',f0:185,f1:54,duration:.34,noise:.58},
 });
-const EXTRA={miner:['arm','impact'],suicide:['arm','impact'],cluster:['land','split'],twinBomber:['place','arm','impact','land','split'],mortar:['impact'],boss:['charge','launch','impact'],ricochet:['bounce'],twinRicochet:['bounce']};
+const EXTRA={miner:['arm','impact'],suicide:['arm','impact'],cluster:['land','split'],twinBomber:['place','arm','impact','land','split'],mortar:['impact'],boss:['charge','launch','impact'],radWorm:['charge'],ricochet:['bounce'],twinRicochet:['bounce']};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function actionKey(kind,action){if((EXTRA[kind]||[]).includes(action))return action;return 'attack';}
 function settings(kind,action){

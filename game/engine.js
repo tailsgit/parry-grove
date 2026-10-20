@@ -1,6 +1,7 @@
 import { damageHealth } from './player-damage.js';
 import {stepPeaceful,beginRoute,upgradeOffers,scrapFor,activeCurses} from './run-content.js';
 import {specialEnemy,escortRiot,fireSpecial,frontShield,shieldBlocks,prepareProjectile,ricochetMove,projectileDistance,dartHit,specialHazard,dashBlast} from './level2.js';
+import {specialEnemy3,fireSpecial3,specialHazard3} from './level3.js';
 import { ObjectPool, SpatialGrid, compact } from './performance.js';
 import { BALANCE as B, WEAPONS, ENEMIES, UPGRADES, LEVELS, isBoss } from './config.js';
 const runtimes=new WeakMap(),hazardClocks=new WeakMap();
@@ -23,7 +24,7 @@ function bullet(g,x,y,vx,vy,damage,kind,predictive,unparryable,target,radius) {
   g.bullets.push(b);return b;
 }
 function hazard(g,x,y,r,remaining,damage,kind,sx,sy,ex,ey) {
-  const h=runtime(g).hazards.acquire();h.id=++g.serial;h.x=x;h.y=y;h.r=r;h.remaining=remaining;h.total=remaining;h.damage=damage;h.kind=kind;h.sx=sx;h.sy=sy;h.ex=ex;h.ey=ey;h.done=undefined;h.triggerRadius=undefined;h.armed=undefined;h.source=undefined;h.sourceKind=undefined;h.flight=undefined;h.settle=undefined;h.target=undefined;h.dashOnly=undefined;h.vx=undefined;h.vy=undefined;h.owner=undefined;h.lifetime=kind==='mine'?B.mineLifetime:undefined;
+  const h=runtime(g).hazards.acquire();h.id=++g.serial;h.x=x;h.y=y;h.r=r;h.remaining=remaining;h.total=remaining;h.damage=damage;h.kind=kind;h.sx=sx;h.sy=sy;h.ex=ex;h.ey=ey;h.done=undefined;h.triggerRadius=undefined;h.armed=undefined;h.source=undefined;h.sourceKind=undefined;h.flight=undefined;h.flightTotal=undefined;h.flightElapsed=undefined;h.returned=undefined;h.attachDuration=undefined;h.cloudDuration=undefined;h.settle=undefined;h.target=undefined;h.dashOnly=undefined;h.vx=undefined;h.vy=undefined;h.owner=undefined;h.lifetime=kind==='mine'?B.mineLifetime:undefined;h.cloudHit=undefined;h.shortBeam=undefined;h.targetX=undefined;h.targetY=undefined;
   let hits=hazardClocks.get(h);if(!hits){hits={};hazardClocks.set(h,hits);}for(const key in hits)delete hits[key];h.nextHits=kind==='beam'||kind==='fire'?hits:undefined;g.hazards.push(h);return h;
 }
 function nearest(players,e){let best=players[0];for(let i=1;i<players.length;i++)if(!(distance(best,e)<distance(players[i],e)))best=players[i];return best;}
@@ -50,11 +51,15 @@ export function event(g, kind, x, y, text = '', who = '', sourceKind, weaponActi
   const pool=runtime(g).events;if(g.events.length>=70)pool.release(g.events.shift());
   const e=pool.acquire();e.id=++g.eventSerial;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;e.radius=undefined;e.itemId=undefined;e.fx=undefined;e.sourceKind=sourceKind;e.weaponAction=weaponAction;g.events.push(e);return e;
 }
+function spawnWormBody(g,head){
+  const count=5;head.hp=120;head.maxHp=120;head.wormSegmentCount=count;head.wormActiveSegment=1;head.wormInvulnerable=true;
+  for(let i=1;i<=count;i++){const segment=spawnEnemy(g,'radWorm',head.x-i*26,head.y);segment.wormHeadId=head.id;segment.wormSegmentIndex=i;segment.wormInvulnerable=i!==1;segment.hp=90;segment.maxHp=90;segment.cooldown=99;}
+}
 export function spawnEnemy(g, kind, x, y) {
   const c = ENEMIES[kind]; const scale = (1+g.room*.12 + (g.encounterParty-1)*(isBoss(kind)?.48:.12))*(1+g.room*.035*curseStrength(g,'roomScaling'));
   const e=runtime(g).enemies.acquire();
   e.id=++g.serial;e.kind=kind;e.x=x;e.y=y;e.hp=c.hp*scale;e.maxHp=c.hp*scale;e.angle=0;e.cooldown=1+random(g);e.tell=0;e.target='';e.burst=0;e.danger=false;e.stun=0;e.guardLeft=0;e.guardAge=0;e.nearPlayer=false;e.parryAttemptCd=0;e.action='attack';e.swing=0;e.repositionLeft=0;e.repositionCd=0;e.slamCd=0;e.magnetLeft=0;e.elite=false;e.damageScale=1;e.bleedLeft=0;e.burnLeft=0;e.chillLeft=0;
-  e.routeX=undefined;e.routeY=undefined;e.dead=undefined;e.fireReadyAt=undefined;e.tellTotal=undefined;e.recoil=undefined;e.repositionX=undefined;e.repositionY=undefined;e.minesLaid=kind==='miner'?0:undefined;e.mineTimer=undefined;e.mineState=kind==='miner'?'approach':undefined;e.wanderTimer=undefined;e.wanderAngle=undefined;e.primed=undefined;e.aiVX=undefined;e.aiVY=undefined;e.escortClock=undefined;e.protectedAlly=undefined;e.escortX=undefined;e.escortY=undefined;
+  e.routeX=undefined;e.routeY=undefined;e.dead=undefined;e.fireReadyAt=undefined;e.tellTotal=undefined;e.recoil=undefined;e.repositionX=undefined;e.repositionY=undefined;e.minesLaid=kind==='miner'?0:undefined;e.mineTimer=undefined;e.mineState=kind==='miner'?'approach':undefined;e.wanderTimer=undefined;e.wanderAngle=undefined;e.primed=undefined;e.aiVX=undefined;e.aiVY=undefined;e.escortClock=undefined;e.protectedAlly=undefined;e.escortX=undefined;e.escortY=undefined;for(const key of ['cloudCd','wallCd','specialCd','flameCd','flameLeft','flameTrackingLeft','sawVX','sawVY','sawFriendly','sawDeactivateLeft','sawWindup','sawChargeLeft','sawOwner','sawHitId','digMode','digClock','digSurfaceLeft','digAgainCd','buried','wrenchCd','wormHeadId','wormSegmentIndex','wormSegmentCount','wormActiveSegment','wormInvulnerable','wormSegmentsDefeated','wormPhase','wormAge','wormAttack','wormCharge','wormShotCd','wormShotUnparryable','wormWindupKick','wormTurn','wormApproachCd','wormApproachLeft','radTimer','segmentCount','minionCd','l3Tell','tellX','tellY','tellHorizontal'])e[key]=undefined;
   g.enemies.push(e); return e;
 }
 export function clearArena(g,keepCover=false){const r=runtime(g);clear(g.enemies,r.enemies);clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);g.doomSnail=undefined;if(!keepCover)g.obstacles=[];r.collisionDirty=true;}
@@ -72,7 +77,8 @@ export function generateRoom(g) {
   if(g.room===B.encounters) {
     g.obstacles=g.obstacles.filter(o=>!inside({x:g.width-210,y:g.height/2},o,50));
     if((g.stage??0)===0){spawnEnemy(g,'boss',g.width-210,g.height/2);for(let i=1;i<g.encounterParty;i++)spawnEnemy(g,i%2?'bow':'mortar',g.width-140,100+i*90);}
-    else {g.obstacles=g.obstacles.filter(o=>!inside({x:g.width-230,y:g.height/2-100},o,50)&&!inside({x:g.width-170,y:g.height/2+100},o,50));spawnEnemy(g,'twinBomber',g.width-230,g.height/2-100);spawnEnemy(g,'twinRicochet',g.width-170,g.height/2+100);}
+    else if((g.stage??0)===1){g.obstacles=g.obstacles.filter(o=>!inside({x:g.width-230,y:g.height/2-100},o,50)&&!inside({x:g.width-170,y:g.height/2+100},o,50));spawnEnemy(g,'twinBomber',g.width-230,g.height/2-100);spawnEnemy(g,'twinRicochet',g.width-170,g.height/2+100);}
+    else {g.obstacles=g.obstacles.filter(o=>!inside({x:g.width-230,y:g.height/2},o,70));const head=spawnEnemy(g,'radWorm',g.width-230,g.height/2);spawnWormBody(g,head);}
   } else {
     const kinds=['bow','pistol','homing','shotgun','mortar'];
     const n=B.baseEnemies+g.room+B.partyEnemies*(g.encounterParty-1)+((g.stage??0)>0?2:0);
@@ -124,10 +130,10 @@ function crystalIntercept(g,b,ax,ay,bx,by){
   for(const p of g.players){if(!p.crystals?.length)continue;for(let i=0;i<p.crystals.length;i++){const a=p.crystals[i],point={x:p.x+Math.cos(a)*23,y:p.y+Math.sin(a)*23};if(segmentDistance(point,ax,ay,bx,by)<(b.radius||3)+5){p.crystals.splice(i,1);event(g,'crystal',point.x,point.y,'BLOCKED',p.id);return true;}}}return false;
 }
 function crystalHits(g){
-  for(const p of g.players){if(!p.crystals?.length)continue;for(let i=p.crystals.length-1;i>=0;i--){const a=p.crystals[i],point={x:p.x+Math.cos(a)*23,y:p.y+Math.sin(a)*23};const e=g.enemies.find(e=>e.hp>0&&distance(e,point)<(isBoss(e.kind)?31:20));if(!e)continue;const damage=12*p.damage*hitDamageScale(p)*(p.dashCounterReady?2:1);if(p.dashCounterReady)p.dashCounterReady=false;e.hp-=damage;event(g,'hit',e.x,e.y,`${Math.round(damage)}`,p.id);if(e.hp<=0)kill(g,e,p);p.crystals.splice(i,1);}}
+  for(const p of g.players){if(!p.crystals?.length)continue;for(let i=p.crystals.length-1;i>=0;i--){const a=p.crystals[i],point={x:p.x+Math.cos(a)*23,y:p.y+Math.sin(a)*23};const e=g.enemies.find(e=>e.hp>0&&!damageImmune(g,e)&&distance(e,point)<enemyBodyRadius(e)+2);if(!e)continue;const damage=12*p.damage*hitDamageScale(p)*(p.dashCounterReady?2:1);if(p.dashCounterReady)p.dashCounterReady=false;e.hp-=damage;event(g,'hit',e.x,e.y,`${Math.round(damage)}`,p.id);if(e.hp<=0)kill(g,e,p);p.crystals.splice(i,1);}}
 }
 function stepDoomSnail(g,alive,dt){
-  const snail=g.doomSnail;if(!snail)return;snail.elapsed+=dt;if(snail.elapsed<10)return;snail.visible=true;
+  const snail=g.doomSnail;if(!snail)return;snail.elapsed+=dt;if(snail.elapsed<1)return;snail.visible=true;
   const cursed=g.players.filter(p=>p.hp>0&&activeCurses(p,g.room,g.stage??0).some(c=>c.id==='doomSnail'));const target=nearest(cursed.length?cursed:alive,snail);if(!target)return;
   if(snail.pause>0){snail.pause=Math.max(0,snail.pause-dt);return;}
   const severity=curseStrength(g,'doomSnail'),cap=B.speed*(target.speed||1)*.5;snail.speed=Math.min(cap,(snail.speed||12)+(18+10*(severity-1))*dt);const angle=Math.atan2(target.y-snail.y,target.x-snail.x),dx=Math.cos(angle)*snail.speed*dt,dy=Math.sin(angle)*snail.speed*dt;move(g,snail,dx,dy,13);
@@ -172,10 +178,12 @@ function seekSight(g,e,p){
   return e.routeX==null?Math.atan2(p.y-e.y,p.x-e.x)+(e.id%2?1:-1)*Math.PI/2:Math.atan2(e.routeY-e.y,e.routeX-e.x);
 }
 export const xpRequired = level => 2 ** level;
+function damageImmune(g,e){return !!ENEMIES[e.kind].invulnerable||!!e.wormInvulnerable;}
+function enemyBodyRadius(e){return e.wormSegmentIndex?15:isBoss(e.kind)?29:18;}
 function combatPulse(g,p,damage,radius,stun){
   radius*=p.areaScale||1;runtime(g).collisionDirty=true;
-  for(const e of g.enemies){if(e.hp<=0||distance(e,p)>radius||blocked(g,p,e)||ENEMIES[e.kind].invulnerable)continue;
-    if(damage&&!frontShield(e,p.x,p.y)){e.hp-=p.name==='hacker'?e.hp:damage*p.damage*hitDamageScale(p)*(p.dashCounterReady?2:1);if(p.dashCounterReady)p.dashCounterReady=false;if(e.hp<=0)kill(g,e,p);}
+  for(const e of g.enemies){if(e.hp<=0||distance(e,p)>radius||blocked(g,p,e)||damageImmune(g,e))continue;
+    if(damage&&!frontShield(e,p.x,p.y)){e.hp-=damage*p.damage*hitDamageScale(p)*(p.dashCounterReady?2:1);if(p.dashCounterReady)p.dashCounterReady=false;if(e.hp<=0)kill(g,e,p);}
     if(stun){e.stun=Math.max(e.stun,isBoss(e.kind)?Math.min(.4,stun):stun);e.tell=0;e.fireReadyAt=null;e.guardLeft=0;}
   }
   event(g,'nova',p.x,p.y,'',p.id).radius=radius;
@@ -235,7 +243,11 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity,s
   return 'hurt';
 }
 function kill(g,e,owner) {
-  if(e.dead)return;e.dead=true;const scrap=Math.max(1,Math.round(scrapFor(e)*(1-.2*curseStrength(g,'lessScrap'))));if(g.runSystems)g.scrap+=scrap;event(g,'kill',e.x,e.y,g.runSystems?`+${scrap} SCRAP`:'',owner?.id).fx={amount:g.runSystems?scrap:0,boss:isBoss(e.kind),targetId:e.id};
+  if(e.dead)return;e.dead=true;
+  if(e.wormSegmentIndex){e.hp=0;const head=g.enemies.find(q=>q.id===e.wormHeadId&&q.hp>0),segments=g.enemies.filter(q=>q.wormHeadId===e.wormHeadId&&q.hp>0&&!q.dead&&q.wormSegmentIndex).sort((a,b)=>a.wormSegmentIndex-b.wormSegmentIndex);if(head){head.wormSegmentsDefeated=(head.wormSegmentsDefeated||0)+1;const next=segments[0];head.wormActiveSegment=next?.wormSegmentIndex||0;head.wormInvulnerable=!!next;for(const segment of segments)segment.wormInvulnerable=segment!==next;if(head.wormSegmentsDefeated>=2&&!head.wormPhase){head.wormPhase=2;const left=spawnEnemy(g,'radMinion',clamp(head.x-170,60,g.width-60),clamp(head.y-145,60,g.height-60)),right=spawnEnemy(g,'radMinion',clamp(head.x+170,60,g.width-60),clamp(head.y+145,60,g.height-60));for(const minion of [left,right]){minion.wormHeadId=head.id;minion.minionCd=1.1+random(g)*.6;}event(g,'wormphase',head.x,head.y,'PHASE 2 · RAD WARDENS');}}event(g,'segmentbreak',e.x,e.y,'SEGMENT BROKEN',owner?.id);return;}
+  if(e.kind==='radWorm')for(const segment of g.enemies)if(segment.wormHeadId===e.id){segment.hp=0;segment.dead=true;}
+  if(e.kind==='radWorm')for(const minion of g.enemies)if(minion.kind==='radMinion'&&minion.wormHeadId===e.id){minion.hp=0;minion.dead=true;}
+  const scrap=Math.max(1,Math.round(scrapFor(e)*(1-.2*curseStrength(g,'lessScrap'))));if(g.runSystems)g.scrap+=scrap;event(g,'kill',e.x,e.y,g.runSystems?`+${scrap} SCRAP`:'',owner?.id).fx={amount:g.runSystems?scrap:0,boss:isBoss(e.kind),targetId:e.id};
   if(owner) {owner.kills++;if(owner.dashReset)owner.dashCd=0;owner.noKillTimer=0;owner.xp++;
     if(owner.vampire)owner.hp=Math.min(owner.maxHp,owner.hp+owner.maxHp*owner.vampire);
     if(owner.xp>=xpRequired(owner.level)){owner.xp-=xpRequired(owner.level);owner.level++;owner.maxHp+=Math.floor(10*(owner.healthFactor??1));owner.hp=Math.min(owner.maxHp,owner.hp+owner.maxHp*.15);owner.damage+=.05;event(g,'level',owner.x,owner.y,`LEVEL ${owner.level}`,owner.id);}
@@ -244,14 +256,15 @@ function kill(g,e,owner) {
 function melee(g,p) {
   const w=WEAPONS[p.weapon],slow=curseStrength(g,'missedSwing',p);p.attackCd=w.cooldown*(p.attackBoostLeft>0?.7:1)*(p.attackSlowLeft>0?1+.55*slow:1);p.swing=.15;
   event(g,'swing',p.x,p.y,'',p.id).fx={angle:p.angle};
+  for(let i=g.obstacles.length-1;i>=0;i--){const o=g.obstacles[i];if(!o.temporary)continue;const cx=clamp(p.x,o.x,o.x+o.w),cy=clamp(p.y,o.y,o.y+o.h),gap=Math.hypot(cx-p.x,cy-p.y);if(gap<=w.range&&Math.abs(angleDiff(Math.atan2(cy-p.y,cx-p.x),p.angle))<=w.arc*(p.areaScale||1)/2){o.hp-=w.damage*p.damage;event(g,'wallhit',cx,cy,`${Math.max(0,Math.ceil(o.hp))} HP`,p.id);if(o.hp<=0){g.obstacles.splice(i,1);event(g,'wallbreak',cx,cy,'WALL BROKEN',p.id);}}}
   let n=0;
-  const candidates=runtime(g).melee;candidates.length=0;for(const e of g.enemies)if(e.hp>0&&distance(e,p)<=w.range+29)candidates.push(e);
+  const candidates=runtime(g).melee;candidates.length=0;for(const e of g.enemies)if(e.hp>0&&!e.buried&&!(e.kind==='radWorm'&&e.wormInvulnerable)&&distance(e,p)<=w.range+enemyBodyRadius(e))candidates.push(e);
   candidates.sort((a,b)=>distance(a,p)-distance(b,p));
   let crowdTargets=0;
-  if(p.crowdForce)for(const e of candidates){const gap=distance(e,p),radius=isBoss(e.kind)?29:18,bodyAngle=Math.asin(Math.min(1,radius/(gap||1))),guarding=e.guardLeft>0&&Math.abs(angleDiff(Math.atan2(p.y-e.y,p.x-e.x),e.angle))<B.parryCone;if(!ENEMIES[e.kind].invulnerable&&!guarding&&gap<=w.range+radius&&(gap<=B.radius+radius||Math.abs(angleDiff(Math.atan2(e.y-p.y,e.x-p.x),p.angle))<=w.arc*(p.areaScale||1)/2+bodyAngle)&&!blocked(g,p,e)&&!shieldBlocks(g,p,e,e)&&!frontShield(e,p.x,p.y))crowdTargets++;}
+  if(p.crowdForce)for(const e of candidates){const gap=distance(e,p),radius=enemyBodyRadius(e),bodyAngle=Math.asin(Math.min(1,radius/(gap||1))),guarding=e.guardLeft>0&&Math.abs(angleDiff(Math.atan2(p.y-e.y,p.x-e.x),e.angle))<B.parryCone;if(!damageImmune(g,e)&&!guarding&&gap<=w.range+radius&&(gap<=B.radius+radius||Math.abs(angleDiff(Math.atan2(e.y-p.y,e.x-p.x),p.angle))<=w.arc*(p.areaScale||1)/2+bodyAngle)&&!blocked(g,p,e)&&!shieldBlocks(g,p,e,e)&&!frontShield(e,p.x,p.y))crowdTargets++;}
   const crowdBonus=crowdTargets>=2?1+.15*(crowdTargets-1):1;
   for(const e of candidates) {
-    const gap=distance(e,p),radius=isBoss(e.kind)?29:18;
+    const gap=distance(e,p),radius=enemyBodyRadius(e);
     // Intersect the body with the swing sector; touching enemies cannot fall through its center.
     const bodyAngle=Math.asin(Math.min(1,radius/(gap||1)));
     if(e.hp<=0||gap>w.range+radius||(gap>B.radius+radius&&Math.abs(angleDiff(Math.atan2(e.y-p.y,e.x-p.x),p.angle))>w.arc*(p.areaScale||1)/2+bodyAngle)||blocked(g,p,e)||shieldBlocks(g,p,e,e))continue;
@@ -260,10 +273,10 @@ function melee(g,p) {
       p.stun=B.playerParryStun;p.blocking=false;p.guardHeld=false;p.parryLeft=0;p.dashLeft=0;p.swing=0;
       e.guardLeft=0;event(g,'enemyparry',p.x,p.y,'PARRIED · STUNNED',p.id);break;
     }
-    let d=ENEMIES[e.kind].invulnerable?0:p.name==='hacker'?e.hp:w.damage*p.damage*(1+p.streak*B.streakBonus)*(e.stun>0?1+(p.stunDamage||0):1)*hitDamageScale(p)*crowdBonus*(p.dashCounterReady?2:1);if(d&&p.dashCounterReady)p.dashCounterReady=false;e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
+    let d=damageImmune(g,e)?0:w.damage*p.damage*(1+p.streak*B.streakBonus)*(e.stun>0?1+(p.stunDamage||0):1)*hitDamageScale(p)*crowdBonus*(p.dashCounterReady?2:1);if(d&&p.dashCounterReady)p.dashCounterReady=false;e.hp-=d;p.internal=Math.max(0,p.internal-p.cleanse);
     if(p.bleed&&d){e.bleedLeft=Math.max(e.bleedLeft,3);e.bleedDps=Math.max(e.bleedDps||0,2*p.damage);e.bleedOwner=p.id;}
     const contactAngle=Math.atan2(e.y-p.y,e.x-p.x),contactDistance=Math.max(0,gap-radius);
-    event(g,'hit',e.x,e.y,d===0&&ENEMIES[e.kind].invulnerable?'IMMUNE':`${Math.round(d)}`,p.id,undefined,d>0?'melee':undefined).fx={targetId:e.id,angle:p.angle+(p.weapon==='dagger'?0:Math.PI/2),x:p.x+Math.cos(contactAngle)*contactDistance,y:p.y+Math.sin(contactAngle)*contactDistance,weight:Math.min(1.6,d/w.damage)};
+    event(g,'hit',e.x,e.y,d===0&&damageImmune(g,e)?'IMMUNE':`${Math.round(d)}`,p.id,undefined,d>0?'melee':undefined).fx={targetId:e.id,angle:p.angle+(p.weapon==='dagger'?0:Math.PI/2),x:p.x+Math.cos(contactAngle)*contactDistance,y:p.y+Math.sin(contactAngle)*contactDistance,weight:Math.min(1.6,d/w.damage)};
     if(e.hp<=0)kill(g,e,p);
     if(++n>=w.targets)break;
   }
@@ -320,7 +333,7 @@ function fire(g,e,p) {
   if(!hasLineOfSight(g,e,p)&&!inAoERange(e,p))return false;
   e.recoil=.24;
   const c=ENEMIES[e.kind],base=e.angle,damageScale=e.damageScale||1;
-  if(fireSpecial(g,e,p,LEVEL2_API))return;
+  if(fireSpecial(g,e,p,LEVEL2_API)||fireSpecial3(g,e,p,LEVEL2_API))return;
   if(c.melee){
     e.swing=.2;event(g,'meleeswing',e.x,e.y,'','',e.kind,'strike');
     if(distance(e,p)<=c.range+B.radius&&!blocked(g,e,p)&&Math.abs(angleDiff(Math.atan2(p.y-e.y,p.x-e.x),e.angle))<=c.arc/2){
@@ -336,7 +349,7 @@ function fire(g,e,p) {
     hazard(g,x,y,60,1.2,c.damage*damageScale,undefined,e.x,e.y).sourceKind=e.kind;event(g,'mortar',e.x,e.y,'','',e.kind,'launch');return;
   }
   const offsets=e.kind==='shotgun'?SHOTGUN_OFFSETS:e.kind==='boss'?BOSS_OFFSETS:SINGLE_OFFSET;
-  for(const off of offsets) {const aim=predictedAim(g,e,p,c.projectile),a=(aim.predictive?aim.angle:base)+off;bullet(g,e.x+Math.cos(a)*24,e.y+Math.sin(a)*24,Math.cos(a)*c.projectile,Math.sin(a)*c.projectile,c.damage*damageScale*(1+g.room*.08),e.kind,aim.predictive,e.danger,p.id,c.projectileRadius||3);}
+  for(const off of offsets) {const aim=e.kind==='homing'?{angle:Math.atan2(p.y-e.y,p.x-e.x),predictive:false}:predictedAim(g,e,p,c.projectile),a=e.kind==='homing'?aim.angle+off:(aim.predictive?aim.angle:base)+off;bullet(g,e.x+Math.cos(a)*24,e.y+Math.sin(a)*24,Math.cos(a)*c.projectile,Math.sin(a)*c.projectile,c.damage*damageScale*(1+g.room*.08),e.kind,aim.predictive,e.danger,p.id,c.projectileRadius||3);}
   if(e.kind==='boss'&&e.hp<e.maxHp*.5) {
     for(let i=0;i<10;i++){const aim=predictedAim(g,e,p,165),a=aim.predictive?aim.angle:i*Math.PI/5+g.time;bullet(g,e.x,e.y,Math.cos(a)*165,Math.sin(a)*165,10*damageScale,'bow',aim.predictive,e.danger,p.id);}
     hazard(g,p.x,p.y,55,1.5,20,undefined,e.x,e.y).sourceKind=e.kind;event(g,'mortar',e.x,e.y,'','',e.kind,'launch');
@@ -399,12 +412,13 @@ export function step(g,inputs,dt) {
   for(const e of g.enemies) {
     if(e.hp<=0)continue;
     for(const key of ENEMY_TIMERS)e[key]=Math.max(0,(e[key]||0)-dt);
-    if(e.bleedLeft>0||e.burnLeft>0){const dot=(e.bleedLeft>0?(e.bleedDps||0):0)+(e.burnLeft>0?(e.burnDps||0):0);e.hp-=dot*dt;if(e.hp<=0){const owner=g.players.find(p=>p.id===(e.burnOwner||e.bleedOwner));kill(g,e,owner);continue;}}
+    if(!e.wormInvulnerable&&(e.bleedLeft>0||e.burnLeft>0)){const dot=(e.bleedLeft>0?(e.bleedDps||0):0)+(e.burnLeft>0?(e.burnDps||0):0);e.hp-=dot*dt;if(e.hp<=0){const owner=g.players.find(p=>p.id===(e.burnOwner||e.bleedOwner));kill(g,e,owner);continue;}}
     if(e.stun>0)continue;
     const c=ENEMIES[e.kind],p=nearest(alive,e),d=distance(e,p),actionDt=dt*(e.chillLeft>0?.7:1);
     let vx=0,vy=0;
     if(g.intro<=0){
-      if(specialEnemy(g,e,p,dt,LEVEL2_API)){vx=e.aiVX;vy=e.aiVY;}
+      if(specialEnemy3(g,e,p,dt,LEVEL2_API)){vx=e.aiVX;vy=e.aiVY;}
+      else if(specialEnemy(g,e,p,dt,LEVEL2_API)){vx=e.aiVX;vy=e.aiVY;}
       else if(e.kind==='boss'&&!hasLineOfSight(g,e,p)&&d<=B.bossSlamRadius+B.radius&&!e.slamCd){bossSlam(g,e);}
       else if(!hasLineOfSight(g,e,p)&&!inAoERange(e,p)&&!(e.action==='slam'&&e.tell>0)){
         e.tell=0;e.fireReadyAt=null;e.tellTotal=undefined;e.action='attack';e.repositionLeft=0;e.cooldown=Math.max(e.cooldown,.1);
@@ -458,7 +472,9 @@ export function step(g,inputs,dt) {
     }
     const magnitude=Math.max(1,Math.hypot(rx,ry));
     const haste=1+.1*curseStrength(g,'enemyHaste'),chill=e.chillLeft>0?.7:1;
-    move(g,e,(vx*haste*chill+rx/magnitude*B.separationSpeed)*dt,(vy*haste*chill+ry/magnitude*B.separationSpeed)*dt,isBoss(e.kind)?29:18);
+    const separation=e.kind==='saw'||e.kind==='radWorm'||e.wormSegmentIndex?0:B.separationSpeed;
+    move(g,e,(vx*haste*chill+rx/magnitude*separation)*dt,(vy*haste*chill+ry/magnitude*separation)*dt,enemyBodyRadius(e));
+    if(e.kind==='radWorm'&&e.wormCharge>0)for(const player of alive)if(distance(e,player)<34+B.radius)hitPlayer(g,player,ENEMIES.radWorm.damage,true,Math.atan2(e.y-player.y,e.x-player.x),e,'radWorm');
   }
   crystalHits(g);stepDoomSnail(g,alive,dt);
   // Completed telegraphs take turns in order; an enemy volley stays intact.
@@ -481,17 +497,19 @@ export function step(g,inputs,dt) {
     const bounced=ricochetMove(g,b,previousX,previousY,dt,LEVEL2_API);
     if(b.life<=0)continue;
     if(b.thrower&&(b.x<29||b.x>g.width-29||b.y<29||b.y>g.height-29)){b.x=clamp(b.x,29,g.width-29);b.y=clamp(b.y,29,g.height-29);b.returning=true;}
-    if(!bounced&&!b.thrower&&(b.x<25||b.x>g.width-25||b.y<25||b.y>g.height-25||g.obstacles.some(o=>inside(b,o,b.radius||3)))){b.life=0;continue;}
+    const wall=g.obstacles.find(o=>o.temporary&&inside(b,o,b.radius||3));
+    if(wall){if(b.owner){wall.hp-=b.damage;if(wall.hp<=0){g.obstacles.splice(g.obstacles.indexOf(wall),1);event(g,'wallbreak',wall.x,wall.y,'WALL BROKEN',b.owner);}}const r0=b.radius||3;if(previousX<wall.x){b.vx=-Math.abs(b.vx);b.x=wall.x-r0-1;}else if(previousX>wall.x+wall.w){b.vx=Math.abs(b.vx);b.x=wall.x+wall.w+r0+1;}else if(previousY<wall.y){b.vy=-Math.abs(b.vy);b.y=wall.y-r0-1;}else{b.vy=Math.abs(b.vy);b.y=wall.y+wall.h+r0+1;}b.bounces=(b.bounces||0)+1;if(b.bounces>3)b.life=0;event(g,'wallreflect',b.x,b.y);}
+    if(!bounced&&!b.thrower&&(b.x<25||b.x>g.width-25||b.y<25||b.y>g.height-25||g.obstacles.some(o=>!o.temporary&&inside(b,o,b.radius||3)))){b.life=0;continue;}
     if(!b.owner&&crystalIntercept(g,b,previousX,previousY,b.x,b.y)){b.life=0;continue;}
     if(b.owner) {
       if((g.stage??0)>0&&shieldBlocks(g,{x:previousX,y:previousY},b)){event(g,'shieldhit',b.x,b.y,'BLOCKED');b.life=0;continue;}
       if(r.collisionDirty&&g.enemies.length>=32)rebuildCollisions(g,r);
       const candidates=g.enemies.length>=32?r.collisions.query(Math.min(previousX,b.x)-29,Math.min(previousY,b.y)-29,Math.max(previousX,b.x)+29,Math.max(previousY,b.y)+29):null;
-      for(let index=0;index<(candidates?candidates.length:g.enemies.length);index++){const e=g.enemies[candidates?candidates[index]:index];if(e.hp>0&&e.id!==b.lastHit&&projectileDistance(b,e,previousX,previousY,b.x,b.y,segmentDistance)<(isBoss(e.kind)?29:18)){if(frontShield(e,previousX,previousY)){event(g,'shieldhit',e.x,e.y,'BLOCKED');b.life=0;break;}if(b.attachMagnet){e.magnetLeft=B.magnetDuration;event(g,'magnet',e.x,e.y,'MAGNETIZED');b.life=0;break;}const p=g.players.find(p=>p.id===b.owner);let damage=ENEMIES[e.kind].invulnerable?0:p?.name==='hacker'?e.hp:b.damage*(p?hitDamageScale(p):1)*(b.reflected&&e.bleedLeft>0?1.25:1)*(p?.dashCounterReady?2:1);if(damage&&p?.dashCounterReady)p.dashCounterReady=false;e.hp-=damage;if(b.chillTarget&&damage)e.chillLeft=Math.max(e.chillLeft,2);event(g,'hit',e.x,e.y,damage===0&&ENEMIES[e.kind].invulnerable?'IMMUNE':`${Math.round(damage)}`,p?.id);if(e.hp<=0)kill(g,e,p);if(b.chainLeft){const angle=Math.atan2(b.vy,b.vx),next=deflectionTarget(g,{x:e.x,y:e.y},angle,Math.PI*.7,e.id);if(next){const speed=Math.hypot(b.vx,b.vy),aim=Math.atan2(next.y-e.y,next.x-e.x);b.x=e.x;b.y=e.y;b.vx=Math.cos(aim)*speed*.8;b.vy=Math.sin(aim)*speed*.8;b.damage*=.75;b.chainLeft=0;b.lastHit=e.id;b.target=next.id;b.life=2;}else b.life=0;}else b.life=0;break;}}
+      for(let index=0;index<(candidates?candidates.length:g.enemies.length);index++){const e=g.enemies[candidates?candidates[index]:index];if(e.hp>0&&!e.buried&&!(e.kind==='radWorm'&&e.wormInvulnerable)&&e.id!==b.lastHit&&projectileDistance(b,e,previousX,previousY,b.x,b.y,segmentDistance)<enemyBodyRadius(e)){if(frontShield(e,previousX,previousY)){event(g,'shieldhit',e.x,e.y,'BLOCKED');b.life=0;break;}if(b.attachMagnet){e.magnetLeft=B.magnetDuration;event(g,'magnet',e.x,e.y,'MAGNETIZED');b.life=0;break;}const p=g.players.find(p=>p.id===b.owner);let damage=damageImmune(g,e)?0:b.damage*(p?hitDamageScale(p):1)*(b.reflected&&e.bleedLeft>0?1.25:1)*(p?.dashCounterReady?2:1);if(damage&&p?.dashCounterReady)p.dashCounterReady=false;e.hp-=damage;if(b.chillTarget&&damage)e.chillLeft=Math.max(e.chillLeft,2);event(g,'hit',e.x,e.y,damage===0&&damageImmune(g,e)?'IMMUNE':`${Math.round(damage)}`,p?.id);if(e.hp<=0)kill(g,e,p);if(b.chainLeft){const angle=Math.atan2(b.vy,b.vx),next=deflectionTarget(g,{x:e.x,y:e.y},angle,Math.PI*.7,e.id);if(next){const speed=Math.hypot(b.vx,b.vy),aim=Math.atan2(next.y-e.y,next.x-e.x);b.x=e.x;b.y=e.y;b.vx=Math.cos(aim)*speed*.8;b.vy=Math.sin(aim)*speed*.8;b.damage*=.75;b.chainLeft=0;b.lastHit=e.id;b.target=next.id;b.life=2;}else b.life=0;}else b.life=0;break;}}
     } else {
       const target=b.magnetEnemyTarget&&g.enemies.find(e=>e.id===b.magnetEnemyTarget&&e.hp>0);
-      if(target&&projectileDistance(b,target,previousX,previousY,b.x,b.y,segmentDistance)<(isBoss(target.kind)?29:18)){
-        const damage=ENEMIES[target.kind].invulnerable?0:b.damage;target.hp-=damage;event(g,'hit',target.x,target.y,`${Math.round(damage)}`);if(target.hp<=0)kill(g,target,null);b.life=0;continue;
+      if(target&&!(target.kind==='radWorm'&&target.wormInvulnerable)&&projectileDistance(b,target,previousX,previousY,b.x,b.y,segmentDistance)<enemyBodyRadius(target)){
+        const damage=damageImmune(g,target)?0:b.damage;target.hp-=damage;event(g,'hit',target.x,target.y,`${Math.round(damage)}`);if(target.hp<=0)kill(g,target,null);b.life=0;continue;
       }
       for(const p of alive)if(projectileDistance(b,p,previousX,previousY,b.x,b.y,segmentDistance)<B.radius+(b.radius||3)+2){
       if(b.contactPlayer===p.id&&g.time<(b.contactAt||0))continue;
@@ -514,6 +532,7 @@ export function step(g,inputs,dt) {
     }
   }
   for(const h of g.hazards) {
+    if(specialHazard3(g,h,dt,alive,LEVEL2_API))continue;
     if(h.kind==='mine'){
       specialHazard(g,h,dt,alive,LEVEL2_API);
       if(h.kind==='mineBlast'&&parryMine(g,h,alive))continue;
@@ -525,7 +544,8 @@ export function step(g,inputs,dt) {
     }
     if(specialHazard(g,h,dt,alive,LEVEL2_API))continue;
     if(h.kind==='beam'&&h.remaining>0){
-      if(h.owner){const owner=g.players.find(p=>p.id===h.owner);for(const e of g.enemies)if(e.hp>0&&segmentDistance(e,h.x,h.y,h.ex,h.ey)<h.r+(isBoss(e.kind)?29:18)&&g.time>=(h.nextHits[e.id]||0)){h.nextHits[e.id]=g.time+.2;const damage=h.damage*(owner?.damage||1)*(owner?hitDamageScale(owner):1);e.hp-=damage;event(g,'hit',e.x,e.y,`${Math.round(damage)}`,owner?.id);if(e.hp<=0)kill(g,e,owner);}}
+      if(h.shortBeam&&h.trackLeft>0){const source=g.enemies.find(e=>e.id===h.source&&e.hp>0),target=g.players.find(p=>p.id===h.target&&p.hp>0);if(source&&target){const desired=Math.atan2(target.y-source.y,target.x-source.x),delta=Math.atan2(Math.sin(desired-h.trackAngle),Math.cos(desired-h.trackAngle)),turn=(B.speed*.85/190)*dt;h.trackAngle+=clamp(delta,-turn,turn);h.x=source.x+Math.cos(h.trackAngle)*24;h.y=source.y+Math.sin(h.trackAngle)*24;h.ex=source.x+Math.cos(h.trackAngle)*h.trackRange;h.ey=source.y+Math.sin(h.trackAngle)*h.trackRange;}h.trackLeft=Math.max(0,h.trackLeft-dt);}
+      if(h.owner){const owner=g.players.find(p=>p.id===h.owner);for(const e of g.enemies)if(e.hp>0&&!damageImmune(g,e)&&segmentDistance(e,h.x,h.y,h.ex,h.ey)<h.r+enemyBodyRadius(e)&&g.time>=(h.nextHits[e.id]||0)){h.nextHits[e.id]=g.time+.2;const damage=h.damage*(owner?.damage||1)*(owner?hitDamageScale(owner):1);e.hp-=damage;event(g,'hit',e.x,e.y,`${Math.round(damage)}`,owner?.id);if(e.hp<=0)kill(g,e,owner);}}
       else for(const p of alive)if(segmentDistance(p,h.x,h.y,h.ex,h.ey)<h.r+B.radius&&g.time>=(h.nextHits[p.id]||0)){
         h.nextHits[p.id]=g.time+.2;
         hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x),undefined,h.sourceKind);
@@ -535,6 +555,7 @@ export function step(g,inputs,dt) {
       h.remaining-=dt;if(h.remaining<=0&&!h.done){h.done=true;event(g,'explosion',h.x,h.y,'','',h.sourceKind,'impact').radius=h.r;for(const p of alive)if(distance(p,h)<h.r+B.radius){if(h.dashOnly)dashBlast(g,p,h.damage,LEVEL2_API);else hitPlayer(g,p,h.damage,false,Math.atan2(h.y-p.y,h.x-p.x),undefined,h.sourceKind);}}
     }
   }
+  for(let i=g.obstacles.length-1;i>=0;i--){const o=g.obstacles[i];if(!o.temporary)continue;o.remaining-=dt;if(o.remaining<=0){g.obstacles.splice(i,1);const center={x:o.x+o.w/2,y:o.y+o.h/2};event(g,'explosion',center.x,center.y,'BULKHEAD BLAST','',undefined,'impact').radius=o.damage*3;for(const p of alive)if(distance(p,center)<o.damage*3)hitPlayer(g,p,o.damage,false,Math.atan2(center.y-p.y,center.x-p.x));for(const e of g.enemies)if(e.hp>0&&!damageImmune(g,e)&&distance(e,center)<o.damage*3){e.hp-=o.damage;if(e.hp<=0)kill(g,e,null);}}}
   compact(g.hazards,liveHazard,r.hazards);compact(g.bullets,liveBullet,r.bullets);compact(g.enemies,liveEnemy,r.enemies);
   if(!g.players.some(p=>p.hp>0)){g.phase='death';if(g.runSystems)g.scrap=0;return;}
   if(!g.enemies.length) {
