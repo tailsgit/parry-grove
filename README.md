@@ -420,3 +420,22 @@ Upgrade icons share pixel-style path artwork between menus and world vending.
 Settings includes effects percentage, reduced motion, solo name visibility and optional
 parry coaching. Unsuccessful guards stay quiet by default; practice teaches timing.
 Reward confirmation is local presentation, with server rewards still applied immediately.
+
+## Story and Endless
+
+Choose **Story** or **Endless** before starting solo or creating a co-op lobby.
+Joining players inherit the host's run type. Story retains its three-area campaign.
+Endless has no final room: clear an encounter, choose a reward, then physically
+leave through an exit. Shops follow Rooms 5, 10, 15, and every subsequent multiple
+of five. Rare optional sacrifice rooms can appear after Room 3. Shops and altars
+are extra stops: they do not advance combat difficulty or consume curse duration.
+
+Optional co-op exits require all living connected players at the same door for
+two seconds. At altars each player must accept or decline before the host leaves.
+Enemy rosters expand at Rooms 6 and 11. Ground warnings announce reinforcements;
+an empty arena is not cleared while further groups remain scheduled. Internal
+and shield damage carry between rooms. Shops stock purchasable recovery and do
+not provide a free reset. Retry keeps the mode and co-op party.
+
+See [Endless implementation and validation](docs/endless.md) for tuning,
+architecture, screenshots, reproducible checks, and validation limits.
