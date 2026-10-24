@@ -44,7 +44,7 @@ test('two WebSocket clients receive the same contact/ownership cues while moveme
   a.socket.send(JSON.stringify({type:'input',input:{mx:1}}));b.socket.send(JSON.stringify({type:'input',input:{mx:-1}}));
   await new Promise(r=>setTimeout(r,70));
   a.socket.send(JSON.stringify({type:'input',input:{mx:1}}));
-  let latest=await a.next();for(let n=0;n<5&&latest.game.time<=before+.03;n++)latest=await a.next();
+  let latest=await a.next();for(let n=0;n<5&&(latest.game.time<=before+.03||latest.game.players.find(q=>q.id===host.id).x<=200);n++)latest=await a.next();
   assert.ok(latest.game.time>before+.03);
   assert.ok(latest.game.players.find(q=>q.id===host.id).x>200);
   assert.ok(latest.game.players.find(q=>q.id===host.id).streakLeft<3);

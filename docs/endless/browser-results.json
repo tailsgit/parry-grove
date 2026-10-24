@@ -1,0 +1,12 @@
+{
+  "actualClientControls": true,
+  "roomOneClearRewardAndPhysicalExit": true,
+  "roomFiveShop": true,
+  "repairPurchaseImmediate": true,
+  "roomSixAndEleven": true,
+  "adminRoom100": true,
+  "sacrificeDeclineAndExit": true,
+  "retryKeepsMode": true,
+  "processedProductionCss": true,
+  "pageErrors": []
+}
