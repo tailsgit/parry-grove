@@ -1,0 +1,7 @@
+{
+  "boundedBeamFrames": 16,
+  "immutableSnapshots": true,
+  "animatedBeams": true,
+  "reducedMotionStable": true,
+  "pageErrors": []
+}

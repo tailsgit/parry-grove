@@ -1,3 +1,4 @@
+import {beamEndpoint} from './beam-geometry.js';
 import {isEndless,prepareEndlessRoom,advanceEndlessSpawns,completeEndlessRoom,refreshEndlessStats,ENDLESS} from './endless.js';
 import { damageHealth } from './player-damage.js';
 import {stepPeaceful,beginRoute,upgradeOffers,scrapFor,activeCurses,RUN_REWARDS} from './run-content.js';
@@ -323,16 +324,7 @@ function predictedAim(g,e,p,speed) {
   const y=p.y+clamp(p.vy||0,-B.speed*p.speed,B.speed*p.speed)*t;
   const aim=runtime(g).aim;aim.predictive=predictive;aim.angle=predictive?Math.atan2(y-e.y,x-e.x):e.angle;return aim;
 }
-function beamEnd(g,e,angle) {
-  const end=runtime(g).beamEnd;end.x=e.x;end.y=e.y;
-  const cosine=Math.cos(angle),sine=Math.sin(angle),maximum=Math.hypot(g.width,g.height);
-  for(let length=24;length<maximum;length+=4){
-    const x=e.x+cosine*length,y=e.y+sine*length;
-    if(x<25||x>g.width-25||y<25||y>g.height-25||g.obstacles.some(o=>insideXY(x,y,o,9)))break;
-    end.x=x;end.y=y;
-  }
-  return end;
-}
+function beamEnd(g,e,angle) {return beamEndpoint(g,e,angle,runtime(g).beamEnd);}
 function inAoERange(e,p){const r=ENEMIES[e.kind].aoeRadius;return r>0&&distance(e,p)<=r+B.radius;}
 function bossSlam(g,e){
   e.action='slam';e.danger=true;e.tell=B.bossSlamTell;e.tellTotal=B.bossSlamTell;e.slamCd=B.bossSlamCooldown;e.fireReadyAt=null;e.repositionLeft=0;
