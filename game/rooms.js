@@ -1,7 +1,8 @@
-import {createRun,claimKit,selectRoute,sacrifice,adminAddUpgrade,adminRemoveUpgrade,adminAddCurse,adminRemoveCurse} from './run-content.js';
+import {runType,isEndless} from './endless.js';
+import {createRun,claimKit,selectRoute,sacrifice,declineSacrifice,adminAddUpgrade,adminRemoveUpgrade,adminAddCurse,adminRemoveCurse} from './run-content.js';
 import { player, step, chooseUpgrade, adminTeleport, adminHealth, adminLevel, clamp } from './engine.js';
 import { WEAPONS, BALANCE } from './config.js';
-export function roomState(member, now) {return {host:member.id,members:[member],game:null,inputs:{},lastTick:now,createdAt:now};}
+export function roomState(member, now, type='story') {return {runType:runType(type),host:member.id,members:[member],game:null,inputs:{},lastTick:now,createdAt:now};}
 export function member(name,weapon,now) {return {id:crypto.randomUUID(),token:crypto.randomUUID(),name:String(name||'Adventurer').trim().slice(0,18)||'Adventurer',weapon:WEAPONS[weapon]?weapon:'sword',ready:false,lastSeen:now,slot:0};}
 export function cleanInput(i={}) {return {mx:clamp(Number(i.mx)||0,-1,1),my:clamp(Number(i.my)||0,-1,1),angle:clamp(Number(i.angle)||0,-Math.PI*2,Math.PI*2),attack:i.attack===true,attackPress:clamp(Math.floor(Number(i.attackPress)||0),0,1e9),guard:i.guard===true,parry:clamp(Math.floor(Number(i.parry)||0),0,1e9),dash:clamp(Math.floor(Number(i.dash)||0),0,1e9),interact:clamp(Math.floor(Number(i.interact)||0),0,1e9)};}
 export function advanceRoom(r,now) {
@@ -23,17 +24,19 @@ export function applyAction(r,m,payload,now,authorization={allowAdmin:false}) {
   if(a==='start') {
     if(m.id!==r.host)throw Error('Only the host can start.');if(r.game)throw Error('Return to the lobby first.');
     if(!r.members.every(m=>m.ready))throw Error('Everyone must be ready.');
-    r.inputs={};r.game=createRun(r.members.map(m=>player(m.id,m.name,m.weapon,m.slot)));r.lastTick=now;
+    r.inputs={};r.game=createRun(r.members.map(m=>player(m.id,m.name,m.weapon,m.slot)),undefined,r.runType||'story');r.lastTick=now;
   }
   if(a==='upgrade'&&!chooseUpgrade(r.game||{},m.id,payload.upgrade))throw Error('That upgrade is unavailable.');
   if(a==='buy')throw Error('Move close to a shop item and press E to buy it.');
-  if(['kit','route','sacrifice','vendorClose'].includes(a)){
+  if(['kit','route','sacrifice','sacrificeDecline','vendorClose'].includes(a)){
     if(!r.game)throw Error('Start a run first.');r.game.hostId=r.host;
     if(a==='kit')claimKit(r.game,m.id,payload.kit);
     if(a==='route')selectRoute(r.game,m.id,payload.choice);
     if(a==='sacrifice')sacrifice(r.game,m.id,payload.item);
+    if(a==='sacrificeDecline')declineSacrifice(r.game,m.id);
     if(a==='vendorClose'){const p=r.game.players.find(p=>p.id===m.id);if(p){p.vendorOpen=false;p.altarOpen=false;}}
   }
+  if(a==='retry'){if(m.id!==r.host)throw Error('Only the host can restart.');if(!r.game||!['death','victory'].includes(r.game.phase))throw Error('Finish the run first.');r.inputs={};r.game=createRun(r.members.map(m=>player(m.id,m.name,m.weapon,m.slot)),undefined,r.runType||r.game.runType||'story');r.lastTick=now;}
   if(a==='return') {
     if(m.id!==r.host)throw Error('Only the host can return everyone to the lobby.');
     if(r.game&&!['victory','death'].includes(r.game.phase))throw Error('Finish the run first.');
@@ -50,7 +53,7 @@ export function applyAction(r,m,payload,now,authorization={allowAdmin:false}) {
     else if(payload.operation==='level')adminLevel(r.game,m.id,payload.level);
     else if(payload.operation==='upgradeAdd')adminAddUpgrade(r.game.players.find(p=>p.id===m.id),payload.upgrade);
     else if(payload.operation==='upgradeRemove')adminRemoveUpgrade(r.game.players.find(p=>p.id===m.id),payload.upgrade);
-    else if(payload.operation==='curseAdd')adminAddCurse(r.game.players.find(p=>p.id===m.id),payload.curse,payload.rarity,(r.game.stage||0)*BALANCE.encounters+r.game.room);
+    else if(payload.operation==='curseAdd')adminAddCurse(r.game.players.find(p=>p.id===m.id),payload.curse,payload.rarity,(r.game.stage||0)*BALANCE.encounters+r.game.room,isEndless(r.game));
     else if(payload.operation==='curseRemove')adminRemoveCurse(r.game.players.find(p=>p.id===m.id),payload.index);
     else throw Error('Unknown admin action.');
   }
@@ -60,4 +63,4 @@ export function applyAction(r,m,payload,now,authorization={allowAdmin:false}) {
     if(r.host===m.id)r.host=r.members[0]?.id||'';
   }
 }
-export function publicRoom(code,r,revision) {return {code,host:r.host,members:r.members.map(m=>({id:m.id,name:m.name,weapon:m.weapon,ready:m.ready,slot:m.slot})),game:r.game,revision};}
+export function publicRoom(code,r,revision) {return {code,runType:r.runType||r.game?.runType||'story',host:r.host,members:r.members.map(m=>({id:m.id,name:m.name,weapon:m.weapon,ready:m.ready,slot:m.slot})),game:r.game,revision};}
