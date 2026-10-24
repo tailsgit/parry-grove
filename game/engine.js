@@ -1,5 +1,6 @@
+import {isEndless,prepareEndlessRoom,advanceEndlessSpawns,completeEndlessRoom,refreshEndlessStats,ENDLESS} from './endless.js';
 import { damageHealth } from './player-damage.js';
-import {stepPeaceful,beginRoute,upgradeOffers,scrapFor,activeCurses} from './run-content.js';
+import {stepPeaceful,beginRoute,upgradeOffers,scrapFor,activeCurses,RUN_REWARDS} from './run-content.js';
 import {specialEnemy,escortRiot,fireSpecial,frontShield,shieldBlocks,prepareProjectile,ricochetMove,projectileDistance,dartHit,specialHazard,dashBlast} from './level2.js';
 import {specialEnemy3,fireSpecial3,specialHazard3} from './level3.js';
 import { ObjectPool, SpatialGrid, compact } from './performance.js';
@@ -19,11 +20,13 @@ function runtime(g,prewarm=false) {
 }
 function clear(array,pool){for(const value of array)pool.release(value);array.length=0;}
 function bullet(g,x,y,vx,vy,damage,kind,predictive,unparryable,target,radius) {
+  if(isEndless(g)&&(g.bullets.length>=ENDLESS.totalProjectiles||(target&&g.bullets.filter(b=>!b.owner&&b.life>0).length>=ENDLESS.projectiles)))return {life:0};
   const b=runtime(g).bullets.acquire();b.id=++g.serial;b.x=x;b.y=y;const haste=target&&g.players.some(p=>p.id===target)?curseStrength(g,'fastProjectiles'):0;b.vx=vx*(haste?1+.12*haste:1);b.vy=vy*(haste?1+.12*haste:1);b.damage=damage;b.kind=kind;b.predictive=predictive;b.unparryable=unparryable;b.target=target;b.radius=radius;b.owner='';b.life=7;
   b.ricochet=undefined;b.bounces=undefined;b.wave=undefined;b.waveAngle=undefined;b.waveSpeed=undefined;b.waveAge=undefined;b.centerX=undefined;b.centerY=undefined;b.thrower=undefined;b.flightAge=undefined;b.returning=undefined;b.curveSide=undefined;b.contactAt=undefined;b.contactPlayer=undefined;b.attachMagnet=undefined;b.magnetEnemyTarget=undefined;b.reflected=undefined;b.chillTarget=undefined;b.chainLeft=undefined;b.lastHit=undefined;
   g.bullets.push(b);return b;
 }
 function hazard(g,x,y,r,remaining,damage,kind,sx,sy,ex,ey) {
+  if(isEndless(g)&&g.hazards.length>=ENDLESS.hazards)return {remaining:-1,done:true};
   const h=runtime(g).hazards.acquire();h.id=++g.serial;h.x=x;h.y=y;h.r=r;h.remaining=remaining;h.total=remaining;h.damage=damage;h.kind=kind;h.sx=sx;h.sy=sy;h.ex=ex;h.ey=ey;h.done=undefined;h.triggerRadius=undefined;h.armed=undefined;h.source=undefined;h.sourceKind=undefined;h.flight=undefined;h.flightTotal=undefined;h.flightElapsed=undefined;h.returned=undefined;h.attachDuration=undefined;h.cloudDuration=undefined;h.settle=undefined;h.target=undefined;h.dashOnly=undefined;h.vx=undefined;h.vy=undefined;h.owner=undefined;h.lifetime=kind==='mine'?B.mineLifetime:undefined;h.cloudHit=undefined;h.shortBeam=undefined;h.targetX=undefined;h.targetY=undefined;
   let hits=hazardClocks.get(h);if(!hits){hits={};hazardClocks.set(h,hits);}for(const key in hits)delete hits[key];h.nextHits=kind==='beam'||kind==='fire'?hits:undefined;g.hazards.push(h);return h;
 }
@@ -56,14 +59,16 @@ function spawnWormBody(g,head){
   for(let i=1;i<=count;i++){const segment=spawnEnemy(g,'radWorm',head.x-i*26,head.y);segment.wormHeadId=head.id;segment.wormSegmentIndex=i;segment.wormInvulnerable=i!==1;segment.hp=90;segment.maxHp=90;segment.cooldown=99;}
 }
 export function spawnEnemy(g, kind, x, y) {
-  const c = ENEMIES[kind]; const scale = (1+g.room*.12 + (g.encounterParty-1)*(isBoss(kind)?.48:.12))*(1+g.room*.035*curseStrength(g,'roomScaling'));
+  const c = ENEMIES[kind]; const scale = (isEndless(g)?g.difficulty.health:1+g.room*.12 + (g.encounterParty-1)*(isBoss(kind)?.48:.12))*(1+(isEndless(g)?Math.min(g.combatRoom-1,50):g.room)*.035*curseStrength(g,'roomScaling'));
   const e=runtime(g).enemies.acquire();
   e.id=++g.serial;e.kind=kind;e.x=x;e.y=y;e.hp=c.hp*scale;e.maxHp=c.hp*scale;e.angle=0;e.cooldown=1+random(g);e.tell=0;e.target='';e.burst=0;e.danger=false;e.stun=0;e.guardLeft=0;e.guardAge=0;e.nearPlayer=false;e.parryAttemptCd=0;e.action='attack';e.swing=0;e.repositionLeft=0;e.repositionCd=0;e.slamCd=0;e.magnetLeft=0;e.elite=false;e.damageScale=1;e.bleedLeft=0;e.burnLeft=0;e.chillLeft=0;
   e.routeX=undefined;e.routeY=undefined;e.dead=undefined;e.fireReadyAt=undefined;e.tellTotal=undefined;e.recoil=undefined;e.repositionX=undefined;e.repositionY=undefined;e.minesLaid=kind==='miner'?0:undefined;e.mineTimer=undefined;e.mineState=kind==='miner'?'approach':undefined;e.wanderTimer=undefined;e.wanderAngle=undefined;e.primed=undefined;e.aiVX=undefined;e.aiVY=undefined;e.escortClock=undefined;e.protectedAlly=undefined;e.escortX=undefined;e.escortY=undefined;for(const key of ['cloudCd','wallCd','specialCd','flameCd','flameLeft','flameTrackingLeft','sawVX','sawVY','sawFriendly','sawDeactivateLeft','sawWindup','sawChargeLeft','sawOwner','sawHitId','digMode','digClock','digSurfaceLeft','digAgainCd','buried','wrenchCd','wormHeadId','wormSegmentIndex','wormSegmentCount','wormActiveSegment','wormInvulnerable','wormSegmentsDefeated','wormPhase','wormAge','wormAttack','wormCharge','wormShotCd','wormShotUnparryable','wormWindupKick','wormTurn','wormApproachCd','wormApproachLeft','radTimer','segmentCount','minionCd','l3Tell','tellX','tellY','tellHorizontal'])e[key]=undefined;
+  if(isEndless(g)&&!g.endlessEliteGiven&&curseStrength(g,'eliteEnemy')){const strength=curseStrength(g,'eliteEnemy');e.elite=true;e.damageScale=1+.25*strength;e.hp*=1+.5*strength;e.maxHp=e.hp;g.endlessEliteGiven=true;}
   g.enemies.push(e); return e;
 }
 export function clearArena(g,keepCover=false){const r=runtime(g);clear(g.enemies,r.enemies);clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);g.doomSnail=undefined;if(!keepCover)g.obstacles=[];r.collisionDirty=true;}
 export function generateRoom(g) {
+  if(isEndless(g))prepareEndlessRoom(g);
   g.encounterParty = g.players.length; g.width = 900 + (g.encounterParty-1)*120; g.height = 570 + (g.encounterParty-1)*45;
   const r=runtime(g);clear(g.enemies,r.enemies);clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);r.collisionDirty=true;
   g.nextEnemyShot=g.time;g.obstacles=[];g.intro=1.5;g.roomStartedAt=g.time;g.doomSnail=curseStrength(g,'doomSnail')?{x:g.width/2,y:90,elapsed:0,speed:0,pause:0,target:null}:undefined;
@@ -74,7 +79,8 @@ export function generateRoom(g) {
     if(g.obstacles.every(a=>Math.hypot(a.x-o.x,a.y-o.y)>110))g.obstacles.push(o);
   }
   g.players.forEach((p,i)=>{p.x=130;p.y=g.height/2+(i-(g.players.length-1)/2)*40;p.invuln=1.5;p.chosen=false;p.offers=[];p.dashLeft=0;p.parryLeft=0;p.swing=0;p.blocking=false;p.guardHeld=false;p.stun=0;p.vx=0;p.vy=0;p.magnetLeft=undefined;});
-  if(g.room===B.encounters) {
+  if(isEndless(g)){advanceEndlessSpawns(g,0,spawnEnemy);}
+  else if(g.room===B.encounters) {
     g.obstacles=g.obstacles.filter(o=>!inside({x:g.width-210,y:g.height/2},o,50));
     if((g.stage??0)===0){spawnEnemy(g,'boss',g.width-210,g.height/2);for(let i=1;i<g.encounterParty;i++)spawnEnemy(g,i%2?'bow':'mortar',g.width-140,100+i*90);}
     else if((g.stage??0)===1){g.obstacles=g.obstacles.filter(o=>!inside({x:g.width-230,y:g.height/2-100},o,50)&&!inside({x:g.width-170,y:g.height/2+100},o,50));spawnEnemy(g,'twinBomber',g.width-230,g.height/2-100);spawnEnemy(g,'twinRicochet',g.width-170,g.height/2+100);}
@@ -93,11 +99,12 @@ export function generateRoom(g) {
     }
   }
   const eliteStrength=curseStrength(g,'eliteEnemy');
-  if(eliteStrength){let elite=g.enemies.find(e=>!isBoss(e.kind));if(!elite)elite=spawnEnemy(g,(g.stage??0)>0?'ricochet':'bow',g.width*.7,g.height*.3);elite.elite=true;elite.damageScale=1+.25*eliteStrength;elite.hp*=1+.5*eliteStrength;elite.maxHp=elite.hp;}
+  if(eliteStrength&&!isEndless(g)){let elite=g.enemies.find(e=>!isBoss(e.kind));if(!elite)elite=spawnEnemy(g,(g.stage??0)>0?'ricochet':'bow',g.width*.7,g.height*.3);elite.elite=true;elite.damageScale=1+.25*eliteStrength;elite.hp*=1+.5*eliteStrength;elite.maxHp=elite.hp;}
   if(g.sceneryStage!==(g.stage??0)){g.scenerySeed=g.seed;g.sceneryStage=g.stage??0;}
 }
 // Admin actions use the same simulation in solo and authoritative co-op rooms.
 export function adminTeleport(g,level,room){
+  if(isEndless(g)){if(!Number.isSafeInteger(room)||room<1||room>1000000)throw Error('Choose an Endless room from 1 to 1,000,000.');g.combatRoom=room;g.runStats.roomsCleared=room-1;g.phase='combat';g.kits=[];for(const p of g.players){p.vendorOpen=false;p.altarOpen=false;if(p.hp<=0)p.hp=p.maxHp;p.attackCd=0;p.parryCd=0;p.dashCd=0;}clear(g.events,runtime(g).events);generateRoom(g);return;}
   if(!g||!Number.isInteger(level)||level<1||level>LEVELS.length||!Number.isInteger(room)||room<1||room>B.encounters+1)throw Error('Choose a valid level and room.');
   g.stage=level-1;g.room=room-1;g.phase='combat';g.kits=[];for(const p of g.players){p.vendorOpen=false;p.altarOpen=false;}
   for(const p of g.players){if(p.hp<=0)p.hp=p.maxHp;p.attackCd=0;p.parryCd=0;p.dashCd=0;}
@@ -200,6 +207,7 @@ function perfectTraits(g,p){
 }
 export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity,sourceKind=sourceEntity?.kind) {
   if(p.hp<=0)return 'immune';
+  if(isEndless(g))damage*=g.difficulty.damage;
   const healthBefore=p.hp;const recordDeath=()=>{if(healthBefore>0&&p.hp<=0)p.deathInfo={time:g.time,room:g.room+1,area:(g.stage??0)+1,cause:ENEMIES[sourceKind]?.name||'Combat damage'};};
   if(p.dashLeft>0&&p.dashAge<p.dashIframes){if(p.dashCounter)p.dashCounterReady=true;return 'immune';}
   if(p.invuln>0)return 'immune';
@@ -215,7 +223,7 @@ export function hitPlayer(g,p,damage,parryable=true,sourceAngle=0,sourceEntity,s
       p.parryCd=0;
       if(p.perfectOnly)p.attackBoostLeft=Math.max(p.attackBoostLeft||0,1.5);
       if(p.shieldRestore&&p.shieldDamage>50){p.shieldDamage=Math.max(50,p.shieldDamage-p.shieldRestore);p.shieldBroken=false;}
-      p.streak+=p.weapon==='dagger'?2:1;p.streakLeft=B.streakTimeout;p.perfects++;
+      p.streak+=p.weapon==='dagger'?2:1;p.streakLeft=B.streakTimeout;p.perfects++;if(isEndless(g))g.runStats.perfectParries++;
       if(p.weapon==='sword')p.internal=Math.max(0,p.internal-8);
       if(p.weapon==='longsword')runtime(g).collisionDirty=true;
       if(p.weapon==='longsword')for(const e of g.enemies)if(distance(e,p)<130)move(g,e,Math.cos(Math.atan2(e.y-p.y,e.x-p.x))*35,Math.sin(Math.atan2(e.y-p.y,e.x-p.x))*35,15);
@@ -247,6 +255,7 @@ function kill(g,e,owner) {
   if(e.wormSegmentIndex){e.hp=0;const head=g.enemies.find(q=>q.id===e.wormHeadId&&q.hp>0),segments=g.enemies.filter(q=>q.wormHeadId===e.wormHeadId&&q.hp>0&&!q.dead&&q.wormSegmentIndex).sort((a,b)=>a.wormSegmentIndex-b.wormSegmentIndex);if(head){head.wormSegmentsDefeated=(head.wormSegmentsDefeated||0)+1;const next=segments[0];head.wormActiveSegment=next?.wormSegmentIndex||0;head.wormInvulnerable=!!next;for(const segment of segments)segment.wormInvulnerable=segment!==next;if(head.wormSegmentsDefeated>=2&&!head.wormPhase){head.wormPhase=2;const left=spawnEnemy(g,'radMinion',clamp(head.x-170,60,g.width-60),clamp(head.y-145,60,g.height-60)),right=spawnEnemy(g,'radMinion',clamp(head.x+170,60,g.width-60),clamp(head.y+145,60,g.height-60));for(const minion of [left,right]){minion.wormHeadId=head.id;minion.minionCd=1.1+random(g)*.6;}event(g,'wormphase',head.x,head.y,'PHASE 2 · RAD WARDENS');}}event(g,'segmentbreak',e.x,e.y,'SEGMENT BROKEN',owner?.id);return;}
   if(e.kind==='radWorm')for(const segment of g.enemies)if(segment.wormHeadId===e.id){segment.hp=0;segment.dead=true;}
   if(e.kind==='radWorm')for(const minion of g.enemies)if(minion.kind==='radMinion'&&minion.wormHeadId===e.id){minion.hp=0;minion.dead=true;}
+  if(isEndless(g))g.runStats.totalKills++;
   const scrap=Math.max(1,Math.round(scrapFor(e)*(1-.2*curseStrength(g,'lessScrap'))));if(g.runSystems)g.scrap+=scrap;event(g,'kill',e.x,e.y,g.runSystems?`+${scrap} SCRAP`:'',owner?.id).fx={amount:g.runSystems?scrap:0,boss:isBoss(e.kind),targetId:e.id};
   if(owner) {owner.kills++;if(owner.dashReset)owner.dashCd=0;owner.noKillTimer=0;owner.xp++;
     if(owner.vampire)owner.hp=Math.min(owner.maxHp,owner.hp+owner.maxHp*owner.vampire);
@@ -357,9 +366,9 @@ function fire(g,e,p) {
   event(g,'fire',e.x,e.y,'','',e.kind,'shoot');
 }
 export function chooseUpgrade(g,id,upgradeId) {
-  const p=g.players.find(p=>p.id===id),u=UPGRADES.find(u=>u.id===upgradeId);
+  const p=g.players.find(p=>p.id===id),u=(isEndless(g)?RUN_REWARDS:UPGRADES).find(u=>u.id===upgradeId);
   if(g.phase!=='upgrade'||!p||p.hp<=0||p.chosen||!p.offers.includes(upgradeId)||!u)return false;
-  u.apply(p);p.upgrades.push(upgradeId);p.chosen=true;event(g,'upgrade',p.x,p.y,u.name,p.id).itemId=upgradeId;return true;
+  u.apply(p,g);p.upgrades.push(upgradeId);p.chosen=true;event(g,'upgrade',p.x,p.y,u.name,p.id).itemId=upgradeId;return true;
 }
 export function stepPlayer(g,p,i,dt,locked=false){
     for(const k of PLAYER_TIMERS)p[k]=Math.max(0,(p[k]||0)-dt);
@@ -387,7 +396,7 @@ export function stepPlayer(g,p,i,dt,locked=false){
     if(g.phase==='combat'&&curseStrength(g,'noKillHurt',p)){p.noKillTimer=(p.noKillTimer||0)+dt;if(p.noKillTimer>=6){p.noKillTimer-=6;hitPlayer(g,p,5*(1+.2*(curseStrength(g,'noKillHurt',p)-1)),false,p.angle);}}
 }
 export function step(g,inputs,dt) {
-  dt=clamp(dt,0,1/30);g.time+=dt;if(g.runSystems&&stepPeaceful(g,inputs,dt))return;
+  dt=clamp(dt,0,1/30);if(isEndless(g)&&['death','victory'].includes(g.phase))return;g.time+=dt;if(isEndless(g))refreshEndlessStats(g);if(g.runSystems&&stepPeaceful(g,inputs,dt))return;
   if(g.phase==='levelclear'){
     const ready=g.players.some(p=>p.hp>0&&(inputs[p.id]?.interact||0)>p.seenInteract);
     if(ready){for(const p of g.players){p.seenInteract=inputs[p.id]?.interact||0;p.shieldDamage=0;p.shieldBroken=false;p.internal=0;}g.stage=(g.stage??0)+1;g.room=0;g.phase='combat';generateRoom(g);}
@@ -402,6 +411,7 @@ export function step(g,inputs,dt) {
     return;
   }
   g.intro=Math.max(0,g.intro-dt);
+  if(isEndless(g))advanceEndlessSpawns(g,dt,spawnEnemy);
   for(const p of g.players)stepPlayer(g,p,inputs[p.id]||EMPTY_INPUT,dt);
   const r=runtime(g),alive=r.alive;alive.length=0;for(const p of g.players)if(p.hp>0)alive.push(p);
   if(!alive.length){g.phase='death';if(g.runSystems)g.scrap=0;return;}
@@ -557,10 +567,12 @@ export function step(g,inputs,dt) {
   }
   for(let i=g.obstacles.length-1;i>=0;i--){const o=g.obstacles[i];if(!o.temporary)continue;o.remaining-=dt;if(o.remaining<=0){g.obstacles.splice(i,1);const center={x:o.x+o.w/2,y:o.y+o.h/2};event(g,'explosion',center.x,center.y,'BULKHEAD BLAST','',undefined,'impact').radius=o.damage*3;for(const p of alive)if(distance(p,center)<o.damage*3)hitPlayer(g,p,o.damage,false,Math.atan2(center.y-p.y,center.x-p.x));for(const e of g.enemies)if(e.hp>0&&!damageImmune(g,e)&&distance(e,center)<o.damage*3){e.hp-=o.damage;if(e.hp<=0)kill(g,e,null);}}}
   compact(g.hazards,liveHazard,r.hazards);compact(g.bullets,liveBullet,r.bullets);compact(g.enemies,liveEnemy,r.enemies);
+  if(isEndless(g))refreshEndlessStats(g);
   if(!g.players.some(p=>p.hp>0)){g.phase='death';if(g.runSystems)g.scrap=0;return;}
-  if(!g.enemies.length) {
+  if(!g.enemies.length&&(!isEndless(g)||!g.remainingSpawnGroups)) {
     clear(g.bullets,r.bullets);clear(g.hazards,r.hazards);
-    if(g.room===B.encounters) {for(const p of g.players)p.hp=p.maxHp;g.phase=(g.stage??0)+1<LEVELS.length?'levelclear':'victory';event(g,g.phase==='victory'?'victory':'levelclear',g.width/2,g.height/2,g.phase==='levelclear'?'LEVEL COMPLETE':'');}
+    if(isEndless(g))completeEndlessRoom(g);
+    if(!isEndless(g)&&g.room===B.encounters) {for(const p of g.players)p.hp=p.maxHp;g.phase=(g.stage??0)+1<LEVELS.length?'levelclear':'victory';event(g,g.phase==='victory'?'victory':'levelclear',g.width/2,g.height/2,g.phase==='levelclear'?'LEVEL COMPLETE':'');}
     else {g.phase='upgrade';for(const p of g.players){p.chosen=p.hp<=0;const pool=UPGRADES.filter(u=>!u.kind);p.offers=[];for(let n=0;n<3;n++){const j=Math.floor(random(g)*pool.length);p.offers.push(pool.splice(j,1)[0].id);}if(g.runSystems)p.offers=upgradeOffers(g,p);}event(g,'clear',g.width/2,g.height/2,'ROOM CLEARED');}
   }
 }

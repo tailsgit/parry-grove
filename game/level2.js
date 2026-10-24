@@ -214,6 +214,7 @@ export function specialHazard(g,h,dt,alive,api){
 }
 function pointSegmentDistance(px,py,ax,ay,bx,by){const dx=bx-ax,dy=by-ay,t=clamp(((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(px-ax-dx*t,py-ay-dy*t);}
 export function dashBlast(g,p,damage,api){
+  if(g.runType==='endless')damage*=g.difficulty.damage;
   if(p.hp<=0||p.dashLeft>0&&p.dashAge<p.dashIframes)return 'immune';
   const low=p.lowHpArmor&&p.hp/p.maxHp<.4?.35*(1-p.hp/(p.maxHp*.4)):0,total=damage*(1-p.armor-low)+p.internal;damageHealth(p,total);p.internal=0;p.invuln=B.hurtIframes+(p.longIframes?.18:0);api.event(g,'hurt',p.x,p.y,`−${Math.ceil(total)}`,p.id);if(!p.hp){p.deathInfo={time:g.time,room:g.room+1,area:(g.stage??0)+1,cause:'DASH ONLY explosion'};api.event(g,'death',p.x,p.y,'DOWN',p.id);}return 'hurt';
 }

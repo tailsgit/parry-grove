@@ -6,11 +6,11 @@ export async function POST(request: Request) {
     if(Number(request.headers.get('content-length'))>12000)return Response.json({error:'Request too large.'},{status:413});
     if(!env.DB)throw Error('Online rooms are temporarily unavailable. Solo play still works.');
     const db=env.DB.withSession('first-primary');
-    const body=await request.json() as { action:string; name?:string; weapon?:string; code?:string; id?:string; token?:string; input?:Record<string,number|boolean>; upgrade?:string; operation?:string; level?:number; room?:number; hp?:number;kit?:string;choice?:string;item?:string }; // Validated at the room boundary below.
+    const body=await request.json() as { action:string; runType?:string; name?:string; weapon?:string; code?:string; id?:string; token?:string; input?:Record<string,number|boolean>; upgrade?:string; operation?:string; level?:number; room?:number; hp?:number;kit?:string;choice?:string;item?:string }; // Validated at the room boundary below.
     const now=Date.now();
     if(body.action==='create') {
       await db.prepare('DELETE FROM game_rooms WHERE updated_at < ?').bind(now-6*3600000).run();
-      const m=member(body.name,body.weapon,now),r=roomState(m,now);
+      const m=member(body.name,body.weapon,now),r=roomState(m,now,body.runType);
       const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       for(let tries=0;tries<6;tries++) {
         const bytes=crypto.getRandomValues(new Uint8Array(6));const code=[...bytes].map(b=>alphabet[b%alphabet.length]).join('');
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       const r=JSON.parse(row.state);
       let m=r.members.find((m:{id:string;token:string})=>m.id===body.id&&m.token===body.token);
       if(body.action!=='join'&&!m)return Response.json({error:'You have disconnected. Join a new lobby.'},{status:401});
-      if(r.game&&['input','poll','leave','admin','kit','route','buy','sacrifice','vendorClose'].includes(body.action)) {
+      if(r.game&&['input','poll','leave','admin','kit','route','buy','sacrifice','sacrificeDecline','retry','vendorClose'].includes(body.action)) {
         if(env.ROOMS){
           const realtimeResponse=await env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(new Request(`https://room.internal/state?code=${code}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:m?.id,token:m?.token,action:body.action,input:body.input,operation:body.operation,level:body.level,room:body.room,hp:body.hp,kit:body.kit,choice:body.choice,item:body.item})}));
           // Service binding responses have immutable headers. Return a fresh response

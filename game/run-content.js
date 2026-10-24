@@ -1,3 +1,4 @@
+import {isEndless,runType,initializeEndless,endlessRoutes,advanceDoorConsensus,ENDLESS,ENDLESS_REWARDS,validEndlessUpgrade,stream} from './endless.js';
 import {UPGRADES,ENEMIES,WEAPONS,BALANCE as B} from './config.js';
 import {createGame,clearArena,generateRoom,random,stepPlayer,distance,event} from './engine.js';
 export const KITS=[
@@ -37,7 +38,7 @@ export const CURSES=[
  {id:'doomSnail',name:'Snail of Doom',description:'After 1 second, a pursuing snail appears and speeds up over time.',severity:3},
  {id:'lessScrap',name:'Lean Pockets',description:'Enemies drop less Scrap.',severity:1},
 ];
-export function activeCurses(p,room,stage=0){return (p?.curses||[]).filter(c=>c.expiresAtRoom>=stage*B.encounters+room);}
+export function activeCurses(p,room,stage=0){return (p?.curses||[]).filter(c=>c.combatClearsLeft!=null?c.combatClearsLeft>0:c.expiresAtRoom>=stage*B.encounters+room);}
 export function grantUpgrade(p,id){const u=UPGRADES.find(u=>u.id===id);if(!u)throw Error('Unknown upgrade.');if(u.kind&&p.upgrades.includes(id))throw Error('You already own this relic or synergy.');u.apply(p);p.upgrades.push(id);}
 export function adminAddUpgrade(p,id){if(!p)throw Error('Player unavailable.');grantUpgrade(p,id);}
 export function adminRemoveUpgrade(p,id){
@@ -53,20 +54,22 @@ export function adminRemoveUpgrade(p,id){
  p.thunderStep=p.upgrades.includes('thunderStep')||p.upgrades.includes('stormHeart');
  if(id==='parryCrystals')p.crystals=[];
 }
-export function adminAddCurse(p,id,rarity='common',currentRoom=0){
+export function adminAddCurse(p,id,rarity='common',currentRoom=0,endless=false){
  if(!p)throw Error('Player unavailable.');const curse=CURSES.find(c=>c.id===id);if(!curse)throw Error('Unknown curse.');
- const tier=rarityTier[rarity];if(!tier)throw Error('Choose a valid curse rarity.');p.curses=[...(p.curses||[]),{...curse,rarity,strength:1+(tier-1)*.25,expiresAtRoom:currentRoom+Math.ceil(curse.severity*(.75+tier*.25))}];
+ const tier=rarityTier[rarity];if(!tier)throw Error('Choose a valid curse rarity.');p.curses=[...(p.curses||[]),{...curse,rarity,strength:1+(tier-1)*.25,expiresAtRoom:currentRoom+Math.ceil(curse.severity*(.75+tier*.25)),...(endless?{combatClearsLeft:Math.ceil(curse.severity*(.75+tier*.25))}:{})}];
 }
 export function adminRemoveCurse(p,index){if(!p||!Number.isInteger(index)||index<0||index>=(p.curses||[]).length)throw Error('Player does not have that curse.');p.curses.splice(index,1);}
 function sample(g,pool,n){const available=[...pool],out=[];while(out.length<n&&available.length){const i=Math.floor(random(g)*available.length);out.push(available.splice(i,1)[0]);}return out;}
+export const RUN_REWARDS=[...UPGRADES,...ENDLESS_REWARDS];
 export function upgradeOffers(g,p){
+ if(isEndless(g)){const rng={seed:Math.floor(stream(g.runSeed,g.combatRoom,`reward-${p.slot}`)()*4294967296)},pool=UPGRADES.filter(u=>validEndlessUpgrade(u,p)),out=weightedSample(rng,pool,3).map(u=>u.id);for(const reward of ENDLESS_REWARDS)if(out.length<3)out.push(reward.id);return out;}
  const eligible=UPGRADES.filter(u=>u.kind==='synergy'&&!p.upgrades.includes(u.id)&&u.requires.every(id=>p.upgrades.includes(id)));
  const basic=UPGRADES.filter(u=>!u.kind);const offers=[];
  // A qualified combination gets a 65% featured slot; it is never guaranteed.
  if(eligible.length&&random(g)<.65)offers.push(weightedSample(g,eligible,1)[0].id);
  offers.push(...weightedSample(g,basic,3-offers.length).map(u=>u.id));return offers;
 }
-export function createRun(players,seed){const g=createGame(players,seed);g.runSystems=true;g.hostId=players[0]?.id;g.scrap=0;g.phase='draft';clearArena(g);g.intro=0;
+export function createRun(players,seed,type='story'){const selected=runType(type),g=createGame(players,seed);g.runType=selected;if(isEndless(g))initializeEndless(g,seed??g.seed);g.runSystems=true;g.hostId=players[0]?.id;g.scrap=0;g.phase='draft';clearArena(g);g.intro=0;
  g.kits=sample(g,KITS,players.length===1?3:players.length+2).map((kit,i)=>({id:kit.id,x:280+(i%3)*170,y:players.length===1?285:220+Math.floor(i/3)*180,claimedBy:null}));
  for(const p of players){p.x=230;p.kitId=null;p.healthFactor=1;}return g;}
 export function claimKit(g,id,kitId){const p=g.players.find(p=>p.id===id),pick=g.kits?.find(k=>k.id===kitId),kit=KITS.find(k=>k.id===kitId);
@@ -81,20 +84,25 @@ export function openRouteDoors(g){
  // Keep the cleared room intact, but guarantee a cover-free corridor to every exit.
  g.obstacles=g.obstacles.filter(o=>!g.routeDoors.some(d=>d.side==='bottom'?o.x<d.x+55&&o.x+o.w>d.x-55&&o.y+o.h>g.height-135:o.y<d.y+55&&o.y+o.h>d.y-55&&(d.side==='left'?o.x<135:o.x+o.w>g.width-135)));
 }
-export function beginRoute(g){g.phase='route';g.pendingRoom=g.room+1;g.routeOptions=g.pendingRoom===B.encounters?['shop']:['continue'];
+export function beginRoute(g){g.phase='route';g.pendingRoom=g.room+1;
+ if(isEndless(g)){g.pendingCombatRoom=g.combatRoom+1;g.routeOptions=endlessRoutes(g.runSeed,g.combatRoom,g.lastSacrificeRoom);g.availableExits=g.routeOptions;if(g.routeOptions.includes('altar'))g.lastSacrificeRoom=g.combatRoom;g.doorConsensus=null;}
+ else {g.routeOptions=g.pendingRoom===B.encounters?['shop']:['continue'];
  if(g.pendingRoom!==B.encounters&&random(g)<.2)g.routeOptions.push('shop');
- if(g.pendingRoom!==B.encounters&&random(g)<.35)g.routeOptions.push('altar');
+ if(g.pendingRoom!==B.encounters&&random(g)<.35)g.routeOptions.push('altar');}
+ if(isEndless(g))for(const p of g.players)if(p.hp>0)p.hp=Math.min(p.maxHp,p.hp+8);
  clearArena(g,true);g.intro=0;openRouteDoors(g);for(const door of g.routeDoors)event(g,'doorsopen',door.x,door.y);
  // Physical routing needs living party members, including a host downed in combat.
  const survivor=g.players.find(p=>p.hp>0);for(const p of g.players)if(p.hp<=0){p.hp=p.maxHp*.5;p.routeRevived=true;if(survivor){p.x=survivor.x;p.y=survivor.y;}}
 }
-function enterCombat(g){event(g,'roomenter',g.width/2,g.height/2);g.room=g.pendingRoom;g.pendingRoom=undefined;g.phase='combat';g.stock=[];g.altarOffers=[];g.routeDoors=[];for(const p of g.players){p.curses=activeCurses(p,g.room,g.stage??0);p.vendorOpen=false;p.altarOpen=false;p.hp=p.hp<=0?p.maxHp*.5:Math.min(p.maxHp,p.hp+(p.routeRevived?0:8));p.routeRevived=false;}generateRoom(g);}
-export function selectRoute(g,id,choice){if(g.phase!=='route'||id!==g.hostId||!g.routeOptions.includes(choice))throw Error('Only the host can choose an available route.');
- const p=g.players.find(p=>p.id===id),door=g.routeDoors?.find(d=>d.choice===choice);if(!p||p.hp<=0||!door||distance(p,door)>32)throw Error('Walk through the chosen exit.');
- if(choice==='continue'){enterCombat(g);return;}event(g,'roomenter',g.width/2,g.height/2);g.routeDoors=[];g.phase=choice;clearArena(g);g.intro=0;g.stopSerial=(g.stopSerial||0)+1;g.station={x:g.width/2,y:g.height/2};g.exit={x:g.width-(choice==='shop'?32:100),y:g.height/2};
- for(const [i,p] of g.players.entries()){p.x=130;p.y=g.height/2+(i-(g.players.length-1)/2)*40;p.vendorOpen=false;p.altarOpen=false;p.shopContacts=0;}
- if(choice==='shop')g.stock=[{id:'repair',name:'Full shield repair',desc:'Restore your shield to 100.',cost:45,left:2},{id:'heal',name:'Health tonic',desc:'Heal 35% of your maximum HP.',cost:25,left:2},...sample(g,UPGRADES.filter(u=>!u.kind),2).map(u=>({id:u.id,name:u.name,desc:u.desc,rarity:u.rarity,cost:35,left:1})),...sample(g,relics(),2).map(u=>({id:u.id,name:u.name,desc:u.desc,rarity:u.rarity,cost:90,left:1}))];
- if(choice==='shop')layoutShopStock(g);else g.altarOffers=weightedSample(g,UPGRADES.filter(u=>g.players.some(player=>!player.upgrades.includes(u.id)&&(!u.requires||u.requires.every(id=>player.upgrades.includes(id))))),3,true).map(u=>u.id);
+function enterCombat(g){if(isEndless(g)){g.combatRoom=g.pendingCombatRoom;g.pendingCombatRoom=undefined;g.roomPhase='combat';}event(g,'roomenter',g.width/2,g.height/2);g.room=g.pendingRoom;g.pendingRoom=undefined;g.phase='combat';g.stock=[];g.altarOffers=[];g.routeDoors=[];for(const p of g.players){p.curses=activeCurses(p,g.room,g.stage??0);p.vendorOpen=false;p.altarOpen=false;if(!isEndless(g))p.hp=p.hp<=0?p.maxHp*.5:Math.min(p.maxHp,p.hp+(p.routeRevived?0:8));p.routeRevived=false;}generateRoom(g);}
+export function selectRoute(g,id,choice,consensus=false){if(isEndless(g)&&g.players.length>1&&g.routeOptions?.length>1&&!consensus)throw Error('Gather the living party at the same exit.');
+ if(g.phase!=='route'||(!consensus&&id!==g.hostId)||!g.routeOptions.includes(choice))throw Error('Only the host can choose an available route.');
+ const p=g.players.find(p=>p.id===id),door=g.routeDoors?.find(d=>d.choice===choice);if(!p||p.hp<=0||!door||distance(p,door)>(consensus?ENDLESS.doorRadius:32))throw Error('Walk through the chosen exit.');
+ if(choice==='continue'){enterCombat(g);return;}if(isEndless(g)){g.roomPhase=choice==='altar'?'sacrifice':'shop';g.doorConsensus=null;if(choice==='shop')g.lastShopRoom=g.combatRoom;}event(g,'roomenter',g.width/2,g.height/2);g.routeDoors=[];g.phase=choice;clearArena(g);g.intro=0;g.stopSerial=(g.stopSerial||0)+1;g.station={x:g.width/2,y:g.height/2};g.exit={x:g.width-(choice==='shop'?32:100),y:g.height/2};
+ for(const [i,p] of g.players.entries()){p.x=130;p.y=g.height/2+(i-(g.players.length-1)/2)*40;p.vendorOpen=false;p.altarOpen=false;p.shopContacts=0;p.altarResolved=false;}
+ const loot=isEndless(g)?{seed:Math.floor(stream(g.runSeed,g.combatRoom,choice+'-loot')()*4294967296)}:g;
+ if(choice==='shop')g.stock=[{id:'repair',name:'Full shield repair',desc:'Restore your shield to 100.',cost:45,left:2},{id:'heal',name:'Health tonic',desc:'Heal 35% of your maximum HP.',cost:25,left:2},...sample(loot,UPGRADES.filter(u=>!u.kind),2).map(u=>({id:u.id,name:u.name,desc:u.desc,rarity:u.rarity,cost:35,left:1})),...sample(loot,relics(),2).map(u=>({id:u.id,name:u.name,desc:u.desc,rarity:u.rarity,cost:90,left:1}))];
+ if(choice==='shop')layoutShopStock(g);else g.altarOffers=weightedSample(loot,UPGRADES.filter(u=>g.players.some(player=>!player.upgrades.includes(u.id)&&(!u.requires||u.requires.every(id=>player.upgrades.includes(id))))),3,true).map(u=>u.id);
 }
 export function layoutShopStock(g){
  g.shopStartedAt=g.time;g.exit={x:g.width-32,y:g.height/2};
@@ -127,10 +135,12 @@ export function sacrifice(g,id,relic){const p=g.players.find(p=>p.id===id);
  if(g.phase!=='altar'||!p||p.hp<=0||!p.altarOpen||distance(p,g.station)>90||p.altarUsed===g.stopSerial||!g.altarOffers.includes(relic))throw Error('This sacrifice is unavailable.');
  if(p.upgrades.includes(relic))throw Error('You already own this relic.');
  const upgrade=UPGRADES.find(u=>u.id===relic),curse=CURSES[Math.floor(random(g)*CURSES.length)],tier=rarityTier[upgrade?.rarity]||1;
- const entry={...curse,rarity:upgrade?.rarity||'common',strength:1+(tier-1)*.25,expiresAtRoom:(g.stage??0)*B.encounters+g.room+Math.ceil(curse.severity*(.75+tier*.25))};
- p.curses=[...(p.curses||[]),entry];p.altarUsed=g.stopSerial;grantUpgrade(p,relic);
- event(g,'sacrifice',p.x,p.y,`CURSE: ${entry.name} · ${entry.description} · ${entry.expiresAtRoom-((g.stage??0)*B.encounters+g.room)+1} rooms`,p.id);
+ const entry={...curse,rarity:upgrade?.rarity||'common',strength:1+(tier-1)*.25,expiresAtRoom:(g.stage??0)*B.encounters+g.room+Math.ceil(curse.severity*(.75+tier*.25)),...(isEndless(g)?{combatClearsLeft:Math.ceil(curse.severity*(.75+tier*.25))}:{})};
+ p.curses=[...(p.curses||[]),entry];p.altarUsed=g.stopSerial;p.altarResolved=true;grantUpgrade(p,relic);
+ event(g,'sacrifice',p.x,p.y,`CURSE: ${entry.name} · ${entry.description} · ${entry.combatClearsLeft??entry.expiresAtRoom-((g.stage??0)*B.encounters+g.room)+1} rooms`,p.id);
 }
+export function altarReady(g){return !isEndless(g)||g.players.filter(p=>p.hp>0&&!p.disconnected).every(p=>p.altarResolved);}
+export function declineSacrifice(g,id){const p=g.players.find(p=>p.id===id);if(!isEndless(g)||g.phase!=='altar'||!p||p.hp<=0)throw Error('No sacrifice decision is available.');p.altarResolved=true;p.altarOpen=false;}
 export function stepPeaceful(g,inputs,dt){
  if(!['draft','shop','altar','route'].includes(g.phase))return false;
  if(g.phase==='route'&&!g.routeDoors?.length)openRouteDoors(g);
@@ -141,7 +151,7 @@ export function stepPeaceful(g,inputs,dt){
   stepPlayer(g,p,i,dt,p.vendorOpen||p.altarOpen);
   if(g.phase==='route'){
    p.seenInteract=Math.max(p.seenInteract,i.interact||0);
-   if(p.id===g.hostId){const mx=(i.mx||0)||p.vx||(p.dashLeft>0?p.dx:0),my=(i.my||0)||p.vy||(p.dashLeft>0?p.dy:0);const door=g.routeDoors.find(d=>distance(p,d)<=32&&(d.side==='left'?mx<0:d.side==='right'?mx>0:my>0));if(door){selectRoute(g,p.id,door.choice);return true;}}
+   if(!(isEndless(g)&&g.players.length>1&&g.routeOptions.length>1)&&p.id===g.hostId){const mx=(i.mx||0)||p.vx||(p.dashLeft>0?p.dx:0),my=(i.my||0)||p.vy||(p.dashLeft>0?p.dy:0);const door=g.routeDoors.find(d=>distance(p,d)<=32&&(d.side==='left'?mx<0:d.side==='right'?mx>0:my>0));if(door){selectRoute(g,p.id,door.choice);return true;}}
    continue;
   }
   if(g.phase==='shop'){
@@ -152,9 +162,11 @@ export function stepPeaceful(g,inputs,dt){
   if((i.interact||0)>p.seenInteract){p.seenInteract=i.interact;
    if(g.phase==='draft'&&!p.kitId){const kit=g.kits.find(k=>!k.claimedBy&&distance(p,k)<=80);if(kit)claimKit(g,p.id,kit.id);}
    else if(g.phase!=='draft'&&g.station&&distance(p,g.station)<=90){p.altarOpen=true;}
-   else if(g.phase!=='draft'&&p.id===g.hostId&&g.exit&&distance(p,g.exit)<=80){enterCombat(g);return true;}
+   else if(g.phase!=='draft'&&p.id===g.hostId&&g.exit&&distance(p,g.exit)<=80&&altarReady(g)){enterCombat(g);return true;}
   }
- }return true;
+ }
+ if(isEndless(g)&&g.phase==='route'&&g.players.length>1&&g.routeOptions.length>1){const choice=advanceDoorConsensus(g,dt);if(choice){const leader=g.players.find(p=>p.hp>0&&!p.disconnected);if(leader)selectRoute(g,leader.id,choice,true);}}
+ return true;
 }
 export function scrapFor(e){return ENEMIES[e.kind].boss?70:8;}
 export function kitLabel(id){const k=KITS.find(k=>k.id===id);return k?`${k.name} · ${WEAPONS[k.weapon].name}`:'';}

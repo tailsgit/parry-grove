@@ -160,3 +160,13 @@ html[data-reduced-motion=true] .is-critical .hud-health-fill{animation:none}
 .game-screen .kit-perk .effect-value{display:inline;font:inherit;font-weight:700}.game-screen .kit-tooltip{transform:translate(0,-50%);margin:0}.game-screen .kit-tooltip.flank-left{transform:translate(-100%,-50%)}.game-screen .kit-tooltip:after{left:-7px;right:auto;top:calc(50% - 6px);bottom:auto;transform:rotate(135deg)}.game-screen .kit-tooltip.flank-left:after{left:auto;right:-7px;transform:rotate(-45deg)}.game-screen .settings-home{overflow-y:auto;min-height:0;overscroll-behavior:contain;padding:4px 6px;margin:14px auto}
 .hud-health-fill{transition:width .1s linear,background-color .18s ease-out}
 .game-screen .party-row{font:14px var(--ui-copy)}.game-screen .party-row small{font:12px/1.5 var(--ui-copy);margin-top:5px}.game-screen .party-row b{font:11px var(--ui-meta)}.game-screen .curse-entry small{font-size:11px}.game-screen .screen-error{font:13px/1.5 var(--ui-copy)}
+
+/* Run selection follows the established panel palette. */
+.run-mode-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 20px}
+.game-screen .run-mode-card{display:grid;align-content:start;gap:6px;min-height:105px;padding:14px;text-align:left;background:#17392f;border:1px solid #87937b;color:#f0ead5;transition:border-color .12s,background .12s,transform .12s}
+.run-mode-card strong{font:600 18px Georgia,serif}.run-mode-card small{font:12px/1.5 Arial,sans-serif;color:#c4cfb6}
+.game-screen .run-mode-card.is-selected{border-color:#e9d49c;background:#284a39;box-shadow:inset 0 0 0 1px #e9d49c}
+.game-screen .run-mode-card:hover{background:#315540}.run-mode-card:focus-visible{outline:2px solid #e9d49c;outline-offset:3px}
+.room-hud .reinforcement-status{color:#efd18b;font-size:10px;margin-top:5px}
+.game-screen .route-guidance{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);width:min(620px,85vw);padding:10px 16px;background:#12352be0;color:#f0ead5;text-align:center;font-size:13px;pointer-events:none;border:1px solid #87937b88;height:auto;clip-path:none;overflow:visible;white-space:normal}
+@media(max-height:760px){.run-mode-options{margin-bottom:10px}.game-screen .run-mode-card{min-height:80px;padding:10px}.run-mode-card small{font-size:11px}}

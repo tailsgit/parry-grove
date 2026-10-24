@@ -5,10 +5,11 @@ const SNAPSHOT_INTERVAL = 33;
 const PERSIST_INTERVAL = 250;
 const SNAPSHOT_EVENTS = 18;
 
-type Game = Omit<ReturnType<typeof import('./engine.js').createGame>,'events'> & {scenerySeed?:number;runSystems?:boolean;hostId?:string;scrap?:number;kits?:unknown[];routeOptions?:string[];routeDoors?:Array<{choice:string;x:number;y:number;side:string}>;pendingRoom?:number;station?:{x:number;y:number};exit?:{x:number;y:number};stock?:unknown[];altarOffers?:string[];stopSerial?:number;shopStartedAt?:number;doorsOpenedAt?:number;roomStartedAt?:number;doomSnail?:Record<string,unknown>;events:Array<{time:number} & Record<string,unknown>>};
+type Game = Omit<ReturnType<typeof import('./engine.js').createGame>,'events'> & {runType?:string;runSeed?:number;combatRoom?:number;roomPhase?:string;difficultyBudget?:number;remainingSpawnGroups?:number;spawnWarnings?:unknown[];lastShopRoom?:number;lastSacrificeRoom?:number;availableExits?:string[];doorConsensus?:unknown;runStats?:unknown;pendingCombatRoom?:number;scenerySeed?:number;runSystems?:boolean;hostId?:string;scrap?:number;kits?:unknown[];routeOptions?:string[];routeDoors?:Array<{choice:string;x:number;y:number;side:string}>;pendingRoom?:number;station?:{x:number;y:number};exit?:{x:number;y:number};stock?:unknown[];altarOffers?:string[];stopSerial?:number;shopStartedAt?:number;doorsOpenedAt?:number;roomStartedAt?:number;doomSnail?:Record<string,unknown>;events:Array<{time:number} & Record<string,unknown>>};
 
 type RealtimeMember = { id:string; token:string; name:string; weapon:string; ready:boolean; slot:number; lastSeen:number };
 type RealtimeRoom = {
+  runType?:string;
   host:string;
   members:RealtimeMember[];
   game:Game | null;
@@ -20,12 +21,12 @@ type RealtimeRoom = {
 function compactGame(game: Game | null) {
   if (!game) return null;
   const pick = (values: Record<string,unknown>[], fields: string[]) => values.map(value => Object.fromEntries(fields.filter(key => value[key] !== undefined).map(key => [key,value[key]])));
-  const playerFields = ['id','name','weapon','slot','x','y','angle','hp','maxHp','internal','level','xp','shieldDamage','shieldBroken','magnetLeft','damage','speed','armor','perfect','dashLeft','dashCd','dx','dy','invuln','swing','blocking','stun','vx','vy','streak','streakLeft','parryCd','parryLeft','parryAge','upgrades','curses','crystals','offers','chosen','kills','perfects','regulars','kitId','healthDamageTotal','deathInfo','healthFactor','shopContacts','vendorOpen','altarOpen','altarUsed','stunBonus','areaScale','returnPower','dashPulse','stunDamage','parryHeal','stunNova','thunderStep','mirror','echoBlade','momentumDamage','lowHpDamage','lowHpArmor','perfectOnly','dashCounterReady','attackBoostLeft','missedParryLeft','dashSlowLeft','noKillTimer','lastParryTime','parryCrystals'];
+  const playerFields = ['id','name','weapon','slot','x','y','angle','hp','maxHp','internal','level','xp','shieldDamage','shieldBroken','magnetLeft','damage','speed','armor','perfect','dashLeft','dashCd','dx','dy','invuln','swing','blocking','stun','vx','vy','streak','streakLeft','parryCd','parryLeft','parryAge','upgrades','curses','crystals','offers','chosen','kills','perfects','regulars','kitId','healthDamageTotal','deathInfo','healthFactor','shopContacts','vendorOpen','altarOpen','altarUsed','altarResolved','disconnected','stunBonus','areaScale','returnPower','dashPulse','stunDamage','parryHeal','stunNova','thunderStep','mirror','echoBlade','momentumDamage','lowHpDamage','lowHpArmor','perfectOnly','dashCounterReady','attackBoostLeft','missedParryLeft','dashSlowLeft','noKillTimer','lastParryTime','parryCrystals'];
   const enemyFields = ['id','kind','x','y','hp','maxHp','angle','tell','tellTotal','tellX','tellY','tellHorizontal','danger','action','l3Tell','swing','guardLeft','stun','recoil','mineState','mineTimer','primed','buried','digSurfaceLeft','flameLeft','sawFriendly','segmentCount','wormHeadId','wormSegmentIndex','wormActiveSegment','wormInvulnerable','wormSegmentsDefeated','wormPhase','wormCharge','wormWindupKick','wormShotCd','wormShotUnparryable','minionCd','repositionLeft','repositionX','repositionY','elite','bleedLeft','burnLeft','chillLeft'];
   const bulletFields = ['id','x','y','vx','vy','kind','owner','radius','unparryable','ricochet','thrower','wave','waveAge','chainLeft','reflected','lastHit','chillTarget'];
   const hazardFields = ['id','kind','x','y','vx','vy','cloudDrag','r','remaining','total','dashOnly','sx','sy','ex','ey','flight','flightTotal','flightElapsed','armed','triggerRadius','owner','source','damage','shortBeam'];
   const events = game.events.filter((event) => game.time-event.time <= 3).slice(-SNAPSHOT_EVENTS);
-  return {seed:game.seed,time:game.time,stage:game.stage,room:game.room,phase:game.phase,players:pick(game.players,playerFields),enemies:pick(game.enemies,enemyFields),bullets:pick(game.bullets,bulletFields),hazards:pick(game.hazards,hazardFields),obstacles:game.obstacles,width:game.width,height:game.height,intro:game.intro,scenerySeed:game.scenerySeed,runSystems:game.runSystems,hostId:game.hostId,scrap:game.scrap,kits:game.kits,routeOptions:game.routeOptions,routeDoors:game.routeDoors,pendingRoom:game.pendingRoom,station:game.station,exit:game.exit,stock:game.stock,altarOffers:game.altarOffers,stopSerial:game.stopSerial,shopStartedAt:game.shopStartedAt,doorsOpenedAt:game.doorsOpenedAt,roomStartedAt:game.roomStartedAt,doomSnail:game.doomSnail,events:pick(events,['id','kind','x','y','text','who','time','radius','sourceKind','weaponAction','itemId','fx'])};
+  return {runType:game.runType,runSeed:game.runSeed,combatRoom:game.combatRoom,roomPhase:game.roomPhase,difficultyBudget:game.difficultyBudget,remainingSpawnGroups:game.remainingSpawnGroups,spawnWarnings:game.spawnWarnings,lastShopRoom:game.lastShopRoom,lastSacrificeRoom:game.lastSacrificeRoom,availableExits:game.availableExits,doorConsensus:game.doorConsensus,runStats:game.runStats,pendingCombatRoom:game.pendingCombatRoom,seed:game.seed,time:game.time,stage:game.stage,room:game.room,phase:game.phase,players:pick(game.players,playerFields),enemies:pick(game.enemies,enemyFields),bullets:pick(game.bullets,bulletFields),hazards:pick(game.hazards,hazardFields),obstacles:game.obstacles,width:game.width,height:game.height,intro:game.intro,scenerySeed:game.scenerySeed,runSystems:game.runSystems,hostId:game.hostId,scrap:game.scrap,kits:game.kits,routeOptions:game.routeOptions,routeDoors:game.routeDoors,pendingRoom:game.pendingRoom,station:game.station,exit:game.exit,stock:game.stock,altarOffers:game.altarOffers,stopSerial:game.stopSerial,shopStartedAt:game.shopStartedAt,doorsOpenedAt:game.doorsOpenedAt,roomStartedAt:game.roomStartedAt,doomSnail:game.doomSnail,events:pick(events,['id','kind','x','y','text','who','time','radius','sourceKind','weaponAction','itemId','fx'])};
 }
 
 function snapshot(code: string, room: RealtimeRoom, revision: number, sequence: number) {
@@ -79,11 +80,12 @@ export class RoomRealtime extends DurableObject<Cloudflare.Env> {
         const member = this.room?.members.find(value => value.id === body.id && value.token === body.token);
         if (!member || !this.room?.game) return Response.json({error:'You have disconnected. Join a new lobby.'},{status:401});
         const now=Date.now();member.lastSeen=now;
-        if(['admin','kit','route','buy','sacrifice','vendorClose'].includes(body.action||''))applyAction(this.room,member,body,now,{allowAdmin:this.env.ENABLE_DEV_TOOLS==='true'});
+        const hero=this.room.game.players.find((p:{id:string;disconnected?:boolean})=>p.id===member.id);if(hero)hero.disconnected=false;
+        if(['admin','kit','route','buy','sacrifice','sacrificeDecline','retry','vendorClose'].includes(body.action||''))applyAction(this.room,member,body,now,{allowAdmin:this.env.ENABLE_DEV_TOOLS==='true'});
         else if(body.action==='leave')applyAction(this.room,member,{action:'leave'},now);
         else this.room.inputs[member.id]=cleanInput(body.input||{});
         advanceRoom(this.room,now);this.revision++;
-        this.lastBroadcast=now;this.sequence++;this.broadcast({type:'snapshot',...snapshot(this.code,this.room,this.revision,this.sequence)});await this.persist();
+        this.lastBroadcast=now;this.sequence++;this.broadcast({type:'snapshot',...snapshot(this.code,this.room,this.revision,this.sequence)});await this.persist(body.action==='retry');
         return Response.json(snapshot(this.code,this.room,this.revision,this.sequence),{headers:{'Cache-Control':'no-store'}});
       } catch (error) { return Response.json({error:error instanceof Error?error.message:'Room update failed.'},{status:400}); }
     }
@@ -109,8 +111,9 @@ export class RoomRealtime extends DurableObject<Cloudflare.Env> {
         if (!member || !this.room?.game) { fatal = true; throw new Error('You have disconnected. Join a new lobby.'); }
         socket.serializeAttachment({...attachment,id:member.id,token:member.token});
         member.lastSeen = Date.now();
+        const hero=this.room?.game?.players.find((p:{id:string;disconnected?:boolean})=>p.id===member.id);if(hero)hero.disconnected=false;
         this.send(socket,{type:'snapshot',...snapshot(this.code,this.room,this.revision,this.sequence)});
-        await this.persist();
+        await this.persist(true);
         return;
       }
       const identity = attachment.id && attachment.token ? {id:attachment.id,token:attachment.token} : null;
@@ -140,13 +143,16 @@ export class RoomRealtime extends DurableObject<Cloudflare.Env> {
       if (returning) {
         for (const client of this.ctx.getWebSockets('room')) client.close(1000,'Returned to lobby');
       }
-      await this.persist(returning);
+      await this.persist(returning||message.action==='retry');
     } catch (error) {
       this.send(socket,{type:'error',message:error instanceof Error?error.message:'Room connection failed.',fatal});
     }
   }
 
   async webSocketClose(socket: WebSocket) {
+    const identity=socket.deserializeAttachment() as {id?:string};
+    const another=this.ctx.getWebSockets('room').some(s=>s!==socket&&s.readyState===WebSocket.OPEN&&(s.deserializeAttachment() as {id?:string})?.id===identity?.id);
+    if(identity?.id&&!another&&this.room?.game){const p=this.room.game.players.find((p:{id:string;disconnected?:boolean})=>p.id===identity.id);if(p)p.disconnected=true;this.room.game.doorConsensus=null;await this.persist(true);}
     try { socket.close(1000,'Connection closed'); } catch {}
   }
 
