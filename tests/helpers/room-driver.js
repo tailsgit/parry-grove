@@ -1,3 +1,7 @@
+import {
+  decodeSnapshot,
+  SNAPSHOT_WIRE_VERSION,
+} from "../../game/snapshot-wire.js";
 import { build } from "esbuild";
 import { readFile } from "node:fs/promises";
 import { NetworkTestMiniflare, networkFixturePlugin } from "./multiplayer.js";
@@ -69,8 +73,8 @@ export async function driver(options = {}) {
     if (data.code) states.set(data.code, data);
     return { status: response.status, data };
   };
-  const party = async (count = 2) => {
-    const c = await http({ action: "create", runType: "endless" }),
+  const party = async (count = 2, runType = "endless") => {
+    const c = await http({ action: "create", runType }),
       sessions = [{ code: c.data.code, ...c.data.session }];
     if (c.status !== 200) throw Error(JSON.stringify(c));
     for (let i = 1; i < count; i++) {
@@ -89,7 +93,15 @@ export async function driver(options = {}) {
   };
   const socket = async (
     s,
-    { auth = true, ack = true, rtt = 0, jitter = 0, loss = 0 } = {},
+    {
+      auth = true,
+      ack = true,
+      rtt = 0,
+      jitter = 0,
+      loss = 0,
+      binary = false,
+      binaryVersion = SNAPSHOT_WIRE_VERSION,
+    } = {},
   ) => {
     const response = await mf.rawFetch(
         "http://test/api/room/socket?code=" + s.code,
@@ -109,6 +121,7 @@ export async function driver(options = {}) {
       sent: 0,
       dropped: 0,
       confirmation: [],
+      binarySnapshots: 0,
     };
     let serial = 0;
     const delayed = (fn) => {
@@ -145,19 +158,33 @@ export async function driver(options = {}) {
     };
     ws.addEventListener("message", (e) =>
       delayed(() => {
-        const m = JSON.parse(e.data);
+        if (typeof e.data !== "string") client.binarySnapshots++;
+        const m =
+          typeof e.data === "string"
+            ? JSON.parse(e.data)
+            : decodeSnapshot(e.data);
+        Object.defineProperty(m, "clientReceivedAt", {
+          value: performance.now(),
+          enumerable: false,
+        });
         client.messages.push(m);
         if (m.type === "snapshot") {
           client.latest = m;
           states.set(s.code, m);
-          if (ack===true) client.send({ type: "ack" });
+          if (ack === true) client.send({ type: "ack" });
           if (m.probe) client.send({ type: "probeReply", nonce: m.probe });
         }
       }),
     );
     ws.addEventListener("close", () => (client.closed = true));
     if (auth) {
-      client.send({ type: "auth", id: s.id, token: s.token });
+      client.send({
+        type: "auth",
+        id: s.id,
+        token: s.token,
+        binary,
+        binaryVersion,
+      });
       for (let n = 0; n < 100 && !client.latest; n++) await sleep(10);
       if (!client.latest)
         throw Error("Auth timed out " + JSON.stringify(client.messages));

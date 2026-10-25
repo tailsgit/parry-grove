@@ -1,0 +1,45 @@
+{
+  "method": "four actual local DO/WebSocket clients; command creation through full authoritative snapshot receipt; no browser renderer",
+  "elapsedMs": 2578.074998,
+  "ackMs": {
+    "samples": 584,
+    "median": 20.74984200000017,
+    "p95": 26.484473999999864,
+    "max": 53.90118500000017
+  },
+  "receiveToTickMs": {
+    "samples": 584,
+    "median": 15,
+    "p95": 18,
+    "max": 30
+  },
+  "tickToBroadcastMs": {
+    "samples": 584,
+    "median": 1,
+    "p95": 2,
+    "max": 15
+  },
+  "meanJsonBytes": 6051.436464088398,
+  "meanBinaryBytes": 2390.0773480662983,
+  "metrics": {
+    "ticks": 153,
+    "overruns": 0,
+    "droppedMs": 0,
+    "rewinds": 0,
+    "replayedTicks": 0,
+    "rejectedRewinds": 0,
+    "staleInputs": 0,
+    "inputCoalesced": 16,
+    "tickMs": 24,
+    "maxTickMs": 2,
+    "snapshots": 719,
+    "bytes": 1718752,
+    "authFailures": 0,
+    "eventGaps": 0,
+    "persistenceErrors": 0,
+    "persistMs": 0,
+    "reconnects": 0,
+    "snapshotBytes": 1718752,
+    "maxSnapshotBytes": 2414
+  }
+}

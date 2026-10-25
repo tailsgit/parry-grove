@@ -2,6 +2,8 @@ import {
   NetworkTestMiniflare,
   networkFixturePlugin,
 } from "../tests/helpers/multiplayer.js";
+import { decodeSnapshot } from "../game/snapshot-wire.js";
+import { createRun } from "../game/run-content.js";
 import { adminTeleport, spawnEnemy } from "../game/engine.js";
 // Real Chromium + real Durable Objects. Profiles emulate ordered WebSocket message
 // delay/retransmission stalls, not kernel-level TCP packet loss or a WAN.
@@ -113,6 +115,19 @@ try {
       viewport: { width: 1280, height: 800 },
     });
     contexts.push(context);
+    if (process.env.MP_MIXED_FPS) {
+      const fps = [30, 60, 120, 144][i];
+      await context.addInitScript((fps) => {
+        window.qaFrameTimes = [];
+        window.requestAnimationFrame = (callback) =>
+          setTimeout(() => {
+            window.qaFrameTimes.push(performance.now());
+            if (window.qaFrameTimes.length > 200) window.qaFrameTimes.shift();
+            callback(performance.now());
+          }, 1000 / fps);
+        window.cancelAnimationFrame = clearTimeout;
+      }, fps);
+    }
     await context.routeWebSocket("**/api/room/socket*", (ws) => {
       const server = ws.connectToServer();
       const link = { up: 0, down: 0, countUp: 0, countDown: 0 };
@@ -131,6 +146,14 @@ try {
           wire.stalls++;
         }
         const due = Math.max(Date.now() + Math.max(0, delay), link[direction]);
+        if (direction === "down") {
+          wire.maxOrderedQueueMs = Math.max(
+            wire.maxOrderedQueueMs || 0,
+            due - Date.now(),
+          );
+          if (due > Date.now() + Math.max(0, delay) + 1)
+            wire.messagesBehindStall = (wire.messagesBehindStall || 0) + 1;
+        }
         link[direction] = due;
         setTimeout(
           () => {
@@ -144,7 +167,7 @@ try {
       ws.onMessage((m) => forward("up", m, (x) => server.send(x)));
       server.onMessage((m) => {
         try {
-          const d = JSON.parse(m);
+          const d = typeof m === "string" ? JSON.parse(m) : decodeSnapshot(m);
           if (d.type === "snapshot") wire.snapshots++;
         } catch {}
         forward("down", m, (x) => ws.send(x));
@@ -157,6 +180,16 @@ try {
     pages.push(page);
   }
   const [a, b] = pages;
+  let cdp,
+    traceEvents = [];
+  if (process.env.MP_PROFILE) {
+    cdp = await contexts[0].newCDPSession(a);
+    cdp.on("Tracing.dataCollected", (e) => traceEvents.push(...e.value));
+    await cdp.send("Tracing.start", {
+      categories: "devtools.timeline,v8,disabled-by-default-v8.gc",
+      options: "record-as-much-as-possible",
+    });
+  }
   await a.getByRole("button", { name: "Create co-op room ＋" }).click();
   await a.locator(".room-code").waitFor();
   const room = (await a.locator(".room-code").innerText()).slice(0, 6);
@@ -222,6 +255,29 @@ try {
           }
         : null,
     );
+    if (metric?.traces?.length) {
+      const trace = metric.traces;
+      metric.traceSummary = Object.fromEntries(
+        [
+          "createdToSendMs",
+          "receiveToTickMs",
+          "tickToBroadcastMs",
+          "totalMs",
+        ].map((key) => {
+          const values = trace.map((t) => t[key]).sort((a, b) => a - b);
+          return [
+            key,
+            {
+              samples: values.length,
+              median: values[Math.floor(values.length * 0.5)],
+              p95: values[Math.floor(values.length * 0.95)],
+              max: values.at(-1),
+            },
+          ];
+        }),
+      );
+      metric.traces = trace.slice(-12);
+    }
     profiles.push({
       ...settings,
       lossModel: "ordered 200ms retransmission stall",
@@ -327,6 +383,72 @@ try {
       routeAfterAllConfirm: true,
     };
   }
+  const floors = [];
+  if (!before && process.env.MP_FLOORS) {
+    for (const [runType, level, room] of [
+      ["story", 1, 5],
+      ["story", 2, 5],
+      ["story", 3, 5],
+      ["endless", 1, 30],
+    ]) {
+      const session = await a.evaluate(() => window.qaNet.session);
+      const f = await mf.fixture(session.code);
+      const g = createRun(f.room.game.players, 42, runType);
+      f.room.game = g;
+      f.room.runType = runType;
+      for (const p of g.players) {
+        p.hp = p.maxHp = 100000;
+        p.chosen = false;
+      }
+      adminTeleport(g, level, room);
+      await mf.fixture(session.code, "seed", f.room);
+      for (const p of pages) {
+        await p.keyboard.down("d");
+        await p.keyboard.down("q");
+      }
+      await a.waitForTimeout(900);
+      for (const p of pages) {
+        await p.keyboard.up("d");
+        await p.keyboard.up("q");
+        await p.keyboard.down("a");
+      }
+      await a.waitForTimeout(900);
+      for (const p of pages) await p.keyboard.up("a");
+      floors.push(
+        await a.evaluate(() => ({
+          runType: window.qaNet.game.runType,
+          stage: window.qaNet.game.stage,
+          room: window.qaNet.game.combatRoom || window.qaNet.game.room,
+          players: window.qaNet.game.players.length,
+          enemies: window.qaNet.game.enemies.length,
+          tick: window.qaNet.history.at(-1).tick,
+          pending: window.qaNet.frames.length,
+        })),
+      );
+    }
+  }
+  let profiling = null;
+  if (cdp) {
+    const end = new Promise((resolve) =>
+      cdp.once("Tracing.tracingComplete", resolve),
+    );
+    await cdp.send("Tracing.end");
+    await end;
+    const gc = traceEvents.filter(
+      (e) => e.ph === "X" && /MinorGC|MajorGC/.test(e.name),
+    );
+    const tasks = traceEvents.filter(
+      (e) => e.ph === "X" && e.name === "RunTask",
+    );
+    profiling = {
+      method:
+        "Chrome DevTools Protocol timeline (one of four renderer contexts)",
+      gcEvents: gc.length,
+      gcTotalMs: gc.reduce((n, e) => n + (e.dur || 0) / 1000, 0),
+      gcMaxMs: Math.max(0, ...gc.map((e) => (e.dur || 0) / 1000)),
+      longTasks: tasks.filter((e) => e.dur > 50000).length,
+    };
+  }
   for (const p of pages)
     clients.push(
       await p.evaluate(() =>
@@ -347,6 +469,11 @@ try {
     browserClients: 4,
     scene: "physical kit draft (combat controls remain enabled)",
     profiles,
+    renderCadence: process.env.MP_MIXED_FPS
+      ? "test-only timer cadence 30/60/120/144; not physical monitor refresh"
+      : "native headless requestAnimationFrame",
+    floors,
+    profiling,
     recovery,
     combat,
     wire,

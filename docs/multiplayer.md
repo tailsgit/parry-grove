@@ -1,5 +1,9 @@
 # Multiplayer authority, responsiveness and verification
 
+Historical report for PR #37. The [smoothness follow-up](multiplayer-smoothness.md)
+supersedes the input queues, effect hold, render smoothing and wire-format details
+below; these original measurements remain for comparison.
+
 This pass replaces message-driven combat with an independent authoritative room
 clock and immediate local startup prediction. It does not claim production WAN
 certification. Source was inspected before implementation: `527bd10`; subsequent

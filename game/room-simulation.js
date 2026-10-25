@@ -8,7 +8,7 @@ import {
   neutralInput,
   ACTIONS,
 } from "./net-protocol.js";
-const historyGame = (g) => clone({ ...g, events: [] });
+import { HistoryPool, copyState } from "./state-copy.js";
 const identity = (g) =>
   g
     ? `${g.runType}:${g.stage}:${g.room}:${g.combatRoom}:${g.stopSerial}`
@@ -25,12 +25,15 @@ export class RoomSimulation {
     this.pending = new Map();
     this.queues = new Map();
     this.history = [];
+    this.historyPool = new HistoryPool();
     this.actions = saved.actions || {};
     this.actionSequences = saved.actionSequences || {};
     this.acks = {};
     this.received = {};
     this.inputAt = {};
+    this.traces = {};
     this.events = [];
+    this.eventKeys = new Map();
     this.eventSerial = saved.eventSerial || 0;
     this.transitionAt = 0;
     this.critical = false;
@@ -82,20 +85,48 @@ export class RoomSimulation {
     }
   }
   barrier() {
-    for (const h of this.history) this.commitEvents(h.emitted);
+    for (const h of this.history) {
+      this.commitEvents(h.emitted);
+      this.historyPool.release(h.game);
+    }
     this.history = [];
   }
   commitEvents(events) {
     for (const event of events || []) {
-      this.events.push({
+      const key =
+        event.tick == null
+          ? null
+          : JSON.stringify([
+              event.tick,
+              event.kind,
+              event.who,
+              event.x,
+              event.y,
+              event.text,
+              event.sourceKind,
+              event.fx,
+              event.inputSeq,
+            ]);
+      if (key && this.eventKeys.has(key)) {
+        const saved = this.eventKeys.get(key);
+        if (!this.events.some((e) => e.id === saved.id))
+          this.events.push(saved);
+        continue;
+      }
+      const delivered = {
         ...event,
         id: ++this.eventSerial,
         runId: this.runId,
         emittedAt: event.occurredAt ?? this.lastWall,
-      });
+      };
+      this.events.push(delivered);
+      if (key) this.eventKeys.set(key, delivered);
     }
+    this.events.sort((a, b) => a.id - b.id);
     if (this.events.length > NET.eventLimit)
       this.events.splice(0, this.events.length - NET.eventLimit);
+    while (this.eventKeys.size > 1024)
+      this.eventKeys.delete(this.eventKeys.keys().next().value);
   }
   touch(id, now) {
     const m = this.room.members.find((m) => m.id === id);
@@ -189,7 +220,20 @@ export class RoomSimulation {
           input[key] - (previous[key] || 0) > 8
         )
           throw Error("Invalid action counter.");
-      queued.push({ ...command, input, receivedAt: now });
+      queued.push({
+        ...command,
+        input,
+        receivedAt: now,
+        trace:
+          Number.isFinite(command.createdAt) && Number.isFinite(command.sentAt)
+            ? {
+                seq: command.seq,
+                createdAt: command.createdAt,
+                sentAt: command.sentAt,
+                receivedAt: performance.now(),
+              }
+            : null,
+      });
       highest = command.seq;
       previous = input;
     }
@@ -263,6 +307,8 @@ export class RoomSimulation {
       }
       this.room.inputs[id] = m.input;
       this.acks[id] = m.seq;
+      if (m.trace)
+        this.traces[id] = { ...m.trace, appliedAt: performance.now() };
     }
     const g = this.room.game;
     if (!g) return;
@@ -273,7 +319,7 @@ export class RoomSimulation {
     const frame = {
       tick: this.tick + 1,
       wall: this.lastWall,
-      game: historyGame(g),
+      game: this.historyPool.capture(g),
       inputs: clone(this.room.inputs),
       sequences: clone(this.acks),
       emitted: [],
@@ -285,8 +331,11 @@ export class RoomSimulation {
     frame.emitted = clone(g.events.filter((e) => e.id > last)).map((e) => ({
       ...e,
       occurredAt: frame.wall,
+      tick: frame.tick,
     }));
     this.history.push(frame);
+    // Publish authoritative outcomes now; replay retracts obsolete transient effects.
+    this.commitEvents(frame.emitted);
     if (g.phase !== phase) {
       this.transitionAt = this.lastWall;
       this.critical = true;
@@ -306,8 +355,10 @@ export class RoomSimulation {
     )
       this.critical = true;
     if (identity(g) !== key) this.barrier();
-    while (this.history.length > NET.rewindTicks)
-      this.commitEvents(this.history.shift().emitted);
+    while (this.history.length > NET.rewindTicks) {
+      const expired = this.history.shift();
+      this.historyPool.release(expired.game);
+    }
     const ms = performance.now() - before;
     this.metrics.tickMs += ms;
     this.metrics.maxTickMs = Math.max(this.metrics.maxTickMs, ms);
@@ -328,9 +379,12 @@ export class RoomSimulation {
     // Whole-world replay preserves original engine eligibility, ownership, death,
     // internal damage and streak semantics. No network side effects occur here.
     const frames = this.history.slice(index);
-    let g = clone(frames[0].game);
+    this.events = this.events.filter(
+      (e) => e.tick == null || e.tick < frames[0].tick,
+    );
+    let g = copyState(frames[0].game);
     for (const frame of frames) {
-      frame.game = historyGame(g);
+      frame.game = copyState(g, frame.game, true);
       const input = frame.inputs[id];
       if (input) {
         input.parry = Math.max(input.parry || 0, message.input.parry);
@@ -343,8 +397,10 @@ export class RoomSimulation {
       frame.emitted = clone(g.events.filter((e) => e.id > last)).map((e) => ({
         ...e,
         occurredAt: frame.wall,
+        tick: frame.tick,
       }));
     }
+    for (const frame of frames) this.commitEvents(frame.emitted);
     // Membership is transport state, not something a historical input can rewind.
     for (const p of g.players)
       p.disconnected = !!this.room.members.find((m) => m.id === p.id)
@@ -451,10 +507,12 @@ export class RoomSimulation {
       this.room.inputs = {};
       this.acks = {};
       this.received = {};
+      this.traces = {};
       this.compensated = {};
       this.lastRewindTick = {};
       this.events = [];
       this.eventSerial = 0;
+      this.eventKeys.clear();
       this.accumulator = 0;
       this.lastWall = now;
     }

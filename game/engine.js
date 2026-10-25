@@ -54,7 +54,7 @@ export function createGame(players, seed = Date.now()>>>0) {
 export function event(g, kind, x, y, text = '', who = '', sourceKind, weaponAction) {
   if(g.prediction)return {};
   const pool=runtime(g).events;if(g.events.length>=70)pool.release(g.events.shift());
-  const e=pool.acquire();e.id=++g.eventSerial;e.inputSeq=g.inputSequences?.[who];e.parryCounter=kind==='guard'?g.players.find(p=>p.id===who)?.seenParry:undefined;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;e.radius=undefined;e.itemId=undefined;e.fx=undefined;e.sourceKind=sourceKind;e.weaponAction=weaponAction;g.events.push(e);return e;
+  const e=pool.acquire();e.id=++g.eventSerial;e.inputSeq=g.inputSequences?.[who];const actor=g.players.find(p=>p.id===who);e.actionCounter=kind==='swing'?actor?.seenAttack:kind==='dash'?actor?.seenDash:kind==='guard'?actor?.seenParry:undefined;e.parryCounter=kind==='guard'?g.players.find(p=>p.id===who)?.seenParry:undefined;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;e.radius=undefined;e.itemId=undefined;e.fx=undefined;e.sourceKind=sourceKind;e.weaponAction=weaponAction;g.events.push(e);return e;
 }
 function spawnWormBody(g,head){
   const count=5;head.hp=120;head.maxHp=120;head.wormSegmentCount=count;head.wormActiveSegment=1;head.wormInvulnerable=true;
