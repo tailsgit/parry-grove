@@ -1,0 +1,32 @@
+{
+  "clients": 4,
+  "elapsedSeconds": 2.200356981,
+  "inputHzPerClient": 29.995132867033632,
+  "commandsPerInput": 2,
+  "snapshotsToHost": 43,
+  "snapshotHz": 19.542283534582516,
+  "averageSnapshotBytes": 5911.976744186047,
+  "hostBytesPerSecond": 115533.52578474174,
+  "unauthenticatedSnapshots": 0,
+  "metrics": {
+    "ticks": 136,
+    "overruns": 0,
+    "droppedMs": 0,
+    "rewinds": 0,
+    "replayedTicks": 0,
+    "rejectedRewinds": 0,
+    "staleInputs": 0,
+    "inputCoalesced": 0,
+    "tickMs": 17,
+    "maxTickMs": 4,
+    "snapshots": 174,
+    "bytes": 1028828,
+    "authFailures": 0,
+    "eventGaps": 0,
+    "persistenceErrors": 0,
+    "persistMs": 0,
+    "reconnects": 0,
+    "snapshotBytes": 1028828,
+    "maxSnapshotBytes": 5960
+  }
+}

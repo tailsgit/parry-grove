@@ -38,6 +38,7 @@ const localBindingConfig = {
         },
       ]
     : [],
+  ratelimits: [{ name: "ROOM_ADMISSION", namespace_id: "73291", simple: { limit: 30, period: 60 as const } },{ name: "ROOM_SOCKET_ADMISSION", namespace_id: "73292", simple: { limit: 120, period: 60 as const } }],
   durable_objects: {
     bindings: [{ name: "ROOMS", class_name: "RoomRealtime" }],
   },

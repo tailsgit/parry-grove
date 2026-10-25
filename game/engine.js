@@ -52,8 +52,9 @@ export function createGame(players, seed = Date.now()>>>0) {
   runtime(g,true);generateRoom(g);return g;
 }
 export function event(g, kind, x, y, text = '', who = '', sourceKind, weaponAction) {
+  if(g.prediction)return {};
   const pool=runtime(g).events;if(g.events.length>=70)pool.release(g.events.shift());
-  const e=pool.acquire();e.id=++g.eventSerial;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;e.radius=undefined;e.itemId=undefined;e.fx=undefined;e.sourceKind=sourceKind;e.weaponAction=weaponAction;g.events.push(e);return e;
+  const e=pool.acquire();e.id=++g.eventSerial;e.inputSeq=g.inputSequences?.[who];e.parryCounter=kind==='guard'?g.players.find(p=>p.id===who)?.seenParry:undefined;e.kind=kind;e.x=x;e.y=y;e.text=text;e.who=who;e.time=g.time;e.radius=undefined;e.itemId=undefined;e.fx=undefined;e.sourceKind=sourceKind;e.weaponAction=weaponAction;g.events.push(e);return e;
 }
 function spawnWormBody(g,head){
   const count=5;head.hp=120;head.maxHp=120;head.wormSegmentCount=count;head.wormActiveSegment=1;head.wormInvulnerable=true;
@@ -196,7 +197,7 @@ function combatPulse(g,p,damage,radius,stun){
   }
   event(g,'nova',p.x,p.y,'',p.id).radius=radius;
 }
-function dashPulse(g,p){if(p.dashPulse)combatPulse(g,p,p.dashPulse*(p.thunderStep?2:1),65,p.thunderStep?.5:0);}
+function dashPulse(g,p){if(!g.prediction&&p.dashPulse)combatPulse(g,p,p.dashPulse*(p.thunderStep?2:1),65,p.thunderStep?.5:0);}
 function registerParry(g,p){
   if(p.parryCrystals){p.crystals=p.crystals||[];if(p.crystals.length<3)p.crystals.push((p.crystals.length/3)*Math.PI*2);}
   if(p.parryBeam){if(g.time-(p.lastParryTime??-10)<=1){const end=beamEnd(g,{x:p.x,y:p.y},p.angle),beam=hazard(g,p.x,p.y,7,.35,30,'beam',undefined,undefined,end.x,end.y);beam.owner=p.id;event(g,'parrybeam',p.x,p.y,'BEAM',p.id);}p.lastParryTime=g.time;}
@@ -265,6 +266,7 @@ function kill(g,e,owner) {
 }
 function melee(g,p) {
   const w=WEAPONS[p.weapon],slow=curseStrength(g,'missedSwing',p);p.attackCd=w.cooldown*(p.attackBoostLeft>0?.7:1)*(p.attackSlowLeft>0?1+.55*slow:1);p.swing=.15;
+  if(g.prediction)return;
   event(g,'swing',p.x,p.y,'',p.id).fx={angle:p.angle};
   for(let i=g.obstacles.length-1;i>=0;i--){const o=g.obstacles[i];if(!o.temporary)continue;const cx=clamp(p.x,o.x,o.x+o.w),cy=clamp(p.y,o.y,o.y+o.h),gap=Math.hypot(cx-p.x,cy-p.y);if(gap<=w.range&&Math.abs(angleDiff(Math.atan2(cy-p.y,cx-p.x),p.angle))<=w.arc*(p.areaScale||1)/2){o.hp-=w.damage*p.damage;event(g,'wallhit',cx,cy,`${Math.max(0,Math.ceil(o.hp))} HP`,p.id);if(o.hp<=0){g.obstacles.splice(i,1);event(g,'wallbreak',cx,cy,'WALL BROKEN',p.id);}}}
   let n=0;
@@ -378,14 +380,14 @@ export function stepPlayer(g,p,i,dt,locked=false){
     let mx=clamp(i.mx||0,-1,1),my=clamp(i.my||0,-1,1),norm=Math.hypot(mx,my)||1;mx/=norm;my/=norm;
     if(p.dashBufferLeft>0&&!p.dashCd){p.dashBufferLeft=0;p.dashCd=B.dashCooldown;p.dashLeft=p.dashTime;p.dashAge=0;p.dx=mx||my?mx:Math.cos(p.angle);p.dy=mx||my?my:Math.sin(p.angle);event(g,'dash',p.x,p.y,'',p.id).fx={angle:Math.atan2(p.dy,p.dx)};dashPulse(g,p);}
     if(p.parryBufferLeft>0&&!p.parryCd){p.parryBufferLeft=0;const short=curseStrength(g,'shortParry',p);p.parryCd=B.parryCooldown;p.parryLeft=WEAPONS[p.weapon].parry*(1-.12*short);if(p.perfectOnly)p.parryLeft=Math.min(p.parryLeft,p.perfect);p.parryAge=0;p.parrySuccess=false;event(g,'guard',p.x,p.y,'',p.id);}
-    if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);if(p.fireTrail){p.fireTrailClock=(p.fireTrailClock||0)-dt;if(p.fireTrailClock<=0){const flame=hazard(g,p.x,p.y,18,.8,0,'fire');flame.owner=p.id;p.fireTrailClock=.07;}}p.dashLeft-=dt;p.dashAge+=dt;if(p.dashLeft<=0){event(g,'dashend',p.x,p.y,'',p.id).fx={angle:Math.atan2(p.dy,p.dx)};dashPulse(g,p);if(curseStrength(g,'dashSlow',p))p.dashSlowLeft=.8;}}
+    if(p.dashLeft>0){move(g,p,p.dx*B.dashSpeed*p.dashPower*dt,p.dy*B.dashSpeed*p.dashPower*dt);if(p.fireTrail&&!g.prediction){p.fireTrailClock=(p.fireTrailClock||0)-dt;if(p.fireTrailClock<=0){const flame=hazard(g,p.x,p.y,18,.8,0,'fire');flame.owner=p.id;p.fireTrailClock=.07;}}p.dashLeft-=dt;p.dashAge+=dt;if(p.dashLeft<=0){event(g,'dashend',p.x,p.y,'',p.id).fx={angle:Math.atan2(p.dy,p.dx)};dashPulse(g,p);if(curseStrength(g,'dashSlow',p))p.dashSlowLeft=.8;}}
     else {const severity=curseStrength(g,'dashSlow',p),slow=severity&&p.dashSlowLeft>0?Math.max(.35,1-.22*severity):1;move(g,p,mx*B.speed*p.speed*slow*(i.guard&&!p.shieldBroken&&p.parryLeft<=0&&!p.perfectOnly?B.blockSpeed:1)*dt,my*B.speed*p.speed*slow*(i.guard&&!p.shieldBroken&&p.parryLeft<=0&&!p.perfectOnly?B.blockSpeed:1)*dt);}
     p.guardHeld=i.guard===true&&p.dashLeft<=0&&!p.perfectOnly;
     p.blocking=i.guard===true&&!p.shieldBroken&&p.parryLeft<=0&&p.dashLeft<=0&&!p.perfectOnly;
     p.vx=dt?(p.x-previousX)/dt:0;p.vy=dt?(p.y-previousY)/dt:0;
     if(p.crystals?.length)p.crystals=p.crystals.map(a=>(a+dt*1.8)%(Math.PI*2));
     if((p.meleeBufferLeft>0||i.attack)&&!p.attackCd){p.meleeBufferLeft=0;melee(g,p);}
-    if(g.phase==='combat'&&curseStrength(g,'noKillHurt',p)){p.noKillTimer=(p.noKillTimer||0)+dt;if(p.noKillTimer>=6){p.noKillTimer-=6;hitPlayer(g,p,5*(1+.2*(curseStrength(g,'noKillHurt',p)-1)),false,p.angle);}}
+    if(!g.prediction&&g.phase==='combat'&&curseStrength(g,'noKillHurt',p)){p.noKillTimer=(p.noKillTimer||0)+dt;if(p.noKillTimer>=6){p.noKillTimer-=6;hitPlayer(g,p,5*(1+.2*(curseStrength(g,'noKillHurt',p)-1)),false,p.angle);}}
 }
 export function step(g,inputs,dt) {
   dt=clamp(dt,0,1/30);if(isEndless(g)&&['death','victory'].includes(g.phase))return;g.time+=dt;if(isEndless(g))refreshEndlessStats(g);if(g.runSystems&&stepPeaceful(g,inputs,dt))return;
@@ -395,7 +397,7 @@ export function step(g,inputs,dt) {
     return;
   }
   if(g.phase!=='combat') {
-    if(g.phase==='upgrade'&&g.players.every(p=>p.hp<=0||p.chosen)) {
+    if(g.phase==='upgrade'&&g.players.every(p=>p.hp<=0||p.chosen||p.disconnected)) {
       if(g.runSystems){beginRoute(g);return;}
       const ready=g.players.some(p=>(inputs[p.id]?.interact||0)>p.seenInteract);
       if(ready) {g.players.forEach(p=>{p.seenInteract=inputs[p.id]?.interact||0;/* Decision: fallen co-op allies revive between rooms, never mid-fight. */if(p.hp<=0)p.hp=p.maxHp*.5;else p.hp=Math.min(p.maxHp,p.hp+8);});g.room++;g.phase='combat';generateRoom(g);}

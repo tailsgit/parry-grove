@@ -77,7 +77,7 @@ export function claimKit(g,id,kitId){const p=g.players.find(p=>p.id===id),pick=g
  pick.claimedBy=id;p.kitId=kitId;p.weapon=kit.weapon;p.maxHp=kit.health||p.maxHp;p.hp=p.maxHp;p.shieldDamage=kit.shield||0;for(const u of kit.upgrades)grantUpgrade(p,u);
  event(g,'kitpickup',p.x,p.y,`${kit.name} equipped · Max HP ${p.maxHp} · Shield ${B.shieldCapacity-p.shieldDamage}`,p.id);finishDraft(g);
 }
-function finishDraft(g){if(g.players.length&&g.players.every(p=>p.kitId)){g.kits=[];g.phase='combat';generateRoom(g);}}
+function finishDraft(g){if(g.players.length&&g.players.every(p=>p.kitId||p.disconnected)){g.kits=[];g.phase='combat';generateRoom(g);}}
 export function openRouteDoors(g){
  g.doorsOpenedAt=g.time;
  g.routeDoors=g.routeOptions.map(choice=>({choice,x:choice==='continue'?32:choice==='altar'?g.width-32:g.width/2,y:choice==='shop'?g.height-32:g.height*.64,side:choice==='continue'?'left':choice==='altar'?'right':'bottom'}));
@@ -146,7 +146,7 @@ export function stepPeaceful(g,inputs,dt){
  if(g.phase==='route'&&!g.routeDoors?.length)openRouteDoors(g);
  if(g.phase==='shop'&&g.stock.some(item=>!Number.isFinite(item.x)))layoutShopStock(g);
  if(g.phase==='draft'){finishDraft(g);if(g.phase!=='draft')return true;}
- for(const p of g.players){const i=inputs[p.id]||{};if(p.hp<=0)continue;
+ for(const p of g.players){const i=inputs[p.id]||{};if(p.hp<=0||p.disconnected)continue;
   if(g.phase==='shop')p.vendorOpen=false;
   stepPlayer(g,p,i,dt,p.vendorOpen||p.altarOpen);
   if(g.phase==='route'){

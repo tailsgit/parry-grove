@@ -1,4 +1,6 @@
 'use client';
+import {NET} from './net-protocol.js';
+import {MultiplayerClient,savedSession,clearSession} from './multiplayer-client.js';
 import {isEndless} from './endless.js';
 import { PlayerHud, PerfectParryHud } from './CombatHud.jsx';
 import RunPanels from './RunPanels.jsx';
@@ -9,7 +11,7 @@ import {rewardShortcut} from './reward-input.js';
 import {createRun,claimKit,selectRoute,sacrifice,declineSacrifice,RUN_REWARDS,adminAddUpgrade,adminRemoveUpgrade,adminAddCurse,adminRemoveCurse} from './run-content.js';
 import { useEffect, useRef, useState } from 'react';
 import { SoloHitPause } from './hit-pause.js';
-import { createGame, player, chooseUpgrade, adminTeleport, adminHealth, adminLevel, move } from './engine.js';
+import { createGame, player, chooseUpgrade, adminTeleport, adminHealth, adminLevel } from './engine.js';
 import { UPGRADES, COLORS, BALANCE, ENEMIES, isBoss, levelTheme } from './config.js';
 import Tutorial from './Tutorial.jsx';
 import {DEV_TOOLS,readPreferences} from './preferences.js';
@@ -19,7 +21,7 @@ import { mouseButton, guardButton, resetGuard } from './input.js';
 
 const emptyInput=()=>({mx:0,my:0,angle:0,attack:false,attackPress:0,guard:false,parry:0,dash:0,interact:0});
 export default function Game() {
-  const canvas=useRef(null),renderer=useRef(null),world=useRef(null),input=useRef(emptyInput()),keys=useRef(new Set()),heldKeys=useRef(new Set()),suppressedKeys=useRef(new Set()),modeRef=useRef('menu'),net=useRef(null),realtime=useRef(null),pausedRef=useRef(false),cursor=useRef(null);
+  const canvas=useRef(null),renderer=useRef(null),world=useRef(null),input=useRef(emptyInput()),keys=useRef(new Set()),heldKeys=useRef(new Set()),suppressedKeys=useRef(new Set()),modeRef=useRef('menu'),net=useRef(null),pausedRef=useRef(false),cursor=useRef(null);
   const [mode,setMode]=useState('menu'),[view,setView]=useState(null),[room,setRoom]=useState(null),[weapon]=useState('sword'),[name,setName]=useState('Adventurer'),[code,setCode]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[muted,setMuted]=useState(false),[paused,setPaused]=useState(false),[copied,setCopied]=useState(false),[latency,setLatency]=useState(0);
   const [selectedRunType,setSelectedRunType]=useState('story');
   const [myId,setMyId]=useState('solo'),[inventory,setInventory]=useState(false),[settings,setSettings]=useState(false);
@@ -35,7 +37,7 @@ export default function Game() {
   const selectionRef=useRef(null),transitionUntil=useRef(0),rewardDialog=useRef(null),inventoryReturnFocus=useRef(null);
 
   const soloHitPause=useRef(new SoloHitPause());
-  const soloInputs=useRef({solo:null}),displayRef=useRef({players:[]});
+  const soloInputs=useRef({solo:null});
   const inventoryRef=useRef(false),inventoryWasPaused=useRef(false),inventoryDialog=useRef(null),pauseDialog=useRef(null);
   const settingsRef=useRef(false),settingsWasPaused=useRef(false),settingsReturnFocus=useRef(null);
   useEffect(()=>{if(!rewardSelection)return;let timer;const finish=()=>{const g=world.current,hero=g?.players.find(p=>p.id===(net.current?.id||'solo'));if(modeRef.current==='online'&&g?.phase==='upgrade'&&!hero?.chosen){timer=setTimeout(finish,60);return;}selectionRef.current=null;setRewardSelection(null);keys.current.clear();input.current.attack=false;resetGuard(input.current);if(!inventoryRef.current&&!settingsRef.current&&!pausedRef.current)canvas.current?.focus();};timer=setTimeout(finish,UI_TIMING.confirm);return()=>clearTimeout(timer);},[rewardSelection]);
@@ -43,24 +45,33 @@ export default function Game() {
   const isHost=room?.host===myId;
   function changeMode(m){selectionRef.current=null;setRewardSelection(null);transitionUntil.current=0;soloHitPause.current.reset();settingsRef.current=false;setSettings(false);pausedRef.current=false;setPaused(false);inventoryRef.current=false;setInventory(false);modeRef.current=m;setMode(m);keys.current.clear();input.current.attack=false;resetGuard(input.current);input.current.mx=0;input.current.my=0;}
   function snapshot(g){if(g&&['death','victory'].includes(g.phase))setEndedAt(previous=>previous??g.events?.findLast(e=>e.kind===g.phase)?.time??g.time);else setEndedAt(null);if(g)setView({...g,players:g.players.map(p=>({...p})),enemies:g.enemies.map(e=>({...e}))});else setView(null);}
-  function solo(){setMyId('solo');net.current=null;setRoom(null);input.current=emptyInput();pausedRef.current=false;setPaused(false);renderer.current?.unlockAudio();world.current=createRun([player('solo',name,weapon,0)],undefined,selectedRunType);snapshot(world.current);changeMode('solo');canvas.current?.focus();setError('');}
+  function solo(){setMyId('solo');net.current?.stop();clearSession();net.current=null;setRoom(null);input.current=emptyInput();pausedRef.current=false;setPaused(false);renderer.current?.unlockAudio();world.current=createRun([player('solo',name,weapon,0)],undefined,selectedRunType);snapshot(world.current);changeMode('solo');canvas.current?.focus();setError('');}
   async function request(payload,session=net.current) {
-    const response=await fetch('/api/room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,...(session?{code:session.code,id:session.id,token:session.token}:{})})});
+    const response=await fetch('/api/room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:NET.version,...payload,...(session?{code:session.code,id:session.id,token:session.token}:{})})});
     let data;const jsonResponse=response.clone();
     try{data=await response.json();}
     catch{const body=(await jsonResponse.text()).trim();const detail=body.startsWith('<')?'HTML response':`invalid response${body?`: ${body.slice(0,100)}`:''}`;throw Object.assign(new Error(`Room API returned an ${detail} (HTTP ${response.status}).`),{status:response.status});}
     if(!response.ok)throw Object.assign(new Error(data.error||'Connection failed. Please retry.'),{status:response.status});return data;
   }
-  function accept(data,realtimeSnapshot=false){if(data.runType)setSelectedRunType(data.runType);const s=net.current;if(!s||data.code!==s.code)return;if(data.game&&!s.hadGame){s.socketSequence=-1;s.snapshots=[];}if(realtimeSnapshot){if(data.sequence<(s.socketSequence??-1))return;s.socketSequence=data.sequence;}else if(data.revision<s.revision)return;if(s){if(!realtimeSnapshot)s.revision=data.revision;s.lastSnapshot=performance.now();s.hadGame=Boolean(data.game);if(data.game){s.snapshots??=[];s.snapshots.push({at:s.lastSnapshot,game:data.game});if(s.snapshots.length>5)s.snapshots.shift();}else{s.socketSequence=-1;s.snapshots=[];}}if(world.current?.phase==='death'&&data.game?.phase==='draft'){s.snapshots=[];input.current=emptyInput();keys.current.clear();selectionRef.current=null;setRewardSelection(null);pausedRef.current=false;setPaused(false);}
-    setRoom(data);const starting=!world.current&&data.game;world.current=data.game;snapshot(data.game);if(starting){input.current=emptyInput();keys.current.clear();canvas.current?.focus();}}
-  async function connect(action){if(busy)return;setBusy(true);setError('');renderer.current?.unlockAudio();try{const data=await request({action,name,weapon,runType:selectedRunType,code:code.trim().toUpperCase()},null);setMyId(data.session.id);net.current={...data.session,code:data.code,revision:-1,lastSnapshot:performance.now()};input.current=emptyInput();accept(data);changeMode('online');}catch(e){setError(e.message);}finally{setBusy(false);}}
-  async function command(action,extra={}){if(modeRef.current==='online'&&['return','upgrade','retry'].includes(action)){if(realtime.current?.readyState===WebSocket.OPEN){realtime.current.send(JSON.stringify({type:'action',action,...extra}));setError('');}else setError('Reconnecting to the room…');return;}if(busy)return;setBusy(true);setError('');try{const data=await request({action,...extra});accept(data);}catch(e){setError(e.message);}finally{setBusy(false);}}
-  async function leave(){const session=net.current,socket=realtime.current;if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'action',action:'leave'}));net.current=null;changeMode('menu');setRoom(null);setView(null);setError('');world.current=createGame([player('preview','',weapon)],314159);if(session&&socket?.readyState!==WebSocket.OPEN)try{await request({action:'leave'},session);}catch{} }
-  function pick(id){const g=world.current,hero=g?.players.find(p=>p.id===(net.current?.id||'solo'));if(selectionRef.current||g?.phase!=='upgrade'||!hero||hero.chosen||hero.hp<=0||!hero.offers.includes(id))return;if(modeRef.current==='online'&&realtime.current?.readyState!==WebSocket.OPEN){setError('Reconnecting to the room…');return;}const choice={id,offers:[...hero.offers],room:g.room,stage:g.stage};selectionRef.current=choice;suppressedKeys.current=new Set(heldKeys.current);transitionUntil.current=performance.now()+UI_TIMING.confirm;setRewardSelection(choice);keys.current.clear();input.current.attack=false;resetGuard(input.current);input.current.mx=0;input.current.my=0;renderer.current?.unlockAudio();if(modeRef.current==='solo'){chooseUpgrade(g,'solo',id);snapshot(g);}else realtime.current.send(JSON.stringify({type:'action',action:'upgrade',upgrade:id}));}
+  function accept(data){if(data.runType)setSelectedRunType(data.runType);if(!net.current||data.code!==net.current.code)return;
+    setRoom(data);world.current=data.game;snapshot(data.game);
+  }
+  function attachClient(session,initial){
+    net.current?.stop();world.current=null;snapshot(null);input.current=emptyInput();setMyId(session.id);
+    const client=new MultiplayerClient(session,{onSnapshot:accept,onError:setError,onLatency:setLatency,onStartup:kind=>renderer.current?.sound(kind),
+      syncInput:hero=>{input.current=emptyInput();const i=input.current;i.parry=hero?.seenParry||0;i.dash=hero?.seenDash||0;i.attackPress=hero?.seenAttack||0;i.interact=hero?.seenInteract||0;keys.current.clear();},
+      onCorrection:()=>{renderer.current?.feedback.reset();},
+      onInvalid:message=>{net.current=null;changeMode('menu');world.current=createGame([player('preview','',weapon)],314159);setRoom(null);setView(null);setError(message);}});
+    net.current=client;changeMode('online');client.start(initial).catch(e=>setError(e.message));canvas.current?.focus();return client;
+  }
+  async function connect(action){if(busy)return;setBusy(true);setError('');renderer.current?.unlockAudio();try{const data=await request({action,name,weapon,runType:selectedRunType,code:code.trim().toUpperCase()},null);attachClient({...data.session,code:data.code},data);}catch(e){setError(e.message);}finally{setBusy(false);}}
+  async function command(action,extra={}){if(busy)return;setBusy(true);setError('');try{await net.current?.action(action,extra);}catch(e){setError(e.message);}finally{setBusy(false);}}
+  async function leave(){const client=net.current;clearSession();try{await client?.leave();}catch{}net.current=null;changeMode('menu');setRoom(null);setView(null);setError('');world.current=createGame([player('preview','',weapon)],314159);}
+  function pick(id){const g=world.current,hero=g?.players.find(p=>p.id===(net.current?.id||'solo'));if(selectionRef.current||g?.phase!=='upgrade'||!hero||hero.chosen||hero.hp<=0||!hero.offers.includes(id))return;const choice={id,offers:[...hero.offers],room:g.room,stage:g.stage};selectionRef.current=choice;suppressedKeys.current=new Set(heldKeys.current);transitionUntil.current=performance.now()+UI_TIMING.confirm;setRewardSelection(choice);keys.current.clear();input.current.attack=false;resetGuard(input.current);input.current.mx=0;input.current.my=0;renderer.current?.unlockAudio();if(modeRef.current==='solo'){chooseUpgrade(g,'solo',id);snapshot(g);}else net.current.action('upgrade',{upgrade:id}).catch(e=>{selectionRef.current=null;setRewardSelection(null);setError(e.message);});}
   async function runAction(action,extra={}){
     try{setError('');if(modeRef.current==='solo'){
       const g=world.current;if(action==='kit')claimKit(g,'solo',extra.kit);if(action==='route')selectRoute(g,'solo',extra.choice);if(action==='sacrifice')sacrifice(g,'solo',extra.item);if(action==='sacrificeDecline')declineSacrifice(g,'solo');if(action==='vendorClose'){const p=g.players[0];p.vendorOpen=false;p.altarOpen=false;}snapshot(g);
-    }else{const data=await request({action,...extra});if(net.current)net.current.snapshots=[];accept(data,typeof data.sequence==='number');}
+    }else await net.current.action(action,extra);
     }catch(e){setError(e.message);}
   }
   async function admin(operation,values){
@@ -72,7 +83,7 @@ export default function Game() {
       else if(operation==='level')adminLevel(world.current,'solo',values.level);
       else {const p=world.current.players.find(player=>player.id==='solo');if(operation==='upgradeAdd')adminAddUpgrade(p,values.upgrade);else if(operation==='upgradeRemove')adminRemoveUpgrade(p,values.upgrade);else if(operation==='curseAdd')adminAddCurse(p,values.curse,values.rarity,(world.current.stage||0)*BALANCE.encounters+world.current.room,isEndless(world.current));else if(operation==='curseRemove')adminRemoveCurse(p,values.index);else throw Error('Unknown admin action.');}
       keys.current.clear();input.current.mx=0;input.current.my=0;input.current.attack=false;resetGuard(input.current);snapshot(world.current);
-    }else if(modeRef.current==='online'){const data=await request({action:'admin',operation,...values});if(net.current)net.current.snapshots=[];accept(data,typeof data.sequence==='number');}
+    }else if(modeRef.current==='online')await net.current.action('admin',{operation,...values});
     else throw Error('Start a run before using admin controls.');
   }
   function next(){input.current.interact++;}
@@ -110,32 +121,9 @@ export default function Game() {
       let renderDt=dt;
       if(g){const hero=g.players.find(p=>p.id===(net.current?.id||'solo'));if(hero&&cursor.current){const target=draw.world(cursor.current.x,cursor.current.y);i.angle=Math.atan2(target.y-hero.y,target.x-hero.x);}if(modeRef.current==='menu')g.time+=dt;else if(modeRef.current==='solo'){renderDt=0;if(!pausedRef.current){soloInputs.current.solo=i;renderDt=soloHitPause.current.advance(g,soloInputs.current,dt,'solo');}}
         let display=g;
-        // Short local extrapolation gives movement immediate visual response between snapshots.
-        // Damage and collision outcomes still come exclusively from the shared server simulation.
-        if(modeRef.current==='online'&&g.phase==='combat'){
-          const id=net.current?.id,age=Math.min(.12,(now-(net.current?.lastSnapshot||now))/1000),snapshots=net.current?.snapshots||[],renderAt=now-100;
-          let before=snapshots[0],after=snapshots[snapshots.length-1];
-          for(const item of snapshots){if(item.at<=renderAt)before=item;if(item.at>=renderAt){after=item;break;}}
-          const span=(after?.at||0)-(before?.at||0),blend=before&&after&&span>0?Math.max(0,Math.min(1,(renderAt-before.at)/span)):1;
-          display=displayRef.current;
-          // Keep reusable render buffers separate from authoritative snapshots.
-          // Interpolation and prediction below mutate these display copies.
-          const renderBuffers={players:display.players,enemies:display.enemies,bullets:display.bullets,hazards:display.hazards};
-          Object.assign(display,g);
-          for(const key of Object.keys(renderBuffers))display[key]=renderBuffers[key]||[];
-          const interpolateEntities=(key,current)=>{
-            let output=display[key];if(!output||output===current){output=current.map(item=>({...item}));display[key]=output;}const older=before?.game?.[key]||[],newer=after?.game?.[key]||[],oldById=new Map(older.map(item=>[item.id,item])),newById=new Map(newer.map(item=>[item.id,item]));
-            output.length=current.length;
-            for(let index=0;index<current.length;index++){
-              const value=current[index],copy=output[index]||(output[index]={}),a=oldById.get(value.id),b=newById.get(value.id);Object.assign(copy,value);
-              if(a&&b){for(const field of ['x','y','sx','sy','ex','ey'])if(Number.isFinite(a[field])&&Number.isFinite(b[field]))copy[field]=a[field]+(b[field]-a[field])*blend;if(Number.isFinite(a.angle)&&Number.isFinite(b.angle)){const delta=Math.atan2(Math.sin(b.angle-a.angle),Math.cos(b.angle-a.angle));copy.angle=a.angle+delta*blend;}}
-            }
-            return output;
-          };
-          display.players=interpolateEntities('players',g.players);display.enemies=interpolateEntities('enemies',g.enemies);display.bullets=interpolateEntities('bullets',g.bullets);display.hazards=interpolateEntities('hazards',g.hazards);
-          for(const copy of display.players){if(copy.id===id&&copy.hp>0){const source=g.players.find(p=>p.id===id);if(source){Object.assign(copy,source);copy.angle=i.angle;const n=Math.hypot(i.mx,i.my)||1;move(g,copy,i.mx/n*BALANCE.speed*source.speed*age,i.my/n*BALANCE.speed*source.speed*age);}}}
-        }
+        if(modeRef.current==='online'&&net.current){net.current.frame(dt,i);display=net.current.display(now,i);}
         draw.draw(display,net.current?.id||'solo',renderDt,modeRef.current==='menu');
+        if(modeRef.current==='online')net.current?.acknowledgeEvents(draw.lastEvent);
         if(modeRef.current==='solo'&&(now-hud>90||hero?.perfects!==lastPerfects)){snapshot(g);hud=now;lastPerfects=hero?.perfects;}
       }
       frame=requestAnimationFrame(loop);
@@ -150,30 +138,10 @@ export default function Game() {
   // The controller reads current mode/session/world refs; keep one input listener.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
-  const onlineGame=mode==='online'&&Boolean(view);
-  useEffect(()=>{
-    if(mode!=='online'||onlineGame)return;let stopped=false,timer;
-    const poll=async()=>{const s=net.current;if(stopped||!s)return;try{const data=await request({action:'poll'},s);if(!stopped&&net.current===s){accept(data);setError('');}}catch(e){if(!stopped){setError(e.status===401?e.message:'Reconnecting… '+e.message);if(e.status===401){net.current=null;changeMode('menu');world.current=createGame([player('preview','',weapon)],314159);}}}if(!stopped)timer=setTimeout(poll,400);};poll();
-    return()=>{stopped=true;clearTimeout(timer);};
-  // Lobby session lifetime controls this poller.
+  useEffect(()=>{const session=savedSession();let cancelled=false;if(session)queueMicrotask(()=>{if(!cancelled)attachClient(session);});return()=>{cancelled=true;net.current?.stop();};
+  // Session recovery runs once after the renderer is initialized.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[mode,onlineGame]);
-  useEffect(()=>{
-    if(!onlineGame||!net.current)return;let stopped=false,socket=null,retryTimer,inputTimer,pingTimer,fallbackTimer,retry=250,authenticated=false,fallbackBusy=false;
-    const session=net.current;
-    const fallback=async()=>{if(stopped)return;if((!socket||socket.readyState!==WebSocket.OPEN||!authenticated)&&!fallbackBusy&&net.current===session){fallbackBusy=true;try{const data=await request({action:'input',input:{...input.current}},session);if(!stopped&&net.current===session)accept(data,typeof data.sequence==='number');}catch(e){if(!stopped){setError(e.status===401?e.message:'Reconnecting… '+e.message);if(e.status===401){net.current=null;changeMode('menu');world.current=createGame([player('preview','',weapon)],314159);}}}finally{fallbackBusy=false;}}if(!stopped)fallbackTimer=window.setTimeout(fallback,65);};
-    const open=()=>{
-      if(stopped||net.current!==session)return;
-      authenticated=false;const protocol=location.protocol==='https:'?'wss:':'ws:';socket=new WebSocket(`${protocol}//${location.host}/api/room/socket?code=${encodeURIComponent(session.code)}`);realtime.current=socket;
-      socket.onopen=()=>{socket.send(JSON.stringify({type:'auth',id:session.id,token:session.token}));inputTimer=window.setInterval(()=>{if(authenticated&&socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'input',input:{...input.current}}));},33);pingTimer=window.setInterval(()=>{if(authenticated&&socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'ping',sentAt:performance.now()}));},2000);};
-      socket.onmessage=event=>{if(realtime.current!==socket)return;try{const message=JSON.parse(event.data);if(message.type==='snapshot'){authenticated=true;retry=250;accept(message,true);setError('');setBusy(false);}else if(message.type==='pong'&&Number.isFinite(message.sentAt))setLatency(Math.round(performance.now()-message.sentAt));else if(message.type==='error'){selectionRef.current=null;setRewardSelection(null);setError(message.message||'Room connection failed.');if(message.fatal)socket.close(4008,'Room session rejected');}}catch(error){console.error('Invalid room update:',error);setError(`Room update failed: ${error instanceof Error?error.message:'Invalid message.'}`);}};
-      socket.onerror=()=>setError('Realtime connection interrupted. Reconnecting…');
-      socket.onclose=event=>{if(inputTimer)clearInterval(inputTimer);if(pingTimer)clearInterval(pingTimer);if(realtime.current===socket)realtime.current=null;if(event.code===4008){net.current=null;changeMode('menu');world.current=createGame([player('preview','',weapon)],314159);return;}if(!stopped){setError('Realtime connection interrupted. Reconnecting…');retryTimer=window.setTimeout(open,retry);retry=Math.min(2000,retry*2);}};
-    };
-    open();fallback();return()=>{stopped=true;if(retryTimer)clearTimeout(retryTimer);if(fallbackTimer)clearTimeout(fallbackTimer);if(inputTimer)clearInterval(inputTimer);if(pingTimer)clearInterval(pingTimer);if(realtime.current===socket)realtime.current=null;if(socket&&socket.readyState<WebSocket.CLOSING)socket.close(1000,'Client leaving');};
-  // accept reads the current network session from a ref; onlineGame changes only on lobby/run transitions.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[onlineGame]);
+  },[]);
   const aiming=e=>{cursor.current={x:e.clientX,y:e.clientY};const g=world.current,id=net.current?.id||'solo',hero=g?.players.find(p=>p.id===id);if(hero&&renderer.current){const pt=renderer.current.world(e.clientX,e.clientY);input.current.angle=Math.atan2(pt.y-hero.y,pt.x-hero.x);}};
   const mousedown=e=>{if(transitionUntil.current>performance.now()&&world.current?.phase!=='combat')return;if(p?.vendorOpen||p?.altarOpen||settingsRef.current||inventoryRef.current||pausedRef.current||modeRef.current==='menu'||(modeRef.current==='online'&&!world.current))return;e.preventDefault();canvas.current.focus();renderer.current?.unlockAudio();aiming(e);mouseButton(input.current,e.button,true);};
   const deathInfo=view?.phase==='death'?p?.deathInfo:null;

@@ -1,0 +1,296 @@
+[
+  {
+    "rtt": 0,
+    "jitter": 0,
+    "loss": 0,
+    "clients": 2,
+    "lossModel": "application-message drops with 33ms command retransmission",
+    "outcomes": [
+      {
+        "trial": 0,
+        "viewTick": 15,
+        "issuedAtSnapshotTick": 17,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 2
+      },
+      {
+        "trial": 1,
+        "viewTick": 15,
+        "issuedAtSnapshotTick": 17,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 2
+      },
+      {
+        "trial": 2,
+        "viewTick": 16,
+        "issuedAtSnapshotTick": 18,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 2
+      }
+    ],
+    "droppedMessages": 0
+  },
+  {
+    "rtt": 50,
+    "jitter": 10,
+    "loss": 0,
+    "clients": 2,
+    "lossModel": "application-message drops with 33ms command retransmission",
+    "outcomes": [
+      {
+        "trial": 0,
+        "viewTick": 14,
+        "issuedAtSnapshotTick": 16,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 3
+      },
+      {
+        "trial": 1,
+        "viewTick": 14,
+        "issuedAtSnapshotTick": 16,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 4
+      },
+      {
+        "trial": 2,
+        "viewTick": 14,
+        "issuedAtSnapshotTick": 16,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 3
+      }
+    ],
+    "droppedMessages": 0
+  },
+  {
+    "rtt": 100,
+    "jitter": 10,
+    "loss": 0,
+    "clients": 2,
+    "lossModel": "application-message drops with 33ms command retransmission",
+    "outcomes": [
+      {
+        "trial": 0,
+        "viewTick": 14,
+        "issuedAtSnapshotTick": 16,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 5
+      },
+      {
+        "trial": 1,
+        "viewTick": 13,
+        "issuedAtSnapshotTick": 15,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 5
+      },
+      {
+        "trial": 2,
+        "viewTick": 15,
+        "issuedAtSnapshotTick": 17,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 6
+      }
+    ],
+    "droppedMessages": 0
+  },
+  {
+    "rtt": 150,
+    "jitter": 10,
+    "loss": 0,
+    "clients": 2,
+    "lossModel": "application-message drops with 33ms command retransmission",
+    "outcomes": [
+      {
+        "trial": 0,
+        "viewTick": 15,
+        "issuedAtSnapshotTick": 17,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 7
+      },
+      {
+        "trial": 1,
+        "viewTick": 14,
+        "issuedAtSnapshotTick": 16,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 7
+      },
+      {
+        "trial": 2,
+        "viewTick": 15,
+        "issuedAtSnapshotTick": 17,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 7
+      }
+    ],
+    "droppedMessages": 0
+  },
+  {
+    "rtt": 100,
+    "jitter": 10,
+    "loss": 1,
+    "clients": 2,
+    "lossModel": "application-message drops with 33ms command retransmission",
+    "outcomes": [
+      {
+        "trial": 0,
+        "viewTick": 13,
+        "issuedAtSnapshotTick": 15,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 5
+      },
+      {
+        "trial": 1,
+        "viewTick": 13,
+        "issuedAtSnapshotTick": 15,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 4
+      },
+      {
+        "trial": 2,
+        "viewTick": 14,
+        "issuedAtSnapshotTick": 16,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 5
+      }
+    ],
+    "droppedMessages": 0
+  },
+  {
+    "rtt": 100,
+    "jitter": 10,
+    "loss": 2,
+    "clients": 2,
+    "lossModel": "application-message drops with 33ms command retransmission",
+    "outcomes": [
+      {
+        "trial": 0,
+        "viewTick": 13,
+        "issuedAtSnapshotTick": 15,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 5
+      },
+      {
+        "trial": 1,
+        "viewTick": 15,
+        "issuedAtSnapshotTick": 17,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 5
+      },
+      {
+        "trial": 2,
+        "viewTick": 15,
+        "issuedAtSnapshotTick": 17,
+        "perfect": 1,
+        "regular": 0,
+        "hp": 100,
+        "internal": 4,
+        "streak": 4,
+        "rewinds": 1,
+        "rejected": 0,
+        "attempts": 5
+      }
+    ],
+    "droppedMessages": 1
+  }
+]

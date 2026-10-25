@@ -1,14 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
-import {Miniflare} from 'miniflare';
+import {NetworkTestMiniflare as Miniflare,networkFixturePlugin} from './helpers/multiplayer.js';
 import {readFile} from 'node:fs/promises';
 import {spawnEnemy,step,hitPlayer} from '../game/engine.js';
 import {CombatFeedback} from '../game/combat-feedback.js';
 process.env.CLOUDFLARE_CF_FETCH_ENABLED='false';process.env.WRANGLER_SEND_METRICS='false';
 
 test('two WebSocket clients receive the same contact/ownership cues while movement and timers keep advancing',async()=>{
- const bundle=await build({stdin:{contents:"import{POST}from'./app/api/room/route.ts';import{GET}from'./app/api/room/socket/route.ts';export{RoomRealtime}from'./game/room-realtime.ts';export default{fetch:r=>r.headers.get('Upgrade')?GET(r):POST(r)};",resolveDir:process.cwd()},bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers'],tsconfig:'tsconfig.json'});
+ const bundle=await build({stdin:{contents:"import{POST}from'./app/api/room/route.ts';import{GET}from'./app/api/room/socket/route.ts';export{RoomRealtime}from'./game/room-realtime.ts';export default{fetch:r=>r.headers.get('Upgrade')?GET(r):POST(r)};",resolveDir:process.cwd()},bundle:true,write:false,format:'esm',platform:'browser',plugins:[networkFixturePlugin],external:['cloudflare:workers'],tsconfig:'tsconfig.json'});
  const mf=new Miniflare({cf:false,modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-05-15',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],durableObjects:{ROOMS:'RoomRealtime'}});
  const sockets=[];
  try{
