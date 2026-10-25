@@ -170,3 +170,62 @@ html[data-reduced-motion=true] .is-critical .hud-health-fill{animation:none}
 .room-hud .reinforcement-status{color:#efd18b;font-size:10px;margin-top:5px}
 .game-screen .route-guidance{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);width:min(620px,85vw);padding:10px 16px;background:#12352be0;color:#f0ead5;text-align:center;font-size:13px;pointer-events:none;border:1px solid #87937b88;height:auto;clip-path:none;overflow:visible;white-space:normal}
 @media(max-height:760px){.run-mode-options{margin-bottom:10px}.game-screen .run-mode-card{min-height:80px;padding:10px}.run-mode-card small{font-size:11px}}
+
+/* Entry menu and party lobby: reuse the established forest / parchment primitives. */
+.game-screen .screen-menu{background:linear-gradient(90deg,#183f36df 0%,#183f36b5 33%,#183f3644 58%,transparent 80%)}
+.game-screen .entry-card{width:370px;max-width:100%;padding:24px;scrollbar-width:thin;scrollbar-color:var(--ui-border) transparent}
+.entry-content{animation:entry-content-in 120ms ease-out}
+@keyframes entry-content-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.game-screen .entry-card h2{margin:0 0 16px;font-size:27px;outline:none}
+.entry-card .field-label{font-family:var(--ui-meta);font-size:9px;letter-spacing:.14em;margin-bottom:7px}
+.entry-card .run-mode-options{gap:10px;margin:0 0 16px}
+.game-screen .entry-card .run-mode-card{min-height:105px;padding:12px;gap:5px}
+.entry-card .run-mode-card small{font:12px/1.5 var(--ui-copy)}
+.game-screen .entry-card .run-mode-card.is-selected{box-shadow:inset 0 0 0 .5px var(--ui-focus)}
+.entry-actions{display:grid;grid-template-columns:1fr;gap:9px;margin-top:16px}
+.game-screen .entry-card .primary,.game-screen .entry-card .secondary{min-height:44px;padding:11px 12px;font-size:12px;gap:5px;margin:0}
+.game-screen .entry-card .create-party{border-color:var(--ui-focus)}
+.entry-card .join-form{margin-top:9px;gap:8px}
+.entry-card .join-form input{min-width:0;width:100%;font:11px var(--ui-meta);letter-spacing:.14em}
+.game-screen .entry-card .join-form button{min-height:40px;padding:0 14px}
+.entry-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px}
+.game-screen .entry-footer .text-button{font-size:12px;min-height:36px;padding:7px 0}
+.entry-footer>span{font:10px var(--ui-meta);color:#9fb495;white-space:nowrap}
+.game-screen .entry-card .entry-caption{font:11px/1.5 var(--ui-copy);color:#9fb495;margin:5px 0 0}
+.game-screen .entry-card button,.game-screen .screen-tools button{transition:transform 120ms ease-out,background 120ms,border-color 120ms,box-shadow 120ms}
+.game-screen .entry-card button:not(:disabled):hover,.game-screen .screen-tools button:not(:disabled):hover{transform:translateY(-1px)}
+.game-screen .entry-card button:not(:disabled):active,.game-screen .screen-tools button:not(:disabled):active{transform:translateY(0);box-shadow:none}
+.game-screen .entry-card .secondary:not(:disabled):hover,.game-screen .entry-card .join-form button:not(:disabled):hover,.game-screen .screen-tools button:not(:disabled):hover{border-color:var(--ui-focus);box-shadow:0 0 10px #e9d49c18}
+.game-screen .entry-card .primary:not(:disabled):hover{filter:brightness(1.035)}
+.game-screen .entry-card .text-button:not(:disabled):hover{text-decoration:underline;text-underline-offset:4px;box-shadow:none}
+.game-screen .entry-card :is(button,input,select):focus-visible,.game-screen .screen-tools button:focus-visible{outline:1px solid var(--ui-focus);outline-offset:3px;border-color:var(--ui-focus)}
+.game-screen .entry-card button:disabled{transform:none;filter:none}
+.party-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:-4px 0 8px}
+.party-route{font:10px var(--ui-meta);letter-spacing:.14em;color:var(--ui-focus)}
+.game-screen .party-route select{font:10px var(--ui-meta);letter-spacing:.14em;color:var(--ui-focus);background:#17392f;border:1px solid #87937b66;border-radius:3px;min-height:32px;padding:4px 7px;cursor:pointer}
+.route-badge{border:1px solid #87937b66;border-radius:3px;padding:7px 9px}
+.game-screen .entry-card .leave-party{font-size:11px;min-height:32px;padding:5px 0}
+.game-screen .entry-card .party-code{font:600 23px var(--ui-meta);letter-spacing:.3em;text-align:center;color:var(--ui-focus);min-height:46px;padding:8px 12px;cursor:text}
+.invite-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.game-screen .entry-card .invite-actions button{font-size:11px;min-height:36px;justify-content:center;padding:8px}
+.party-list-heading{display:flex;justify-content:space-between;align-items:center;margin:20px 0 8px}
+.party-list-heading .field-label{margin:0}.party-list-heading>span:last-child{font:10px var(--ui-meta);color:#9fb495}
+.party-slots{padding:0;margin:0;list-style:none;display:grid;gap:6px}
+.party-slot{display:flex;align-items:center;gap:9px;min-height:48px;padding:7px 10px;border:1px solid #87937b44;border-radius:3px;background:#17392f66}
+.party-dot{width:7px;height:7px;flex-shrink:0;border-radius:50%}
+.party-member-name{font:13px var(--ui-copy);color:#f0ead5;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.party-member-name small{display:block;font:10px/1.5 var(--ui-copy);color:#9fb495}
+.party-ready{font:9px var(--ui-meta);letter-spacing:.04em;padding:3px 5px;border:1px solid #87937b55;border-radius:3px;color:var(--ui-focus)}
+.party-ready.is-ready{color:#b5f5a5;border-color:#b5f5a533;background:#b5f5a508}
+.party-ping{font:10px var(--ui-meta);font-variant-numeric:tabular-nums;color:var(--ui-focus);text-align:right;min-width:42px}
+.party-ping[data-quality=good]{color:#b5f5a5}
+.party-slot.is-empty{background:transparent;border-style:dashed;color:#9fb495;font:11px var(--ui-copy)}
+.party-empty-dot{font-size:18px;width:7px;text-align:center}
+.party-status{font:12px/1.5 var(--ui-copy);color:#b3c2aa;margin:12px 0 10px;min-height:18px}
+.copy-fallback{font:11px/1.5 var(--ui-copy);color:var(--ui-focus);margin-top:8px}.copy-fallback input{margin-top:5px}
+@media(max-width:850px){.game-screen .entry-card{width:350px;padding:20px}.screen-menu{gap:22px}.menu-story h1{font-size:clamp(36px,5vw,50px)}}
+@media(max-width:580px){.game-screen .entry-card{width:min(100%,350px);padding:20px}.game-screen .screen-tools button:last-child{display:inline-block}.game-screen .entry-actions{gap:7px}.game-screen .entry-card .primary,.game-screen .entry-card .secondary{padding:11px 9px;font-size:11px}}
+@media(max-height:680px) and (min-width:581px){.game-screen .entry-card{padding:18px}.entry-card .party-list-heading{margin-top:12px}.party-slot{min-height:43px}.game-screen .entry-card .run-mode-card{min-height:78px;padding:9px}.entry-card .run-mode-options{margin-bottom:12px}}
+
+.menu-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+html[data-reduced-motion=true] .entry-content{animation:none}html[data-reduced-motion=true] .game-screen :is(.entry-card,.screen-tools) button:not(:disabled):is(:hover,:active){transform:none}

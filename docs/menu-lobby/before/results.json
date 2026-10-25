@@ -1,0 +1,14 @@
+{
+  "menu": {
+    "x": 799.78125,
+    "y": 90.640625,
+    "width": 330,
+    "height": 634.703125
+  },
+  "tokens": {
+    "background": "rgb(239, 209, 139)",
+    "color": "rgb(36, 71, 53)",
+    "font": "Arial, Helvetica, sans-serif",
+    "borderRadius": "3px"
+  }
+}

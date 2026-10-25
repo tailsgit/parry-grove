@@ -19,6 +19,12 @@ export function advanceRoom(r,now) {
 }
 export function applyAction(r,m,payload,now,authorization={allowAdmin:false}) {
   const a=payload.action;
+  if(a==='runType'){
+    if(m.id!==r.host)throw Error('Only the host can choose the route.');
+    if(r.game)throw Error('Choose the route before starting.');
+    if(!['story','endless'].includes(payload.runType))throw Error('Choose Story or Endless.');
+    if(r.runType!==payload.runType){r.runType=payload.runType;r.members.forEach(member=>{member.ready=member.id===r.host;});}
+  }
   if(a==='ready'){if(r.game)throw Error('The run has already begun.');m.ready=!m.ready;}
   if(a==='weapon'){if(r.game)throw Error('Choose your weapon in the lobby.');if(WEAPONS[payload.weapon])m.weapon=payload.weapon;}
   if(a==='start') {

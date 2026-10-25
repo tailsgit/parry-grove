@@ -21,6 +21,7 @@ export const NET = Object.freeze({
 });
 export const ACTIONS = new Set([
   "ready",
+  "runType",
   "weapon",
   "start",
   "upgrade",

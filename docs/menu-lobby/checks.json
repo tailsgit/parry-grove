@@ -1,0 +1,115 @@
+{
+  "base": "189f3868b2b716214e5174d9e5b2c7747503dd3e",
+  "baseline": {
+    "counts": {
+      "tests": "278",
+      "pass": "252",
+      "fail": "26"
+    },
+    "failures": [
+      "Magnetizer dart homes, attaches through block without damage or shield cost, and expires after five seconds",
+      "Scrap belongs to the party, is awarded once per kill, and survives an individual death",
+      "a drafted campaign preserves run traits through all ten combat rooms and both required boss shops",
+      "all nineteen enemy classes have distinct, bounded and deterministic weapon samples",
+      "all weapons have a 0.5s cooldown with a real gap and cannot restart by spamming",
+      "armed proximity mines explode and can be blocked, while a distant player does not trigger them",
+      "both twin bosses must fall before the final full heal",
+      "both twin bosses must fall before the run ends",
+      "campaign heals on level clear, restores shield on advancement, and keeps EXP, stats, weapon and upgrades when entering Level 2",
+      "co-op applies the damage override only to the projectile owner and survives JSON snapshots",
+      "deflections accelerate and assist near aim without snapping to off-axis enemies",
+      "encyclopedia covers every campaign enemy and boss with artwork metadata and both explanations",
+      "every enemy attack emits a self-contained weapon identity, even after the enemy is removed",
+      "hacker kills every damageable enemy and boss with one landed melee hit using every weapon",
+      "hacker reflected projectiles also kill bosses in one hit, including zero-damage darts",
+      "invalid teleport and HP requests leave the game unchanged",
+      "items cannot be bought in flight; walking onto a landed item purchases once until leaving it",
+      "optimized simulation retains original tick states: 12 enemies",
+      "optimized simulation retains original tick states: 180 enemies",
+      "optimized simulation retains original tick states: 32 enemies",
+      "sacrifices are optional, individual, once per altar, and permanently scale future maximum-health gains",
+      "saved ejection and pickup states remain deterministic after serialization",
+      "shorter melee wind-ups and longer ranges connect on the first stationary-target strike",
+      "two co-op contacts cannot buy the same last relic, and stock/funds are shared",
+      "unaffordable contact never charges or removes stock and reports once per contact",
+      "weapon differences, party scaling, boss, victory, death and fresh restart"
+    ]
+  },
+  "current": {
+    "counts": {
+      "tests": "281",
+      "pass": "255",
+      "fail": "26"
+    },
+    "failures": [
+      "Magnetizer dart homes, attaches through block without damage or shield cost, and expires after five seconds",
+      "Scrap belongs to the party, is awarded once per kill, and survives an individual death",
+      "a drafted campaign preserves run traits through all ten combat rooms and both required boss shops",
+      "all nineteen enemy classes have distinct, bounded and deterministic weapon samples",
+      "all weapons have a 0.5s cooldown with a real gap and cannot restart by spamming",
+      "armed proximity mines explode and can be blocked, while a distant player does not trigger them",
+      "both twin bosses must fall before the final full heal",
+      "both twin bosses must fall before the run ends",
+      "campaign heals on level clear, restores shield on advancement, and keeps EXP, stats, weapon and upgrades when entering Level 2",
+      "co-op applies the damage override only to the projectile owner and survives JSON snapshots",
+      "deflections accelerate and assist near aim without snapping to off-axis enemies",
+      "encyclopedia covers every campaign enemy and boss with artwork metadata and both explanations",
+      "every enemy attack emits a self-contained weapon identity, even after the enemy is removed",
+      "hacker kills every damageable enemy and boss with one landed melee hit using every weapon",
+      "hacker reflected projectiles also kill bosses in one hit, including zero-damage darts",
+      "invalid teleport and HP requests leave the game unchanged",
+      "items cannot be bought in flight; walking onto a landed item purchases once until leaving it",
+      "optimized simulation retains original tick states: 12 enemies",
+      "optimized simulation retains original tick states: 180 enemies",
+      "optimized simulation retains original tick states: 32 enemies",
+      "sacrifices are optional, individual, once per altar, and permanently scale future maximum-health gains",
+      "saved ejection and pickup states remain deterministic after serialization",
+      "shorter melee wind-ups and longer ranges connect on the first stationary-target strike",
+      "two co-op contacts cannot buy the same last relic, and stock/funds are shared",
+      "unaffordable contact never charges or removes stock and reports once per contact",
+      "weapon differences, party scaling, boss, victory, death and fresh restart"
+    ]
+  },
+  "newFailures": [],
+  "focusedNetworkAndMenu": "23/23 passed",
+  "lint": "no errors, one existing unused charging warning in level3.js",
+  "typecheck": "passed",
+  "productionBuild": "passed",
+  "builtWorkerSmoke": "passed",
+  "primaryTokensUnchanged": true,
+  "menuHeightReductionPercent": 20.821742448487235,
+  "browser": {
+    "namePersisted": true,
+    "inlineJoinEnter": true,
+    "inviteAutoJoin": true,
+    "sameTabLobbyRefresh": true,
+    "clipboard": true,
+    "guestRouteReadOnly": true,
+    "routeChangeResetsGuestReady": true,
+    "liveMeasuredPings": true,
+    "escapeLeaveAndRejoin": true,
+    "fourClientEndlessStart": true,
+    "mobileNoHorizontalOverflow": true,
+    "soloStart": true,
+    "mutePreserved": true,
+    "clipboardFallback": true,
+    "reducedMotion": true
+  },
+  "browserErrors": [],
+  "combatBrowserRegression": {
+    "clients": 4,
+    "recovery": {
+      "sameTabRefresh": true,
+      "samePlayerAndHP": true,
+      "temporaryReconnect": true
+    },
+    "combat": {
+      "controlledFixture": true,
+      "actualServerMeleeClear": true,
+      "fourIndependentRewards": true,
+      "routeAfterAllConfirm": true
+    },
+    "pageErrors": [],
+    "kernelPacketLossTested": false
+  }
+}

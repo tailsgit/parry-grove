@@ -389,6 +389,15 @@ export class RoomRealtime extends DurableObject {
       socket.serializeAttachment(a);
       this.ensureLoop();
       if (
+        !this.room.game &&
+        ["ping", "probeReply"].includes(body.type) &&
+        now - (this.lastLobbyBroadcast || 0) >= 1000
+      ) {
+        this.lastLobbyBroadcast = now;
+        for (const s of this.ctx.getWebSockets("transport"))
+          this.sendSnapshot(s);
+      }
+      if (
         body.type === "input" &&
         (this.sim.acks[m.id] || 0) > (a.inputAck || 0)
       )
@@ -585,6 +594,26 @@ export class RoomRealtime extends DurableObject {
     if (game) game.events = events;
     return {
       ...state,
+      members: this.room.game
+        ? state.members
+        : state.members.map((m) => {
+            const socket = this.ctx
+              .getWebSockets("transport")
+              .find(
+                (s) =>
+                  this.isController(s) &&
+                  s.deserializeAttachment()?.id === m.id,
+              );
+            const a = socket?.deserializeAttachment();
+            return {
+              ...m,
+              connected: !!socket,
+              pingMs:
+                a?.rtt && Date.now() - (a.probeAt || 0) < 5000
+                  ? Math.round(a.rtt)
+                  : null,
+            };
+          }),
       game,
       version: NET.version,
       runId: sim.runId,
