@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { Miniflare } from 'miniflare';
+import {NetworkTestMiniflare as Miniflare,networkFixturePlugin} from './helpers/multiplayer.js';
 import { readFile } from 'node:fs/promises';
 import {claimKit} from '../game/run-content.js';
 import { step } from '../game/engine.js';
@@ -10,7 +10,7 @@ process.env.CLOUDFLARE_CF_FETCH_ENABLED='false';
 process.env.WRANGLER_SEND_METRICS='false';
 // Exercise the real HTTP handler and D1 SQL, not a mocked lobby implementation.
 test('HTTP + D1: four clients, CAS races, combat, rewards, disconnect, death and restart',async()=>{
- const bundle=await build({stdin:{contents:"import { POST } from './app/api/room/route.ts';export default {fetch:POST};",resolveDir:process.cwd()},bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers'],tsconfig:'tsconfig.json'});
+ const bundle=await build({stdin:{contents:"import { POST } from './app/api/room/route.ts';export {RoomRealtime} from './game/room-realtime.ts';export default {fetch:POST};",resolveDir:process.cwd()},bundle:true,write:false,format:'esm',platform:'browser',plugins:[networkFixturePlugin],external:['cloudflare:workers'],tsconfig:'tsconfig.json'});
  const mf=new Miniflare({cf:false,modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-05-15',compatibilityFlags:['nodejs_compat'],d1Databases:['DB']});
  try {
   const db=await mf.getD1Database('DB');await db.exec((await readFile('drizzle/0000_happy_kang.sql','utf8')).replaceAll('\n',' '));
@@ -44,7 +44,7 @@ test('HTTP + D1: four clients, CAS races, combat, rewards, disconnect, death and
   const next=await post({action:'poll'},host);assert.equal(next.data.game.room,1);assert.equal(next.data.game.phase,'combat');
   await post({action:'leave'},host);const transfer=await post({action:'poll'},sessions[1]);assert.equal(transfer.data.game.players.length,3);assert.notEqual(transfer.data.host,host.id);
   // Host timeout transfers ownership and keeps the same authoritative run.
-  r=JSON.parse((await db.prepare('SELECT state FROM game_rooms WHERE code = ?').bind(code).first()).state);const timedOut=r.host;r.members.find(m=>m.id===timedOut).lastSeen=Date.now()-13000;
+  r=JSON.parse((await db.prepare('SELECT state FROM game_rooms WHERE code = ?').bind(code).first()).state);const timedOut=r.host;Object.assign(r.members.find(m=>m.id===timedOut),{disconnected:true,graceUntil:Date.now()-1});
   const active=sessions.find(s=>s.id!==host.id&&s.id!==timedOut);await db.prepare('UPDATE game_rooms SET state = ? WHERE code = ?').bind(JSON.stringify(r),code).run();
   const afterTimeout=await post({action:'poll'},active);assert.equal(afterTimeout.data.game.players.length,2);assert.notEqual(afterTimeout.data.host,timedOut);
   r=JSON.parse((await db.prepare('SELECT state FROM game_rooms WHERE code = ?').bind(code).first()).state);r.game.players.forEach(p=>p.hp=0);step(r.game,r.inputs,1/60);

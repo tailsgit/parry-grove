@@ -168,19 +168,15 @@ and a small dependency-free simulation rather than a full game framework. This
 keeps collision/combat reusable in browser solo play and the authoritative server
 without duplicating mechanics or requiring a headless rendering framework.
 
-The lobby and room codes use D1. Once a run starts, a room Durable Object owns its
-live simulation and WebSocket sessions; control messages advance the shared
-simulation with bounded catch-up, and compact snapshots are broadcast at up to
-30Hz.
-Active simulation updates no longer read or rewrite room state through D1. The
-object stores its live state persistently and writes the room back to D1 when
-returning to the lobby. Clients cannot submit HP, enemy positions, damage, or upgrade effects.
-Session tokens authorize a player's own socket and stay out of public snapshots.
-Clients briefly predict their own movement and interpolate players, enemies,
-projectiles, and hazards between snapshots. Hits, health, and progression remain
-server-authoritative.
-Co-op latency still depends on network quality; this is a prototype transport,
-not a competitive action-game backend.
+D1 provides room discovery and metadata; one Durable Object owns each room from
+lobby through combat. An independent fixed 60 Hz clock advances the simulation,
+with 30 Hz input batches and approximately 20 Hz compact snapshots. Authenticated
+controllers predict local movement and action startup, reconcile acknowledged
+commands, and interpolate remote entities. Hits, health, loot and progression
+remain authoritative. WebSocket and HTTP recovery use the same authority and
+idempotent actions. Same-tab refresh restores the session, with 90 seconds of
+reconnection grace. See [multiplayer architecture and measured validation](docs/multiplayer.md)
+for compensation policy, persistence guarantees, test evidence and limitations.
 
 ## Decisions where the design was unspecified
 
@@ -231,7 +227,7 @@ human playtesting.
 
 ## Still to expand
 
-Multiple characters/areas/bosses, authored sprites and animations, persistent progression, mid-run reconnect, and extensive
+Multiple characters/areas/bosses, authored sprites and animations, persistent progression, and extensive
 balance/playfeel testing are not included. The design's complete initial content
 list is present, but the transport and timing need real-player latency testing.
 

@@ -1,0 +1,20 @@
+{
+  "source": "527bd10727ee1f2266aeaf31882f9a7517bf10fb",
+  "clients": 4,
+  "elapsedSeconds": 2.223422327,
+  "inputHzPerClient": 30.303030303030305,
+  "snapshotsToHost": 65,
+  "snapshotHz": 29.23421214704749,
+  "averageSnapshotBytes": 3957.0923076923077,
+  "hostBytesPerSecond": 115682.47600852665,
+  "unauthenticatedSnapshots": 64,
+  "errors": 0,
+  "simulationMs": {
+    "median": 0.051727000000028056,
+    "p95": 0.149120000000039
+  },
+  "simulationTime": 2.2209999999999965,
+  "correctionTelemetry": "absent",
+  "browserInputToPaint": "not measured by this server harness",
+  "shopFailureCause": "test omits required E/interact edge"
+}

@@ -1,0 +1,142 @@
+{
+  "source": "/workspace/scratch/813578da53d3/parry-grove-mp-before",
+  "browserClients": 4,
+  "scene": "physical kit draft (combat controls remain enabled)",
+  "profiles": [
+    {
+      "rtt": 0,
+      "jitter": 0,
+      "loss": 0,
+      "lossModel": "ordered 200ms retransmission stall",
+      "samples": [
+        {
+          "kind": "dash",
+          "inputToRenderMs": 70.39999999990687
+        },
+        {
+          "kind": "guard",
+          "inputToRenderMs": 55.60000000009313
+        },
+        {
+          "kind": "swing",
+          "inputToRenderMs": 52.5
+        }
+      ],
+      "metrics": null
+    },
+    {
+      "rtt": 50,
+      "jitter": 10,
+      "loss": 0,
+      "lossModel": "ordered 200ms retransmission stall",
+      "samples": [
+        {
+          "kind": "dash",
+          "inputToRenderMs": 124.39999999990687
+        },
+        {
+          "kind": "guard",
+          "inputToRenderMs": 110.09999999962747
+        },
+        {
+          "kind": "swing",
+          "inputToRenderMs": 91.39999999990687
+        }
+      ],
+      "metrics": null
+    },
+    {
+      "rtt": 100,
+      "jitter": 10,
+      "loss": 0,
+      "lossModel": "ordered 200ms retransmission stall",
+      "samples": [
+        {
+          "kind": "dash",
+          "inputToRenderMs": 153.79999999981374
+        },
+        {
+          "kind": "guard",
+          "inputToRenderMs": 157
+        },
+        {
+          "kind": "swing",
+          "inputToRenderMs": 156.1999999997206
+        }
+      ],
+      "metrics": null
+    },
+    {
+      "rtt": 150,
+      "jitter": 10,
+      "loss": 0,
+      "lossModel": "ordered 200ms retransmission stall",
+      "samples": [
+        {
+          "kind": "dash",
+          "inputToRenderMs": 223.8000000002794
+        },
+        {
+          "kind": "guard",
+          "inputToRenderMs": 176.5
+        },
+        {
+          "kind": "swing",
+          "inputToRenderMs": 172.60000000009313
+        }
+      ],
+      "metrics": null
+    },
+    {
+      "rtt": 100,
+      "jitter": 10,
+      "loss": 1,
+      "lossModel": "ordered 200ms retransmission stall",
+      "samples": [
+        {
+          "kind": "dash",
+          "inputToRenderMs": 159.89999999990687
+        },
+        {
+          "kind": "guard",
+          "inputToRenderMs": 341.29999999981374
+        },
+        {
+          "kind": "swing",
+          "inputToRenderMs": 162.60000000009313
+        }
+      ],
+      "metrics": null
+    },
+    {
+      "rtt": 100,
+      "jitter": 10,
+      "loss": 2,
+      "lossModel": "ordered 200ms retransmission stall",
+      "samples": [
+        {
+          "kind": "dash",
+          "inputToRenderMs": 309.70000000018626
+        },
+        {
+          "kind": "guard",
+          "inputToRenderMs": 169.09999999962747
+        },
+        {
+          "kind": "swing",
+          "inputToRenderMs": 187.59999999962747
+        }
+      ],
+      "metrics": null
+    }
+  ],
+  "recovery": null,
+  "wire": {
+    "messages": 5919,
+    "stalls": 27,
+    "bytes": 12390779,
+    "snapshots": 2666
+  },
+  "pageErrors": [],
+  "kernelPacketLossTested": false
+}

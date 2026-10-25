@@ -1,11 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
-import {Miniflare} from 'miniflare';
+import {NetworkTestMiniflare as Miniflare,networkFixturePlugin} from './helpers/multiplayer.js';
 import {readFile} from 'node:fs/promises';
 process.env.CLOUDFLARE_CF_FETCH_ENABLED='false';process.env.WRANGLER_SEND_METRICS='false';
 test('Cloudflare authoritative co-op persists host admin actions and rejects guests',async()=>{
- const bundle=await build({stdin:{contents:"import {POST} from './app/api/room/route.ts';export {RoomRealtime} from './game/room-realtime.ts';export default {fetch:POST};",resolveDir:process.cwd()},bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers'],tsconfig:'tsconfig.json'});
+ const bundle=await build({stdin:{contents:"import {POST} from './app/api/room/route.ts';export {RoomRealtime} from './game/room-realtime.ts';export default {fetch:POST};",resolveDir:process.cwd()},bundle:true,write:false,format:'esm',platform:'browser',plugins:[networkFixturePlugin],external:['cloudflare:workers'],tsconfig:'tsconfig.json'});
  const mf=new Miniflare({cf:false,bindings:{ENABLE_DEV_TOOLS:"true"},modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-05-15',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],durableObjects:{ROOMS:'RoomRealtime'}});
  try{
   const db=await mf.getD1Database('DB');await db.exec((await readFile('drizzle/0000_happy_kang.sql','utf8')).replaceAll('\n',' '));

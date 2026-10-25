@@ -5,7 +5,7 @@ import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 export { RoomRealtime } from "../game/room-realtime";
 
 export default {
-  fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+  async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
     const url = new URL(request.url);
     if (url.pathname === "/api/room/socket") {
       const code = (url.searchParams.get("code") || "").trim().toUpperCase();
@@ -15,6 +15,7 @@ export default {
       if (!env.ROOMS) {
         return Response.json({ error: "Realtime rooms are not configured." }, { status: 503 });
       }
+      if(env.ROOM_SOCKET_ADMISSION&&!(await env.ROOM_SOCKET_ADMISSION.limit({key:'socket:'+request.headers.get('CF-Connecting-IP')})).success)return Response.json({error:'Too many reconnect attempts. Wait a moment.'},{status:429});
       // Preserve the Worker WebSocket upgrade response without passing it through
       // the app router's response finalizer.
       return env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(request);

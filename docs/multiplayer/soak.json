@@ -1,0 +1,244 @@
+{
+  "mode": "accelerated 30-room four-player simulation with boosted HP/damage",
+  "rooms": [
+    {
+      "room": 1,
+      "ticks": 295,
+      "cleared": true,
+      "heapMB": 8.288665771484375,
+      "snapshotBytes": 15553
+    },
+    {
+      "room": 2,
+      "ticks": 463,
+      "cleared": true,
+      "heapMB": 8.440567016601562,
+      "snapshotBytes": 8037
+    },
+    {
+      "room": 3,
+      "ticks": 505,
+      "cleared": true,
+      "heapMB": 8.50946044921875,
+      "snapshotBytes": 10399
+    },
+    {
+      "room": 4,
+      "ticks": 379,
+      "cleared": true,
+      "heapMB": 8.521537780761719,
+      "snapshotBytes": 9087
+    },
+    {
+      "room": 5,
+      "ticks": 442,
+      "cleared": true,
+      "heapMB": 8.605445861816406,
+      "snapshotBytes": 12741
+    },
+    {
+      "room": 6,
+      "ticks": 568,
+      "cleared": true,
+      "heapMB": 8.638626098632812,
+      "snapshotBytes": 15283
+    },
+    {
+      "room": 7,
+      "ticks": 652,
+      "cleared": true,
+      "heapMB": 8.702018737792969,
+      "snapshotBytes": 16137
+    },
+    {
+      "room": 8,
+      "ticks": 904,
+      "cleared": true,
+      "heapMB": 8.946975708007812,
+      "snapshotBytes": 16306
+    },
+    {
+      "room": 9,
+      "ticks": 3600,
+      "cleared": false,
+      "heapMB": 9.381050109863281,
+      "snapshotBytes": 9981
+    },
+    {
+      "room": 10,
+      "ticks": 3600,
+      "cleared": false,
+      "heapMB": 9.643020629882812,
+      "snapshotBytes": 7872
+    },
+    {
+      "room": 11,
+      "ticks": 631,
+      "cleared": true,
+      "heapMB": 9.278709411621094,
+      "snapshotBytes": 9558
+    },
+    {
+      "room": 12,
+      "ticks": 778,
+      "cleared": true,
+      "heapMB": 9.042427062988281,
+      "snapshotBytes": 12714
+    },
+    {
+      "room": 13,
+      "ticks": 3193,
+      "cleared": true,
+      "heapMB": 9.566574096679688,
+      "snapshotBytes": 11734
+    },
+    {
+      "room": 14,
+      "ticks": 3600,
+      "cleared": false,
+      "heapMB": 9.834388732910156,
+      "snapshotBytes": 13490
+    },
+    {
+      "room": 15,
+      "ticks": 946,
+      "cleared": true,
+      "heapMB": 9.302986145019531,
+      "snapshotBytes": 7612
+    },
+    {
+      "room": 16,
+      "ticks": 988,
+      "cleared": true,
+      "heapMB": 9.395057678222656,
+      "snapshotBytes": 9015
+    },
+    {
+      "room": 17,
+      "ticks": 3600,
+      "cleared": false,
+      "heapMB": 9.702423095703125,
+      "snapshotBytes": 6865
+    },
+    {
+      "room": 18,
+      "ticks": 904,
+      "cleared": true,
+      "heapMB": 9.282943725585938,
+      "snapshotBytes": 15354
+    },
+    {
+      "room": 19,
+      "ticks": 1156,
+      "cleared": true,
+      "heapMB": 9.623306274414062,
+      "snapshotBytes": 12993
+    },
+    {
+      "room": 20,
+      "ticks": 1576,
+      "cleared": true,
+      "heapMB": 9.397224426269531,
+      "snapshotBytes": 9135
+    },
+    {
+      "room": 21,
+      "ticks": 2920,
+      "cleared": true,
+      "heapMB": 9.999992370605469,
+      "snapshotBytes": 11580
+    },
+    {
+      "room": 22,
+      "ticks": 1345,
+      "cleared": true,
+      "heapMB": 9.621284484863281,
+      "snapshotBytes": 10298
+    },
+    {
+      "room": 23,
+      "ticks": 3600,
+      "cleared": false,
+      "heapMB": 10.012054443359375,
+      "snapshotBytes": 6938
+    },
+    {
+      "room": 24,
+      "ticks": 3600,
+      "cleared": false,
+      "heapMB": 10.315055847167969,
+      "snapshotBytes": 11990
+    },
+    {
+      "room": 25,
+      "ticks": 2080,
+      "cleared": true,
+      "heapMB": 10.223587036132812,
+      "snapshotBytes": 9810
+    },
+    {
+      "room": 26,
+      "ticks": 1954,
+      "cleared": true,
+      "heapMB": 10.025978088378906,
+      "snapshotBytes": 9556
+    },
+    {
+      "room": 27,
+      "ticks": 3600,
+      "cleared": false,
+      "heapMB": 10.389488220214844,
+      "snapshotBytes": 12346
+    },
+    {
+      "room": 28,
+      "ticks": 1786,
+      "cleared": true,
+      "heapMB": 10.275352478027344,
+      "snapshotBytes": 7652
+    },
+    {
+      "room": 29,
+      "ticks": 3600,
+      "cleared": false,
+      "heapMB": 10.585906982421875,
+      "snapshotBytes": 15295
+    },
+    {
+      "room": 30,
+      "ticks": 2983,
+      "cleared": true,
+      "heapMB": 10.498588562011719,
+      "snapshotBytes": 7523
+    }
+  ],
+  "totalTicks": 56248,
+  "maxEnemies": 14,
+  "maxBullets": 24,
+  "maxHazards": 21,
+  "maxHistoryBytes": 243101,
+  "maxEvents": 256,
+  "tickMs": {
+    "median": 0.16797300000007453,
+    "p95": 0.47314500000038606,
+    "max": 79.5469320000002
+  },
+  "replayMs": {
+    "samples": 462,
+    "median": 1.9922289999994973,
+    "p95": 4.848088000000644,
+    "max": 13.264108999999735
+  },
+  "metrics": {
+    "ticks": 56248,
+    "overruns": 0,
+    "droppedMs": 0,
+    "rewinds": 462,
+    "replayedTicks": 4620,
+    "rejectedRewinds": 0,
+    "staleInputs": 0,
+    "inputCoalesced": 0,
+    "tickMs": 12065.636011999848,
+    "maxTickMs": 79.54443999999967
+  }
+}

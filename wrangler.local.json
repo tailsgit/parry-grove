@@ -2,8 +2,48 @@
   "name": "parry-grove-local",
   "main": "build/sites-worker.ts",
   "compatibility_date": "2026-05-15",
-  "compatibility_flags": ["nodejs_compat"],
-  "d1_databases": [{"binding":"DB","database_name":"site-creator-d1","database_id":"00000000-0000-4000-8000-000000000000"}],
-  "durable_objects": {"bindings":[{"name":"ROOMS","class_name":"RoomRealtime"}]},
-  "migrations": [{"tag":"v1","new_sqlite_classes":["RoomRealtime"]}]
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "site-creator-d1",
+      "database_id": "00000000-0000-4000-8000-000000000000"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOMS",
+        "class_name": "RoomRealtime"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "RoomRealtime"
+      ]
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "ROOM_ADMISSION",
+      "namespace_id": "73291",
+      "simple": {
+        "limit": 30,
+        "period": 60
+      }
+    },
+    {
+      "name": "ROOM_SOCKET_ADMISSION",
+      "namespace_id": "73292",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ]
 }
