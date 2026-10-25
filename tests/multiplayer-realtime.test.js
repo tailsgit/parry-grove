@@ -19,7 +19,8 @@ test("actual DO: four clients, auth exclusion/deadline, independent ticks, contr
       e = await d.socket(sessions[3]),
       intruder = await d.socket(h, { auth: false });
     const before = a.latest.tick;
-    await sleep(180);
+    for (let n = 0; n < 100 && a.latest.tick <= before + 4; n++)
+      await sleep(10);
     assert.ok(a.latest.tick > before + 4);
     assert.equal(intruder.messages.length, 0);
     assert.equal(a.latest.game.players.length, 4);
@@ -232,7 +233,12 @@ test("actual DO: a server-receipt validated late parry reverses provisional deat
       },
     ];
     const seed = await d.fixture(h.code, "seed", f.room);
-    for (let n = 0; n < 20 && a.latest.epoch !== seed.epoch; n++)
+    for (
+      let n = 0;
+      n < 40 &&
+      (a.latest.epoch !== seed.epoch || a.latest.game.players[0].hp > 0);
+      n++
+    )
       await sleep(5);
     assert.equal(a.latest.game.players[0].hp, 0);
     a.send({
@@ -309,7 +315,13 @@ test("actual native admission bindings, HTTP size enforcement and bounded event 
     )
       await sleep(10);
     const snapshots = a.messages.filter((m) => m.type === "snapshot"),
-      ids = new Set(snapshots.flatMap((m) => m.game.events.map((e) => e.id)));
+      ids = new Set(
+        snapshots.flatMap((m) =>
+          m.game.events
+            .filter((e) => e.kind === "hit" && e.x === 10 && e.y === 10)
+            .map((e) => e.id),
+        ),
+      );
     assert.equal(ids.size, 256);
     assert.ok(snapshots.every((m) => m.game.events.length <= 64));
     assert.ok(snapshots.some((m) => m.eventGap));

@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { member, publicRoom } from "./rooms.js";
 import { RoomSimulation } from "./room-simulation.js";
+import { SnapshotEncoder, SNAPSHOT_WIRE_VERSION } from "./snapshot-wire.js";
 import { compactGame } from "./room-snapshot.js";
 import {
   NET,
@@ -33,6 +34,7 @@ export class RoomRealtime extends DurableObject {
     this.lastTelemetry = 0;
     this.metadataChain = Promise.resolve();
     this.retired = false;
+    this.encoder = new SnapshotEncoder();
     this.telemetry = {
       snapshots: 0,
       bytes: 0,
@@ -193,12 +195,14 @@ export class RoomRealtime extends DurableObject {
               status: 409,
             });
           this.sim.touch(m.id, now);
+          this.sim.advance(now); // Elapsed ticks use old controls; install fresh controls for the next tick.
           this.sim.receive(m.id, body, now);
           this.sim.tryCompensate(
             m.id,
             (id, m) => this.validateView(id, m),
             now,
           );
+          this.sim.installPending((id, m) => this.validateView(id, m));
         } else if (!["poll", "resume"].includes(body.action)) {
           if (existing && body.controller !== existing)
             throw Object.assign(Error("Another controller is active."), {
@@ -263,8 +267,8 @@ export class RoomRealtime extends DurableObject {
       this.rates.set(
         id,
         (bucket = new TokenBucket(
-          id.startsWith("action:") ? 4 : 60,
-          id.startsWith("action:") ? 8 : 120,
+          id.startsWith("action:") ? 4 : 90,
+          id.startsWith("action:") ? 8 : 180,
         )),
       );
     }
@@ -316,6 +320,9 @@ export class RoomRealtime extends DurableObject {
         socket.serializeAttachment({
           code: a.code,
           id: m.id,
+          binary:
+            body.binary === true &&
+            body.binaryVersion === SNAPSHOT_WIRE_VERSION,
           controller,
           ack: 0,
           eventAck: 0,
@@ -348,8 +355,10 @@ export class RoomRealtime extends DurableObject {
       if (integer(body.eventAck) && body.eventAck <= this.sim.eventSerial)
         a.eventAck = Math.max(a.eventAck || 0, body.eventAck);
       if (body.type === "input") {
+        this.sim.advance(now); // Elapsed ticks use old controls; install fresh controls for the next tick.
         this.sim.receive(m.id, body, now);
         this.sim.tryCompensate(m.id, (id, m) => this.validateView(id, m), now);
+        this.sim.installPending((id, m) => this.validateView(id, m));
       } else if (body.type === "action") {
         this.limit("action:" + m.id, now);
         const result = this.sim.action(m.id, body, now, {
@@ -379,6 +388,11 @@ export class RoomRealtime extends DurableObject {
       } else if (body.type !== "ack") throw Error("Unknown message type.");
       socket.serializeAttachment(a);
       this.ensureLoop();
+      if (
+        body.type === "input" &&
+        (this.sim.acks[m.id] || 0) > (a.inputAck || 0)
+      )
+        this.sendSnapshot(socket);
       if (body.type === "action")
         for (const s of this.ctx.getWebSockets("transport"))
           this.sendSnapshot(s);
@@ -480,10 +494,16 @@ export class RoomRealtime extends DurableObject {
           this.lastTelemetry = now;
           this.log("room_metrics", { ...this.sim.metrics, ...this.telemetry });
         }
-        if (now - this.lastBroadcast >= NET.snapshotMs) {
-          this.lastBroadcast = now;
-          for (const s of this.ctx.getWebSockets("transport"))
-            if (this.isController(s)) this.sendSnapshot(s);
+        const periodic = now - this.lastBroadcast >= NET.snapshotMs;
+        if (periodic) this.lastBroadcast = now;
+        for (const s of this.ctx.getWebSockets("transport")) {
+          const attachment = s.deserializeAttachment();
+          if (
+            this.isController(s) &&
+            (periodic ||
+              (this.sim.acks[attachment.id] || 0) > (attachment.inputAck || 0))
+          )
+            this.sendSnapshot(s);
         }
         if (now - this.lastSave >= NET.checkpointMs) {
           this.lastSave = now;
@@ -538,7 +558,22 @@ export class RoomRealtime extends DurableObject {
   snapshot(id, eventAck = 0) {
     const sim = this.sim,
       state = publicRoom(this.code, this.room, this.checkpointVersion),
-      game = compactGame(state.game);
+      liveGame = state.game;
+    if (
+      !this.gameCache ||
+      this.gameCache.source !== liveGame ||
+      this.gameCache.tick !== sim.tick ||
+      this.gameCache.correction !== sim.correction ||
+      this.gameCache.revision !== this.checkpointVersion
+    )
+      this.gameCache = {
+        source: liveGame,
+        tick: sim.tick,
+        correction: sim.correction,
+        revision: this.checkpointVersion,
+        game: compactGame(liveGame),
+      };
+    const game = this.gameCache.game ? { ...this.gameCache.game } : null;
     const retained = sim.events.filter(
       (e) => Date.now() - (e.emittedAt || 0) <= 2000,
     );
@@ -591,6 +626,12 @@ export class RoomRealtime extends DurableObject {
     }
     const message = { type: "snapshot", ...this.snapshot(a.id, a.eventAck) };
     a.sent = message.sequence;
+    a.inputAck = message.ack;
+    if (this.sim.traces[a.id])
+      message.trace = {
+        ...this.sim.traces[a.id],
+        broadcastAt: performance.now(),
+      };
     // Count actual outstanding receipts, not global sequence differences across players.
     let receipts = this.receipts.get(a.controller);
     if (!receipts) this.receipts.set(a.controller, (receipts = new Map()));
@@ -606,18 +647,26 @@ export class RoomRealtime extends DurableObject {
     socket.serializeAttachment(a);
     this.send(socket, message);
     this.telemetry.snapshots++;
-    const bytes = new TextEncoder().encode(JSON.stringify(message)).byteLength;
-    this.telemetry.snapshotBytes += bytes;
-    this.telemetry.maxSnapshotBytes = Math.max(
-      this.telemetry.maxSnapshotBytes,
-      bytes,
-    );
   }
   send(socket, message) {
     if (socket.readyState === WebSocket.OPEN) {
       try {
-        const encoded = JSON.stringify(message);
-        this.telemetry.bytes += new TextEncoder().encode(encoded).byteLength;
+        const binary =
+          message.type === "snapshot" && socket.deserializeAttachment()?.binary;
+        const encoded = binary
+          ? this.encoder.encode(message)
+          : JSON.stringify(message);
+        const bytes = binary
+          ? encoded.byteLength
+          : new TextEncoder().encode(encoded).byteLength;
+        this.telemetry.bytes += bytes;
+        if (message.type === "snapshot") {
+          this.telemetry.snapshotBytes += bytes;
+          this.telemetry.maxSnapshotBytes = Math.max(
+            this.telemetry.maxSnapshotBytes,
+            bytes,
+          );
+        }
         socket.send(encoded);
       } catch {
         socket.close(1011, "Transport failed");

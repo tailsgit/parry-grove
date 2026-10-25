@@ -170,12 +170,13 @@ without duplicating mechanics or requiring a headless rendering framework.
 
 D1 provides room discovery and metadata; one Durable Object owns each room from
 lobby through combat. An independent fixed 60 Hz clock advances the simulation,
-with 30 Hz input batches and approximately 20 Hz compact snapshots. Authenticated
+with immediately flushed input commands and acknowledgment-driven snapshots
+(up to 60 Hz while moving, approximately 20 Hz otherwise). Authenticated
 controllers predict local movement and action startup, reconcile acknowledged
 commands, and interpolate remote entities. Hits, health, loot and progression
 remain authoritative. WebSocket and HTTP recovery use the same authority and
 idempotent actions. Same-tab refresh restores the session, with 90 seconds of
-reconnection grace. See [multiplayer architecture and measured validation](docs/multiplayer.md)
+reconnection grace. See [multiplayer smoothness and measured validation](docs/multiplayer-smoothness.md)
 for compensation policy, persistence guarantees, test evidence and limitations.
 
 ## Decisions where the design was unspecified

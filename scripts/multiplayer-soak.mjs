@@ -137,8 +137,14 @@ const result = {
     p95: percentile(replayCosts, 0.95),
     max: Math.max(...replayCosts),
   },
+  historyPool: {
+    created: sim.historyPool?.created,
+    reused: sim.historyPool?.reused,
+    free: sim.historyPool?.free.length,
+  },
   metrics: sim.metrics,
 };
-await mkdir("docs/multiplayer", { recursive: true });
-await writeFile("docs/multiplayer/soak.json", JSON.stringify(result, null, 2));
+const output = process.env.MP_OUTPUT || "docs/multiplayer";
+await mkdir(output, { recursive: true });
+await writeFile(output + "/soak.json", JSON.stringify(result, null, 2));
 console.log(JSON.stringify({ ...result, rooms: rows.length }));

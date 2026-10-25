@@ -1,4 +1,6 @@
+import { decodeSnapshot, SNAPSHOT_WIRE_VERSION } from "./snapshot-wire.js";
 import { NET, clone } from "./net-protocol.js";
+import { WEAPONS } from "./config.js";
 import { stepPlayer } from "./engine.js";
 const SESSION_KEY = "parry-grove-session-v2";
 export function savedSession() {
@@ -46,6 +48,7 @@ export class MultiplayerClient {
       maxCorrection: 0,
       confirmationMs: [],
       inputConfirmationMs: [],
+      traces: [],
       reconnects: 0,
       eventGaps: 0,
     };
@@ -55,6 +58,7 @@ export class MultiplayerClient {
     this.frameAccumulator = 0;
     this.clockSamples = [];
     this.startups = {};
+    this.startupCounters = {};
     this.startupParry = 0;
     this.rtt = 0;
     this.interpolationMs = 50;
@@ -118,10 +122,13 @@ export class MultiplayerClient {
       `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/room/socket?code=${this.session.code}`,
     );
     this.socket = socket;
+    socket.binaryType = "arraybuffer";
     socket.onopen = () =>
       socket.send(
         JSON.stringify({
           type: "auth",
+          binary: true,
+          binaryVersion: SNAPSHOT_WIRE_VERSION,
           version: NET.version,
           id: this.session.id,
           token: this.session.token,
@@ -130,7 +137,10 @@ export class MultiplayerClient {
     socket.onmessage = (e) => {
       if (this.socket !== socket) return;
       try {
-        const m = JSON.parse(e.data);
+        const m =
+          typeof e.data === "string"
+            ? JSON.parse(e.data)
+            : decodeSnapshot(e.data);
         this.lastPacket = performance.now();
         if (m.type === "snapshot") {
           this.authenticated = true;
@@ -230,6 +240,7 @@ export class MultiplayerClient {
       a,
       b,
       t,
+      underrun: !!b && target > b.serverTime + 1,
       tick: (a?.tick || 0) + ((b?.tick || 0) - (a?.tick || 0)) * t,
     };
   }
@@ -274,13 +285,22 @@ export class MultiplayerClient {
     const commands = this.frames
       .filter((f) => f.seq > this.ack)
       .slice(-12)
-      .map(({ seq, input, viewTick, viewSequence }) => ({
+      .map(({ seq, input, viewTick, viewSequence, at }) => ({
+        createdAt: at,
+        sentAt: now,
         seq,
         input,
         viewTick,
         viewSequence,
       }));
-    if (commands.length && this.game) {
+    if (
+      commands.length &&
+      this.game &&
+      (commands.at(-1).seq > (this.lastInputSent || 0) ||
+        now - (this.lastInputAt || 0) > 100)
+    ) {
+      this.lastInputSent = commands.at(-1).seq;
+      this.lastInputAt = now;
       if (!this.send({ type: "input", commands }))
         this.fallback({
           action: "input",
@@ -372,6 +392,9 @@ export class MultiplayerClient {
       this.events.clear();
       this.eventAck = 0;
       this.startups = {};
+      this.startupCounters = {};
+      this.lastEdge = null;
+      this.lastTraceSequence = 0;
       this.sequence = data.inputSequence || 0;
       this.frameAccumulator = 0;
       this.predicted = null;
@@ -386,6 +409,22 @@ export class MultiplayerClient {
     this.controller = data.controller || this.controller;
     this.snapAck = data.sequence;
     this.ack = data.ack;
+    if (
+      data.trace &&
+      data.trace.seq > (this.lastTraceSequence || 0) &&
+      Number.isFinite(data.trace.createdAt)
+    ) {
+      const t = data.trace;
+      this.lastTraceSequence = t.seq;
+      this.metrics.traces.push({
+        seq: t.seq,
+        createdToSendMs: t.sentAt - t.createdAt,
+        receiveToTickMs: t.appliedAt - t.receivedAt,
+        tickToBroadcastMs: t.broadcastAt - t.appliedAt,
+        totalMs: now - t.createdAt,
+      });
+      if (this.metrics.traces.length > 120) this.metrics.traces.shift();
+    }
     for (const f of this.frames)
       if (f.seq <= this.ack && f.at) {
         this.metrics.inputConfirmationMs.push(now - f.at);
@@ -393,18 +432,32 @@ export class MultiplayerClient {
           this.metrics.inputConfirmationMs.shift();
       }
     this.frames = this.frames.filter((f) => f.seq > this.ack);
-    this.snapshotIntervals.push(now - this.lastSnapshot);
-    if (this.snapshotIntervals.length > 20) this.snapshotIntervals.shift();
-    const recent = this.snapshotIntervals.slice(1),
-      mean = recent.reduce((a, b) => a + b, 0) / (recent.length || 1),
-      jitter = Math.sqrt(
-        recent.reduce((a, b) => a + (b - mean) ** 2, 0) / (recent.length || 1),
+    const interval = now - this.lastSnapshot;
+    if (interval > 0 && interval < 500) {
+      this.arrivalMean =
+        this.arrivalMean == null
+          ? interval
+          : this.arrivalMean + 0.1 * (interval - this.arrivalMean);
+      const deviation = Math.abs(interval - this.arrivalMean);
+      this.arrivalJitter =
+        (this.arrivalJitter || 0) +
+        0.1 * (deviation - (this.arrivalJitter || 0));
+      const wanted = Math.max(
+        20,
+        Math.min(100, this.arrivalMean + 2 * this.arrivalJitter),
       );
-    this.interpolationMs = Math.max(33, Math.min(83, mean + jitter));
+      this.interpolationMs += Math.max(
+        -1,
+        Math.min(4, wanted - this.interpolationMs),
+      );
+    }
     if (!this.clockSamples.length) this.offset = data.serverTime - now;
     this.lastSnapshot = now;
     this.lastPacket = now;
-    this.history.push({ ...data, at: now });
+    const lookups = {};
+    for (const key of ["players", "enemies", "bullets", "hazards"])
+      lookups[key] = new Map((data.game?.[key] || []).map((v) => [v.id, v]));
+    this.history.push({ ...data, at: now, lookups });
     if (this.history.length > 12) this.history.shift();
     if (data.eventGap) {
       this.metrics.eventGaps++;
@@ -431,6 +484,12 @@ export class MultiplayerClient {
       this.hooks.onCorrection?.();
     }
     this.scene = scene;
+    if (data.correction !== this.correction) {
+      // Remove unrendered obsolete events, retaining only the corrected server batch.
+      this.events.clear();
+      for (const e of data.game?.events || [])
+        if (e.id > this.eventAck) this.events.set(e.id, e);
+    }
     this.game = data.game;
     if (this.game) {
       this.game.events = [
@@ -439,7 +498,9 @@ export class MultiplayerClient {
           : []),
         ...[...this.events.values()].map((e) =>
           e.who === this.session.id &&
-          ((e.inputSeq && e.inputSeq <= (this.startups[e.kind] || 0)) ||
+          ((e.actionCounter &&
+            e.actionCounter <= (this.startupCounters[e.kind] || 0)) ||
+            (e.inputSeq && e.inputSeq <= (this.startups[e.kind] || 0)) ||
             (e.kind === "guard" &&
               e.parryCounter &&
               e.parryCounter <= this.startupParry))
@@ -451,7 +512,18 @@ export class MultiplayerClient {
       if (source) {
         const previous = this.predicted;
         this.predicted = clone(source);
-        for (const f of this.frames) this.predictFrame(f.input);
+        for (const f of this.frames)
+          this.predictFrame(f.input, undefined, f.edgeOnly ? 0 : NET.dt);
+        if (
+          previous &&
+          this.renderPrevious &&
+          !reset &&
+          data.correction === this.correction
+        ) {
+          this.renderPrevious.x += this.predicted.x - previous.x;
+          this.renderPrevious.y += this.predicted.y - previous.y;
+        } else
+          this.renderPrevious = { x: this.predicted.x, y: this.predicted.y };
         if (
           previous &&
           !reset &&
@@ -480,7 +552,7 @@ export class MultiplayerClient {
     this.correction = data.correction;
     this.hooks.onSnapshot(data);
   }
-  predictFrame(input, seq) {
+  predictFrame(input, seq, dt = NET.dt) {
     if (
       !this.game ||
       !this.predicted ||
@@ -496,6 +568,8 @@ export class MultiplayerClient {
       hazards: [],
       events: [],
     };
+    if (seq && dt > 0)
+      this.renderPrevious = { x: this.predicted.x, y: this.predicted.y };
     const before = {
       dash: this.predicted.dashLeft,
       guard: this.predicted.parryLeft,
@@ -505,7 +579,7 @@ export class MultiplayerClient {
       g,
       this.predicted,
       input,
-      NET.dt,
+      dt,
       this.predicted.vendorOpen || this.predicted.altarOpen,
     );
     if (seq)
@@ -516,9 +590,82 @@ export class MultiplayerClient {
       ])
         if (!before[kind] && this.predicted[key] > 0) {
           this.startups[kind] = seq;
+          this.startupCounters[kind] =
+            this.predicted[
+              kind === "swing"
+                ? "seenAttack"
+                : kind === "dash"
+                  ? "seenDash"
+                  : "seenParry"
+            ];
           if (kind === "guard") this.startupParry = input.parry;
           this.hooks.onStartup?.(kind);
+          if (kind === "swing") {
+            const p = this.predicted,
+              w = WEAPONS[p.weapon];
+            const e = this.game.enemies.find(
+              (e) =>
+                e.hp > 0 &&
+                Math.hypot(e.x - p.x, e.y - p.y) <= w.range &&
+                Math.abs(
+                  Math.atan2(
+                    Math.sin(Math.atan2(e.y - p.y, e.x - p.x) - p.angle),
+                    Math.cos(Math.atan2(e.y - p.y, e.x - p.x) - p.angle),
+                  ),
+                ) <=
+                  (w.arc * (p.areaScale || 1)) / 2,
+            );
+            if (e)
+              this.hooks.onAnticipation?.({ x: e.x, y: e.y, angle: p.angle });
+          }
         }
+  }
+  flushEdges(input) {
+    if (
+      this.stopped ||
+      !this.game ||
+      !this.predicted ||
+      this.frames.length >= 24
+    )
+      return;
+    const previous = this.lastEdge || {};
+    if (
+      !["parry", "dash", "attackPress"].some(
+        (k) => (input[k] || 0) > (previous[k] || 0),
+      )
+    )
+      return;
+    this.lastEdge = { ...input };
+    const view = this.metadata(),
+      at = performance.now();
+    const f = {
+      seq: ++this.sequence,
+      input: { ...input },
+      at,
+      edgeOnly: true,
+      viewTick: view.viewTick,
+      viewSequence: view.viewSequence,
+    };
+    this.frames.push(f);
+    this.predictFrame(f.input, f.seq, 0);
+    if (
+      this.send({
+        type: "input",
+        commands: [
+          {
+            seq: f.seq,
+            input: f.input,
+            createdAt: at,
+            sentAt: performance.now(),
+            viewTick: f.viewTick,
+            viewSequence: f.viewSequence,
+          },
+        ],
+      })
+    ) {
+      this.lastInputSent = f.seq;
+      this.lastInputAt = at;
+    }
   }
   frame(dt, input) {
     if (
@@ -527,7 +674,9 @@ export class MultiplayerClient {
       (["death", "victory"].includes(this.game.phase) && this.settled)
     )
       return;
+    this.lastEdge = { ...input };
     this.frameAccumulator = Math.min(0.1, this.frameAccumulator + dt);
+    const firstNew = this.sequence;
     while (this.frameAccumulator >= NET.dt) {
       this.frameAccumulator -= NET.dt;
       if (this.frames.length >= 24) {
@@ -545,20 +694,47 @@ export class MultiplayerClient {
       this.frames.push(f);
       this.predictFrame(f.input, f.seq);
     }
-    this.correctionOffset.x *= 0.75;
-    this.correctionOffset.y *= 0.75;
+    if (this.sequence > firstNew) {
+      const now = performance.now();
+      const commands = this.frames
+        .filter((f) => f.seq > firstNew)
+        .map((f) => ({
+          seq: f.seq,
+          input: f.input,
+          viewTick: f.viewTick,
+          viewSequence: f.viewSequence,
+          createdAt: f.at,
+          sentAt: now,
+        }));
+      // Flush the render's newly sampled commands immediately; the timer only retries.
+      if (this.send({ type: "input", commands })) {
+        this.lastInputSent = this.sequence;
+        this.lastInputAt = now;
+      }
+    }
+    const decay = Math.exp(-17.260924 * Math.max(0, dt));
+    this.correctionOffset.x *= decay;
+    this.correctionOffset.y *= decay;
   }
   display(now, input) {
     if (!this.game) return this.game;
-    const { a, b, t } = this.viewFrame(now),
-      display = { ...this.game };
+    const { a, b, t, underrun } = this.viewFrame(now),
+      display = Object.assign((this.displayState ||= {}), this.game);
+    if (underrun)
+      this.metrics.bufferUnderruns = (this.metrics.bufferUnderruns || 0) + 1;
+    this.renderArrays ||= {};
     for (const key of ["players", "enemies", "bullets", "hazards"]) {
-      const older = new Map((a?.game?.[key] || []).map((v) => [v.id, v])),
-        newer = new Map((b?.game?.[key] || []).map((v) => [v.id, v]));
-      display[key] = this.game[key].map((v) => {
-        const copy = { ...v },
-          x = older.get(v.id),
-          y = newer.get(v.id);
+      const older = a?.lookups?.[key],
+        newer = b?.lookups?.[key];
+      const source = this.game[key],
+        output = (this.renderArrays[key] ||= []);
+      for (let i = 0; i < source.length; i++) {
+        const v = source[i],
+          copy = (output[i] ||= {});
+        for (const k in copy) if (!(k in v)) delete copy[k];
+        Object.assign(copy, v);
+        const x = older?.get(v.id),
+          y = newer?.get(v.id);
         if (x && y) {
           for (const f of ["x", "y", "sx", "sy", "ex", "ey"])
             if (Number.isFinite(x[f]) && Number.isFinite(y[f]))
@@ -574,12 +750,23 @@ export class MultiplayerClient {
         }
         if (key === "players" && v.id === this.session.id && this.predicted) {
           Object.assign(copy, this.predicted);
+          const alpha = Math.max(
+            0,
+            Math.min(1, this.frameAccumulator / NET.dt),
+          );
+          if (this.renderPrevious) {
+            copy.x =
+              this.renderPrevious.x + (copy.x - this.renderPrevious.x) * alpha;
+            copy.y =
+              this.renderPrevious.y + (copy.y - this.renderPrevious.y) * alpha;
+          }
           copy.x += this.correctionOffset.x;
           copy.y += this.correctionOffset.y;
           copy.angle = input.angle;
         }
-        return copy;
-      });
+      }
+      output.length = source.length;
+      display[key] = output;
     }
     return display;
   }
