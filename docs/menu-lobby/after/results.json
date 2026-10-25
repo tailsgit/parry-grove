@@ -1,0 +1,49 @@
+{
+  "menu": {
+    "x": 769.78125,
+    "y": 156.71875,
+    "width": 370,
+    "height": 502.546875
+  },
+  "lobby": {
+    "x": 769.78125,
+    "y": 109.53125,
+    "width": 370,
+    "height": 596.9375
+  },
+  "tokens": {
+    "background": "rgb(239, 209, 139)",
+    "color": "rgb(36, 71, 53)",
+    "font": "Arial, Helvetica, sans-serif",
+    "borderRadius": "3px"
+  },
+  "pings": [
+    "16 ms",
+    "38 ms",
+    "5 ms",
+    "2 ms"
+  ],
+  "focus": {
+    "color": "rgb(233, 212, 156)",
+    "width": "1px"
+  },
+  "clients": 4,
+  "checks": {
+    "namePersisted": true,
+    "inlineJoinEnter": true,
+    "inviteAutoJoin": true,
+    "sameTabLobbyRefresh": true,
+    "clipboard": true,
+    "guestRouteReadOnly": true,
+    "routeChangeResetsGuestReady": true,
+    "liveMeasuredPings": true,
+    "escapeLeaveAndRejoin": true,
+    "fourClientEndlessStart": true,
+    "mobileNoHorizontalOverflow": true,
+    "soloStart": true,
+    "mutePreserved": true,
+    "clipboardFallback": true,
+    "reducedMotion": true
+  },
+  "pageErrors": []
+}

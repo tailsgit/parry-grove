@@ -190,19 +190,23 @@ try {
       options: "record-as-much-as-possible",
     });
   }
-  await a.getByRole("button", { name: "Create co-op room ＋" }).click();
-  await a.locator(".room-code").waitFor();
-  const room = (await a.locator(".room-code").innerText()).slice(0, 6);
+  await a.getByRole("button", { name: /^Create co-op room/ }).click();
+  await a.locator(before ? ".room-code" : ".party-code").waitFor();
+  const room = before
+    ? (await a.locator(".room-code").innerText()).slice(0, 6)
+    : await a.locator(".party-code").inputValue();
   for (const p of pages.slice(1)) {
     await p
       .getByRole("textbox", { name: "Six-character room code" })
       .fill(room);
     await p.getByRole("button", { name: "JOIN ↗" }).click();
-    await p.locator(".room-code").waitFor();
+    await p.locator(before ? ".room-code" : ".party-code").waitFor();
   }
-  for (const p of pages)
-    await p.getByRole("button", { name: "Ready up ✓" }).click();
-  await a.getByRole("button", { name: "Start the run ↗" }).click();
+  for (const p of before ? pages : pages.slice(1))
+    await p.getByRole("button", { name: /^Ready up/ }).click();
+  await a
+    .getByRole("button", { name: before ? "Start the run ↗" : /^Start run/ })
+    .click();
   for (const p of pages) await p.locator(".game-hud").waitFor();
   await mkdir(output, { recursive: true });
   await a.screenshot({ path: join(output, "four-player-draft.png") });
